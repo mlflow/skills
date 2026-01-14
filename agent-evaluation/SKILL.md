@@ -268,7 +268,7 @@ Executable automation for common operations:
 - **validate_tracing_runtime_template.py**: Runtime tracing validation template generator
   - **Use**: Step 3.4 Stage 2
   - Generates customizable validation script with TODO markers
-  - Coding agent fills in agent-specific dependencies (LLM providers, config, etc.)
+  - Fill in agent-specific dependencies (LLM providers, config, etc.)
   - Generated script runs agent to verify traces are captured
   - Template pattern allows handling complex agent signatures
 

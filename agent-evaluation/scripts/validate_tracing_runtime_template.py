@@ -2,8 +2,8 @@
 """
 Generate a template script for validating MLflow tracing at runtime.
 
-This script creates a customized Python script that the coding agent can
-customize with agent-specific dependencies and configuration.
+This script creates a customized Python script that you can customize
+with agent-specific dependencies and configuration.
 
 Usage:
     python validate_tracing_runtime_template.py                              # Auto-detect
