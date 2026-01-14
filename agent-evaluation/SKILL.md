@@ -265,11 +265,11 @@ Executable automation for common operations:
   - **Use**: Step 3.4 Stage 1
   - Code analysis only - fast validation
 
-- **validate_tracing_runtime_template.py**: Runtime tracing validation template generator
+- **validate_agent_tracing.py**: Runtime tracing validation template
   - **Use**: Step 3.4 Stage 2
-  - Generates customizable validation script with TODO markers
-  - Fill in agent-specific dependencies (LLM providers, config, etc.)
-  - Generated script runs agent to verify traces are captured
+  - Template script with TODO markers - edit directly before running
+  - Fill in: module import, dependencies (LLM providers, config, etc.), function call
+  - Runs agent to verify traces are captured
   - Template pattern allows handling complex agent signatures
 
 **Setup & Configuration:**
@@ -318,7 +318,7 @@ All scripts support non-interactive execution with CLI arguments:
 - `validate_environment.py` (no args)
 - `validate_auth.py` (no args)
 - `validate_tracing_static.py [--autolog-file FILE] [--decorated-functions "func:file" ...]`
-- `validate_tracing_runtime_template.py --module NAME --entry-point FUNC [--autolog-file FILE] [--output SCRIPT]`
+- `validate_agent_tracing.py` (edit TODOs first, then run with no args)
 
 **Datasets:**
 
