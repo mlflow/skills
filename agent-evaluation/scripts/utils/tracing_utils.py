@@ -1,98 +1,54 @@
-"""Utilities for tracing-related detection and validation."""
+"""Utilities for tracing-related validation.
+
+For manual discovery, use Grep tool:
+- Find autolog calls: grep -r "mlflow.*autolog" .
+- Find trace decorators: grep -r "@mlflow.trace" .
+- Find MLflow imports: grep -r "import mlflow" .
+
+This module provides helper functions used by validation scripts.
+"""
 
 import re
 from pathlib import Path
 
 
 def find_autolog_calls(search_path: str = ".") -> list[tuple[str, str]]:
-    """Find autolog calls in codebase.
+    """Find autolog calls in codebase (used by validation scripts).
 
-    Searches for: mlflow.{langchain,langgraph,openai}.autolog()
+    For manual use, prefer: grep -r "mlflow.*autolog" .
 
     Args:
-        search_path: Root directory to search (default: current directory)
+        search_path: Root directory to search
 
     Returns:
         List of (file_path, library_name) tuples
     """
-    autolog_patterns = [
-        r"mlflow\.langchain\.autolog\(\)",
-        r"mlflow\.langgraph\.autolog\(\)",
-        r"mlflow\.openai\.autolog\(\)",
-        r"mlflow\.autolog\(\)",
-    ]
-
-    # Search in likely initialization files
-    search_patterns = [
-        f"{search_path}/*/__init__.py",
-        f"{search_path}/*/main.py",
-        "main.py",
-        "__init__.py",
-    ]
+    autolog_pattern = r"mlflow\.(\w+)\.autolog\(\)"
 
     found = []
+    for py_file in Path(search_path).rglob("*.py"):
+        if "venv" in str(py_file) or ".venv" in str(py_file) or "site-packages" in str(py_file):
+            continue
 
-    for pattern in search_patterns:
-        for file_path in Path(".").glob(pattern):
-            try:
-                content = file_path.read_text()
-                for autolog_pattern in autolog_patterns:
-                    if re.search(autolog_pattern, content):
-                        # Extract library name
-                        lib = autolog_pattern.split(".")[1].split("\\")[0]
-                        found.append((str(file_path), lib))
-            except Exception:
-                continue
+        try:
+            content = py_file.read_text()
+            matches = re.finditer(autolog_pattern, content)
+            for match in matches:
+                lib = match.group(1)
+                found.append((str(py_file), lib))
+        except Exception:
+            continue
 
     return found
 
 
-def check_import_order(file_path: str) -> tuple[bool, str]:
-    """Verify autolog is called before agent imports.
-
-    Args:
-        file_path: Path to file containing autolog call
-
-    Returns:
-        Tuple of (is_correct, message)
-    """
-    try:
-        content = Path(file_path).read_text()
-        lines = content.split("\n")
-
-        autolog_line = None
-        agent_import_line = None
-
-        for i, line in enumerate(lines, 1):
-            if "autolog()" in line:
-                autolog_line = i
-            # Look for imports from agent modules (adjust pattern as needed)
-            if autolog_line and ("from" in line and "agent" in line.lower()):
-                agent_import_line = i
-                break
-
-        if autolog_line and agent_import_line:
-            if autolog_line < agent_import_line:
-                return True, f"Autolog (line {autolog_line}) before agent imports (line {agent_import_line})"
-            else:
-                return (
-                    False,
-                    f"Autolog (line {autolog_line}) after agent imports (line {agent_import_line})",
-                )
-        elif autolog_line:
-            return True, f"Autolog found at line {autolog_line}"
-        else:
-            return False, "Autolog not found"
-
-    except Exception as e:
-        return True, f"Could not check import order: {e}"  # Don't fail on errors
-
-
 def find_trace_decorators(search_path: str = ".") -> list[tuple[str, str, int]]:
-    """Find @mlflow.trace decorators in codebase.
+    """Find @mlflow.trace decorators in codebase (used by validation scripts).
+
+    For manual use, prefer: grep -r "@mlflow.trace" .
 
     Args:
-        search_path: Root directory to search (default: current directory)
+        search_path: Root directory to search
 
     Returns:
         List of (file_path, func_name, line_num) tuples
@@ -100,7 +56,6 @@ def find_trace_decorators(search_path: str = ".") -> list[tuple[str, str, int]]:
     decorated = []
 
     for py_file in Path(search_path).rglob("*.py"):
-        # Skip virtual environments
         if "venv" in str(py_file) or ".venv" in str(py_file) or "site-packages" in str(py_file):
             continue
 
@@ -122,6 +77,56 @@ def find_trace_decorators(search_path: str = ".") -> list[tuple[str, str, int]]:
             continue
 
     return decorated
+
+
+def check_import_order(file_path: str, import_pattern: str = None) -> tuple[bool, str]:
+    """Verify autolog is called before library/module imports.
+
+    Args:
+        file_path: Path to file containing autolog call
+        import_pattern: Optional regex pattern to match imports (e.g., r"from .* import")
+                       If None, checks for any "from ... import" after autolog
+
+    Returns:
+        Tuple of (is_correct, message)
+    """
+    try:
+        content = Path(file_path).read_text()
+        lines = content.split("\n")
+
+        autolog_line = None
+        first_import_line = None
+
+        for i, line in enumerate(lines, 1):
+            if "autolog()" in line:
+                autolog_line = i
+            # After finding autolog, look for any imports (customizable via pattern)
+            if autolog_line and "from" in line and "import" in line:
+                if import_pattern:
+                    if re.search(import_pattern, line):
+                        first_import_line = i
+                        break
+                else:
+                    first_import_line = i
+                    break
+
+        if autolog_line and first_import_line:
+            if autolog_line < first_import_line:
+                return True, f"Autolog (line {autolog_line}) before imports (line {first_import_line})"
+            else:
+                return (
+                    False,
+                    f"Autolog (line {autolog_line}) after imports (line {first_import_line})",
+                )
+        elif autolog_line:
+            return True, f"Autolog found at line {autolog_line}"
+        else:
+            return False, "Autolog not found"
+
+    except Exception as e:
+        return True, f"Could not check import order: {e}"  # Don't fail on errors
+
+
 
 
 def check_session_id_capture(file_path: str) -> bool:

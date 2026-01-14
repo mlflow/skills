@@ -4,10 +4,17 @@ List and compare MLflow evaluation datasets in an experiment.
 This script discovers existing datasets before prompting to create new ones,
 preventing duplicate work and helping users make informed choices.
 
+Features:
+- Diversity metrics (query length variability, unique vocabulary)
+- Timeout protection for large experiments
+- Multiple output formats (table, JSON, names-only)
+- Sample query preview
+
 Usage:
     python scripts/list_datasets.py                      # Table format (default)
     python scripts/list_datasets.py --format json        # JSON output
     python scripts/list_datasets.py --format names-only  # Names only (for piping)
+    python scripts/list_datasets.py --detailed          # Include diversity analysis
 
 Environment variables required:
     MLFLOW_TRACKING_URI
@@ -217,13 +224,23 @@ def main():
 
                 info["count"] = len(df)
 
-                # Extract queries
+                # Extract queries (flexible extraction from various input formats)
                 queries = []
                 for _, row in df.iterrows():
                     inputs = row.get("inputs", {})
                     if isinstance(inputs, dict):
-                        query = inputs.get("query", inputs.get("question", str(inputs)))
+                        # Try common keys first, then use first non-empty value
+                        query = (
+                            inputs.get("query")
+                            or inputs.get("question")
+                            or inputs.get("input")
+                            or inputs.get("prompt")
+                            or next((v for v in inputs.values() if v), str(inputs))
+                        )
                         queries.append(str(query))
+                    else:
+                        # If inputs is not a dict, use it directly
+                        queries.append(str(inputs))
 
                 # Calculate diversity metrics
                 if queries and args.detailed:

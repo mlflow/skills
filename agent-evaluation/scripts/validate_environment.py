@@ -86,23 +86,13 @@ def check_mlflow_version():
 
 
 def check_agent_package():
-    """Check if agent package is installed and importable."""
-    print("Checking agent package...")
-
-    # Try to find the agent package by checking for common agent entry points
-    agent_patterns = ["mlflow_agent", "agent", "src.agent", "app.agent"]
-
-    for pattern in agent_patterns:
-        spec = importlib.util.find_spec(pattern)
-        if spec is not None:
-            print(f"  ✓ Agent package found: {pattern}")
-            print()
-            return []
-
-    print("  ⚠ Agent package not found in common locations")
-    print("    This may be OK if your agent is in a custom location")
+    """Remind user to verify agent package is importable."""
+    print("Agent package check...")
+    print("  ℹ Verify your agent is importable:")
+    print("    python -c 'from your_module import your_agent'")
+    print("  Replace 'your_module' and 'your_agent' with your actual package/function names")
     print()
-    return []  # Warning only, not blocking
+    return []  # Informational only, not blocking
 
 
 def test_connectivity():

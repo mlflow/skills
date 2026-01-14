@@ -90,6 +90,48 @@ uv run python -c "import mlflow; print(f'MLflow {mlflow.__version__} installed')
 
 If MLflow is missing or version is <3.8.0, see Setup Overview below.
 
+## Discovering Agent Structure
+
+**Each project has unique structure.** Use dynamic exploration instead of assumptions:
+
+### Find Agent Entry Points
+```bash
+# Search for main agent functions
+grep -r "def.*agent" . --include="*.py"
+grep -r "def (run|stream|handle|process)" . --include="*.py"
+
+# Check common locations
+ls main.py app.py src/*/agent.py 2>/dev/null
+
+# Look for API routes
+grep -r "@app\.(get|post)" . --include="*.py"  # FastAPI/Flask
+grep -r "def.*route" . --include="*.py"
+```
+
+### Find Tracing Integration
+```bash
+# Find autolog calls
+grep -r "mlflow.*autolog" . --include="*.py"
+
+# Find trace decorators
+grep -r "@mlflow.trace" . --include="*.py"
+
+# Check imports
+grep -r "import mlflow" . --include="*.py"
+```
+
+### Understand Project Structure
+```bash
+# Check entry points in package config
+cat pyproject.toml setup.py 2>/dev/null | grep -A 5 "scripts\|entry_points"
+
+# Read project documentation
+cat README.md docs/*.md 2>/dev/null | head -100
+
+# Explore main directories
+ls -la src/ app/ agent/ 2>/dev/null
+```
+
 ## Setup Overview
 
 Before evaluation, complete these three setup steps:

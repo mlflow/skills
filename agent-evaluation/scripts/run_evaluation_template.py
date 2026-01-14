@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 
-from utils import find_agent_module, select_entry_point, validate_env_vars
+from utils import validate_env_vars
 
 
 def list_datasets() -> list[str]:
@@ -219,33 +219,29 @@ def main():
     print(f"Experiment ID: {experiment_id}")
     print()
 
-    # Detect agent module
-    print("Detecting agent module...")
+    # Get agent module (must be specified manually)
+    print("Agent module configuration...")
     agent_module = args.module
     if not agent_module:
-        agent_module = find_agent_module()
-        if not agent_module:
-            print("  ✗ Could not detect automatically")
-            print("  Please specify with --module argument")
-            print("  Example: --module my_agent.agent")
-            sys.exit(1)
-        else:
-            print(f"  ✓ Found: {agent_module}")
+        print("  ✗ Agent module not specified")
+        print("  Use --module to specify your agent module")
+        print("  Example: --module my_agent.agent")
+        print("\n  To find your agent module:")
+        print("    grep -r 'def.*agent' . --include='*.py'")
+        sys.exit(1)
     else:
         print(f"  ✓ Using specified: {agent_module}")
 
-    # Find entry point
-    print("\nFinding entry point function...")
+    # Get entry point (must be specified manually)
+    print("\nEntry point configuration...")
     entry_point = args.entry_point
     if not entry_point:
-        entry_point = select_entry_point(agent_module, prefer_decorated=True)
-        if not entry_point:
-            print("  ✗ Could not detect automatically")
-            print("  Please specify with --entry-point argument")
-            print("  Example: --entry-point run_agent")
-            sys.exit(1)
-        else:
-            print(f"  ✓ Found: {entry_point}")
+        print("  ✗ Entry point not specified")
+        print("  Use --entry-point to specify your agent's main function")
+        print("  Example: --entry-point run_agent")
+        print("\n  To find entry points with @mlflow.trace:")
+        print("    grep -r '@mlflow.trace' . --include='*.py'")
+        sys.exit(1)
     else:
         print(f"  ✓ Using specified: {entry_point}")
 

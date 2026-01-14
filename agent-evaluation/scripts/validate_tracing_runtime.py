@@ -23,7 +23,7 @@ import argparse
 import importlib
 import sys
 
-from utils import find_agent_module, find_autolog_calls, select_entry_point, validate_env_vars
+from utils import find_autolog_calls, validate_env_vars
 
 
 def run_test_query(
@@ -220,17 +220,15 @@ Examples:
         print(f"  ✓ MLFLOW_TRACKING_URI={tracking_uri}")
         print(f"  ✓ MLFLOW_EXPERIMENT_ID={experiment_id}")
 
-    # Step 2: Find agent module
+    # Step 2: Get agent module (must be specified manually)
     module_name = args.module
     if not module_name:
-        module_name = find_agent_module()
-        if not module_name:
-            print("\n✗ Could not find agent module automatically")
-            print("  Please specify with --module argument")
-            print("  Example: --module my_agent.agent")
-            sys.exit(1)
-        else:
-            print(f"\n✓ Found agent module: {module_name}")
+        print("\n✗ Agent module not specified")
+        print("  Use --module to specify your agent module")
+        print("  Example: --module my_agent.agent")
+        print("\n  To find your agent module:")
+        print("    grep -r 'def.*agent' . --include='*.py'")
+        sys.exit(1)
     else:
         print(f"\n✓ Using specified module: {module_name}")
 
@@ -244,21 +242,20 @@ Examples:
         for file_path, library in autolog_files:
             print(f"  ✓ Found mlflow.{library}.autolog() in {file_path}")
 
-    # Step 4: Select entry point
-    print("\nSelecting entry point...")
-    entry_point_name = select_entry_point(module_name, args.entry_point, prefer_decorated=True)
+    # Step 4: Get entry point (must be specified manually)
+    print("\nChecking entry point...")
+    entry_point_name = args.entry_point
 
     if not entry_point_name:
-        print("  ✗ Could not auto-detect entry point")
-        print("  Please specify with --entry-point argument")
+        print("  ✗ Entry point not specified")
+        print("  Use --entry-point to specify your agent's main function")
         print("  Example: --entry-point run_agent")
-        all_issues.append("No entry point found or specified")
+        print("\n  To find entry points with @mlflow.trace:")
+        print("    grep -r '@mlflow.trace' . --include='*.py'")
+        all_issues.append("No entry point specified")
         sys.exit(1)
     else:
-        if args.entry_point:
-            print(f"  ✓ Using specified entry point: {entry_point_name}")
-        else:
-            print(f"  ✓ Auto-detected entry point: {entry_point_name}")
+        print(f"  ✓ Using specified entry point: {entry_point_name}")
 
     # Step 5: Run test query
     trace = None

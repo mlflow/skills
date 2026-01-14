@@ -3,10 +3,9 @@ Analyze MLflow evaluation results and generate actionable insights.
 
 This script parses the JSON output from `mlflow traces evaluate` and generates:
 - Pass rate analysis per scorer
-- Failure pattern detection
-- Query correlation analysis
+- Failure pattern detection (multi-failure queries)
 - Actionable recommendations
-- Markdown evaluation report
+- Markdown evaluation report (NOT HTML)
 
 Usage:
     python scripts/analyze_results.py evaluation_results.json
@@ -170,7 +169,7 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
                     }
                 )
 
-    # Pattern 1: Multi-failure queries (queries failing 3+ scorers)
+    # Pattern: Multi-failure queries (queries failing 3+ scorers)
     multi_failures = []
     for query, failures in failures_by_query.items():
         if len(failures) >= 3:
@@ -187,36 +186,6 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
                 "priority": "CRITICAL",
             }
         )
-
-    # Pattern 2: Keyword-based patterns
-    keyword_patterns = [
-        ("PR", "PR-Related Queries", "Agent struggles with pull request queries"),
-        ("how", "How-to Questions", "Incomplete coverage of instructional queries"),
-        ("documentation", "Documentation Queries", "Issues with documentation retrieval"),
-        ("release", "Release Information", "Challenges with release-specific details"),
-    ]
-
-    for keyword, pattern_name, description in keyword_patterns:
-        matching_failures = []
-        for query, failures in failures_by_query.items():
-            if keyword.lower() in query.lower():
-                matching_failures.append(
-                    {
-                        "query": query,
-                        "scorers": [f["scorer"] for f in failures],
-                        "count": len(failures),
-                    }
-                )
-
-        if matching_failures:
-            patterns.append(
-                {
-                    "name": pattern_name,
-                    "description": description,
-                    "queries": matching_failures,
-                    "priority": "HIGH",
-                }
-            )
 
     return patterns
 

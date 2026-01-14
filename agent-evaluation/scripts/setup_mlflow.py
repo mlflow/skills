@@ -1,8 +1,17 @@
 """
-MLflow environment setup script with auto-detection.
+MLflow environment setup script with auto-detection and convenience features.
 
 This script configures MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID
 for agent evaluation using auto-detection with optional overrides.
+
+Features:
+- Auto-detects Databricks profiles or local SQLite
+- Search experiments by name (post-processes `mlflow experiments list` output)
+- Single command instead of multiple CLI calls
+- Creates experiments if they don't exist
+
+Note: Uses MLflow CLI commands underneath (`mlflow experiments list`, `mlflow experiments create`).
+For direct CLI usage, see MLflow documentation.
 """
 
 import argparse
