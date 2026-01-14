@@ -15,10 +15,29 @@ Usage:
 """
 
 import json
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI escape sequences from text.
+
+    This handles color codes, cursor movement, and other terminal control sequences
+    that may appear in mlflow traces evaluate output.
+
+    Args:
+        text: Text that may contain ANSI escape sequences
+
+    Returns:
+        Text with all ANSI escape sequences removed
+    """
+    # Standard ANSI escape sequence pattern
+    # Matches: ESC [ <parameters> <command>
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
 
 
 def load_evaluation_results(json_file: str) -> list[dict[str, Any]]:
@@ -31,6 +50,9 @@ def load_evaluation_results(json_file: str) -> list[dict[str, Any]]:
     try:
         with open(json_file) as f:
             content = f.read()
+
+        # Strip ANSI codes before processing
+        content = strip_ansi_codes(content)
 
         # Find the start of JSON array (skip console output)
         json_start = content.find("[")
@@ -85,7 +107,8 @@ def extract_scorer_results(data: list[dict[str, Any]]) -> dict[str, list[dict]]:
 
         for assessment in assessments:
             scorer_name = assessment.get("name", "unknown")
-            result_str = assessment.get("result", "fail").lower()
+            result = assessment.get("result", "fail")
+            result_str = result.lower() if result else "fail"
             rationale = assessment.get("rationale", "")
             error = assessment.get("error")
 

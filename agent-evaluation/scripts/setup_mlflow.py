@@ -57,7 +57,10 @@ def detect_databricks_profiles() -> list[str]:
         result = subprocess.run(
             ["databricks", "auth", "profiles"], capture_output=True, text=True, check=True
         )
-        return [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
+        lines = result.stdout.strip().split("\n")
+        # Skip first line (header: "Name      Host                      Valid")
+        # and filter empty lines
+        return [line.strip() for line in lines[1:] if line.strip()]
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
 

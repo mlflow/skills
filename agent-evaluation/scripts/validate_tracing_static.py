@@ -41,7 +41,9 @@ def parse_arguments():
     parser.add_argument(
         "--decorated-functions",
         action="append",
-        help="Decorated function in format 'function_name:file_path' (can specify multiple)",
+        help='Decorated function in format \'function_name:file_path\'. '
+             'Repeat flag for multiple functions. '
+             'Example: --decorated-functions "run_agent:src/agent.py" --decorated-functions "process:src/handler.py"',
     )
     parser.add_argument(
         "--check-session-tracking",
