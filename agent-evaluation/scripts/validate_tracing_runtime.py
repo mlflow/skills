@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Validate MLflow tracing by running the agent (RUNTIME VALIDATION).
 
@@ -6,6 +7,9 @@ If this validation fails, the evaluation workflow MUST STOP until auth issues ar
 
 This is Stage 2 validation - run AFTER validate_tracing_static.py passes.
 
+The coding agent should discover module/entry-point/autolog using Grep first,
+then pass the discovered information to this script for runtime validation.
+
 This script verifies by actually running the agent:
 1. Traces are captured successfully
 2. Complete trace hierarchy is present (decorator + autolog spans)
@@ -13,17 +17,17 @@ This script verifies by actually running the agent:
 4. Agent execution completes without errors
 
 Usage:
-    python validate_tracing_runtime.py                                    # Auto-detect everything
-    python validate_tracing_runtime.py --module my_agent.agent            # Specify module
-    python validate_tracing_runtime.py --entry-point process              # Specify entry point
-    python validate_tracing_runtime.py --module my_agent --entry-point process  # Specify both
+    python validate_tracing_runtime.py \
+        --module my_agent.agent \
+        --entry-point run_agent \
+        --autolog-file src/agent/__init__.py
 """
 
 import argparse
 import importlib
 import sys
 
-from utils import find_autolog_calls, validate_env_vars
+from utils import validate_env_vars
 
 
 def run_test_query(
@@ -193,6 +197,9 @@ Examples:
     )
     parser.add_argument("--module", help='Agent module name (e.g., "mlflow_agent.agent")')
     parser.add_argument("--entry-point", help='Entry point function name (e.g., "run_agent")')
+    parser.add_argument(
+        "--autolog-file", help='File containing autolog() call (e.g., "src/agent/__init__.py")'
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -232,15 +239,21 @@ Examples:
     else:
         print(f"\n✓ Using specified module: {module_name}")
 
-    # Step 3: Check autolog
-    print("\nChecking autolog...")
-    autolog_files = find_autolog_calls()
-    if not autolog_files:
-        print("  ✗ No autolog call found")
-        all_issues.append("Autolog not enabled")
+    # Step 3: Check autolog (optional - for informational purposes)
+    print("\nChecking autolog configuration...")
+    if args.autolog_file:
+        from pathlib import Path
+
+        if Path(args.autolog_file).exists():
+            print(f"  ✓ Autolog file specified: {args.autolog_file}")
+        else:
+            print(f"  ✗ Autolog file not found: {args.autolog_file}")
+            all_issues.append(f"Autolog file not found: {args.autolog_file}")
     else:
-        for file_path, library in autolog_files:
-            print(f"  ✓ Found mlflow.{library}.autolog() in {file_path}")
+        print("  ⚠ No autolog file specified (use --autolog-file)")
+        print("  This is optional but recommended for full validation")
+        print("\n  To find autolog calls:")
+        print("    grep -r 'mlflow.*autolog' . --include='*.py'")
 
     # Step 4: Get entry point (must be specified manually)
     print("\nChecking entry point...")

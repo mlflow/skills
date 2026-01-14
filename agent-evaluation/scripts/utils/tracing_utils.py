@@ -1,82 +1,15 @@
 """Utilities for tracing-related validation.
 
-For manual discovery, use Grep tool:
-- Find autolog calls: grep -r "mlflow.*autolog" .
-- Find trace decorators: grep -r "@mlflow.trace" .
-- Find MLflow imports: grep -r "import mlflow" .
+The coding agent should use Grep tool for discovery:
+- Find autolog calls: grep -r "mlflow.*autolog" . --include="*.py"
+- Find trace decorators: grep -r "@mlflow.trace" . --include="*.py"
+- Find MLflow imports: grep -r "import mlflow" . --include="*.py"
 
-This module provides helper functions used by validation scripts.
+This module provides validation helpers used by validation scripts.
 """
 
 import re
 from pathlib import Path
-
-
-def find_autolog_calls(search_path: str = ".") -> list[tuple[str, str]]:
-    """Find autolog calls in codebase (used by validation scripts).
-
-    For manual use, prefer: grep -r "mlflow.*autolog" .
-
-    Args:
-        search_path: Root directory to search
-
-    Returns:
-        List of (file_path, library_name) tuples
-    """
-    autolog_pattern = r"mlflow\.(\w+)\.autolog\(\)"
-
-    found = []
-    for py_file in Path(search_path).rglob("*.py"):
-        if "venv" in str(py_file) or ".venv" in str(py_file) or "site-packages" in str(py_file):
-            continue
-
-        try:
-            content = py_file.read_text()
-            matches = re.finditer(autolog_pattern, content)
-            for match in matches:
-                lib = match.group(1)
-                found.append((str(py_file), lib))
-        except Exception:
-            continue
-
-    return found
-
-
-def find_trace_decorators(search_path: str = ".") -> list[tuple[str, str, int]]:
-    """Find @mlflow.trace decorators in codebase (used by validation scripts).
-
-    For manual use, prefer: grep -r "@mlflow.trace" .
-
-    Args:
-        search_path: Root directory to search
-
-    Returns:
-        List of (file_path, func_name, line_num) tuples
-    """
-    decorated = []
-
-    for py_file in Path(search_path).rglob("*.py"):
-        if "venv" in str(py_file) or ".venv" in str(py_file) or "site-packages" in str(py_file):
-            continue
-
-        try:
-            content = py_file.read_text()
-            lines = content.split("\n")
-
-            for i, line in enumerate(lines):
-                if "@mlflow.trace" in line:
-                    # Look for function definition in next few lines
-                    for j in range(i + 1, min(i + 5, len(lines))):
-                        if "def " in lines[j]:
-                            func_match = re.search(r"def\s+(\w+)\s*\(", lines[j])
-                            if func_match:
-                                func_name = func_match.group(1)
-                                decorated.append((str(py_file), func_name, i + 1))
-                                break
-        except Exception:
-            continue
-
-    return decorated
 
 
 def check_import_order(file_path: str, import_pattern: str = None) -> tuple[bool, str]:

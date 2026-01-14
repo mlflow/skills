@@ -10,8 +10,6 @@ from .env_validation import (
 from .tracing_utils import (
     check_import_order,
     check_session_id_capture,
-    find_autolog_calls,
-    find_trace_decorators,
     verify_mlflow_imports,
 )
 
@@ -25,7 +23,5 @@ __all__ = [
     # tracing_utils (for validation scripts)
     "check_import_order",
     "check_session_id_capture",
-    "find_autolog_calls",
-    "find_trace_decorators",
     "verify_mlflow_imports",
 ]
