@@ -243,37 +243,12 @@ print('✓ MLflow configuration verified')
 "
 ```
 
-## Step 3: Integrate Tracing
+## Setup Complete - Environment Configured
 
-MLflow tracing captures your agent's execution as structured traces with spans, enabling detailed analysis and evaluation.
-
-**⚠️ MANDATORY**: Read and follow `references/tracing-integration.md` for complete tracing integration instructions.
-
-The tracing-integration guide covers:
-- Enabling autolog for automatic trace capture
-- Adding @mlflow.trace decorators to entry points
-- Session ID tracking for multi-turn conversations
-- Verification and troubleshooting
-
-**Checkpoint - verify tracing works before proceeding:**
-```bash
-uv run python scripts/validate_agent_tracing.py  # Edit TODOs first
-```
-
-✓ Test run should create traces with non-None trace_id
-
-**If tracing fails**: See Common Issues section in tracing-integration.md or references/troubleshooting.md
-
-## Setup Complete - Final Checkpoint
-
-Before proceeding to evaluation, verify:
+Before proceeding to tracing integration, verify:
 
 - [ ] MLflow >=3.8.0 installed (`uv run mlflow --version`)
 - [ ] MLFLOW_TRACKING_URI set (points to your tracking server)
 - [ ] MLFLOW_EXPERIMENT_ID set (experiment exists and is accessible)
-- [ ] Tracing integrated (completed tracing-integration.md guide)
-- [ ] Test run creates traces (verified with validate_agent_tracing.py)
 
-**Next steps:**
-1. ✓ Setup complete - environment and tracing configured
-2. → Follow SKILL.md evaluation workflow (understand agent, define scorers, prepare dataset, evaluate)
+**Next**: Follow `references/tracing-integration.md` to integrate tracing with your agent.

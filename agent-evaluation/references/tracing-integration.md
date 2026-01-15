@@ -69,7 +69,7 @@ Or use WebFetch:
 ```python
 # step 1: Enable autolog BEFORE imports
 import mlflow
-mlflow.langchain.autolog()  # Or langgraph, openai, etc.
+mlflow.langchain.autolog()  # Or langgraph, openai, etc. Use the documentation protocol to find the integration for different libraries.
 
 # step 2: Import agent code
 from my_agent import agent
@@ -153,14 +153,14 @@ uv run mlflow traces get <trace_id>
 - Verify `trace_id = mlflow.get_last_active_trace_id()` is called inside traced function
 - Check `mlflow.set_trace_tag(trace_id, key, value)` has correct parameter order
 
-## Validation Scripts
-
-After integrating tracing, validate your setup:
-
-```bash
-# Edit the template with your agent's imports and configuration
-# Then run to test with actual agent invocation
-uv run python scripts/validate_agent_tracing.py
-```
-
 For detailed troubleshooting, see `troubleshooting.md`.
+
+## Tracing Integration Complete
+
+After completing all steps above, verify:
+
+- [ ] Test run creates traces with non-None trace_id (verified with validate_agent_tracing.py)
+- [ ] Traces visible in MLflow UI or via `mlflow traces search`
+- [ ] Trace hierarchy includes both @mlflow.trace spans and autolog spans
+
+**Next**: Return to SKILL.md to continue with the evaluation workflow.
