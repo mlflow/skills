@@ -5,8 +5,6 @@ Validate MLflow tracing by running the agent (RUNTIME VALIDATION).
 CRITICAL: This script REQUIRES valid authentication and LLM access.
 If this validation fails, the evaluation workflow MUST STOP until auth issues are resolved.
 
-This is Stage 2 validation - run AFTER validate_tracing_static.py passes.
-
 The coding agent should discover module/entry-point/autolog using Grep first,
 then pass the discovered information to this script for runtime validation.
 

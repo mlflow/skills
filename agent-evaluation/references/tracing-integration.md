@@ -77,11 +77,8 @@ grep -r "mlflow.*autolog" .
 **Expected**: Find autolog() call in initialization file (main.py, __init__.py, app.py, etc.)
 
 ### 2. Import Order Correct
-```bash
-# Verify autolog before agent imports
-uv run python scripts/validate_tracing_static.py
-```
-**Expected**: Autolog call appears BEFORE any agent/library imports
+**Check**: Autolog call appears BEFORE any agent/library imports in the file
+**Expected**: The line with `mlflow.autolog()` comes before any `from your_agent import ...` statements
 
 ### 3. Entry Points Decorated
 ```bash
@@ -130,14 +127,12 @@ uv run mlflow traces get <trace_id>
 
 ## Validation Scripts
 
-Run these scripts to validate your tracing setup:
+After integrating tracing, validate your setup:
 
 ```bash
-# Static analysis (checks code without running)
-uv run python scripts/validate_tracing_static.py
-
-# Runtime validation (tests with actual agent invocation)
-uv run python scripts/validate_tracing_runtime.py
+# Edit the template with your agent's imports and configuration
+# Then run to test with actual agent invocation
+uv run python scripts/validate_agent_tracing.py
 ```
 
 For detailed troubleshooting, see `troubleshooting.md`.

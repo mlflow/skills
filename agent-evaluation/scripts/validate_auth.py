@@ -218,8 +218,8 @@ def main():
         print("Your authentication is configured correctly.")
         print()
         print("Next steps:")
-        print("  1. Validate tracing setup: python scripts/validate_tracing_static.py")
-        print("  2. Test runtime tracing: python scripts/validate_tracing_runtime.py")
+        print("  1. Integrate tracing: See references/tracing-integration.md")
+        print("  2. Test runtime tracing: Edit and run scripts/validate_agent_tracing.py")
         print()
     else:
         print(f"✗ Found {len(all_issues)} issue(s):")

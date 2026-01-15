@@ -164,8 +164,7 @@ def main():
         print()
         print("Next steps:")
         print("  1. Integrate tracing: See references/tracing-integration.md")
-        print("  2. Validate tracing: python scripts/validate_tracing_static.py")
-        print("  3. Prepare dataset: python scripts/list_datasets.py")
+        print("  2. Prepare dataset: python scripts/list_datasets.py")
         print()
     else:
         print(f"✗ Found {len(all_issues)} issue(s):")
