@@ -162,5 +162,3 @@ After completing all steps above, verify:
 - [ ] Test run creates traces with non-None trace_id (verified with validate_agent_tracing.py)
 - [ ] Traces visible in MLflow UI or via `mlflow traces search`
 - [ ] Trace hierarchy includes both @mlflow.trace spans and autolog spans
-
-**Next**: Return to SKILL.md to continue with the evaluation workflow.

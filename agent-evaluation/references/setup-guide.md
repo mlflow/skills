@@ -245,10 +245,8 @@ print('✓ MLflow configuration verified')
 
 ## Setup Complete - Environment Configured
 
-Before proceeding to tracing integration, verify:
+To complete the setup, verify:
 
 - [ ] MLflow >=3.8.0 installed (`uv run mlflow --version`)
 - [ ] MLFLOW_TRACKING_URI set (points to your tracking server)
 - [ ] MLFLOW_EXPERIMENT_ID set (experiment exists and is accessible)
-
-**Next**: Follow `references/tracing-integration.md` to integrate tracing with your agent.
