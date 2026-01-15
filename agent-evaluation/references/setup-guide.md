@@ -243,97 +243,37 @@ print('✓ MLflow configuration verified')
 "
 ```
 
-## Step 3: Integrate MLflow Tracing
+## Step 3: Integrate Tracing
 
-⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot before proceeding.
+MLflow tracing captures your agent's execution as structured traces with spans, enabling detailed analysis and evaluation.
 
-Complete these steps in order:
+**⚠️ MANDATORY**: Read and follow `references/tracing-integration.md` for complete tracing integration instructions.
 
-### Step 3.1: Enable Autolog
+The tracing-integration guide covers:
+- Enabling autolog for automatic trace capture
+- Adding @mlflow.trace decorators to entry points
+- Session ID tracking for multi-turn conversations
+- Verification and troubleshooting
 
-Add autolog for your agent's library (LangChain, LangGraph, OpenAI, etc.):
-
-```python
-import mlflow
-
-mlflow.langchain.autolog()  # Place in __init__.py before agent imports
-```
-
-### Step 3.2: Add @mlflow.trace Decorators
-
-Decorate all entry point functions:
-
-```python
-import mlflow
-
-
-@mlflow.trace  # <-- ADD THIS
-def run_agent(query: str, llm_provider: LLMProvider) -> str:
-    # Agent code here
-    ...
-```
-
-Verify decorators present:
-
+**Checkpoint - verify tracing works before proceeding:**
 ```bash
-grep -B 2 "def run_agent\|def stream_agent" src/*/agent/*.py
+uv run python scripts/validate_agent_tracing.py  # Edit TODOs first
 ```
 
-### Step 3.3: Capture Session ID (Optional)
+✓ Test run should create traces with non-None trace_id
 
-If agent supports conversations, capture session_id:
+**If tracing fails**: See Common Issues section in tracing-integration.md or references/troubleshooting.md
 
-```python
-@mlflow.trace
-def run_agent(query: str, session_id: str | None = None) -> str:
-    if session_id is None:
-        session_id = str(uuid.uuid4())
+## Setup Complete - Final Checkpoint
 
-    trace_id = mlflow.get_last_active_trace_id()
-    if trace_id:
-        mlflow.set_trace_tag(trace_id, "session_id", session_id)
+Before proceeding to evaluation, verify:
 
-    # Rest of function...
-```
+- [ ] MLflow >=3.8.0 installed (`uv run mlflow --version`)
+- [ ] MLFLOW_TRACKING_URI set (points to your tracking server)
+- [ ] MLFLOW_EXPERIMENT_ID set (experiment exists and is accessible)
+- [ ] Tracing integrated (completed tracing-integration.md guide)
+- [ ] Test run creates traces (verified with validate_agent_tracing.py)
 
-### Step 3.4: Verify Complete Tracing
-
-**Stage 1: Static Code Check** (no auth required - fast):
-
-```bash
-# Check that autolog is called
-grep -r "mlflow\..*\.autolog()" src/
-
-# Check that @mlflow.trace decorators are present on entry points
-grep -B 2 "@mlflow.trace" src/
-```
-
-Verify you see:
-
-- ✓ Autolog import and call (e.g., `mlflow.langchain.autolog()`)
-- ✓ `@mlflow.trace` decorator before agent entry point functions
-
-**Stage 2: Runtime Test** (requires auth & LLM - blocking):
-
-```bash
-# Run agent with a test query
-<your_agent_run_command> "test query"
-
-# Check if trace was created
-uv run python -c "import mlflow; trace_id = mlflow.get_last_active_trace_id(); print(f'Trace ID: {trace_id}' if trace_id else 'NO TRACE CAPTURED!')"
-```
-
-If no trace is captured, stop and work with user to fix:
-
-- MLflow tracing integration
-- Authentication issues
-- LLM configuration problems
-
-**Checkpoint - verify before proceeding:**
-
-- [ ] Autolog present and called before agent imports
-- [ ] @mlflow.trace decorators on entry points
-- [ ] Test run creates a trace (trace ID is not None)
-- [ ] Trace visible in MLflow UI (if applicable)
-
-For detailed tracing setup, see `references/tracing-integration.md`.
+**Next steps:**
+1. ✓ Setup complete - environment and tracing configured
+2. → Follow SKILL.md evaluation workflow (understand agent, define scorers, prepare dataset, evaluate)

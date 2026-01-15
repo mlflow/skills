@@ -138,9 +138,10 @@ Before evaluation, complete these three setup steps:
 
 1. **Install MLflow** (version >=3.8.0)
 2. **Configure environment** (tracking URI and experiment)
+   - **Guide**: Follow `references/setup-guide.md` Steps 1-2
 3. **Integrate tracing** (autolog and @mlflow.trace decorators)
-   - ⚠️ **MANDATORY**: Read `references/tracing-integration.md` documentation BEFORE implementing
-   - ✓ **VERIFY**: Run validation script AFTER implementing
+   - ⚠️ **MANDATORY**: Follow `references/tracing-integration.md` - the authoritative tracing guide
+   - ✓ **VERIFY**: Run `scripts/validate_agent_tracing.py` after implementing
 
 ⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot.
 
@@ -254,8 +255,8 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 Detailed guides in `references/` (load as needed):
 
-- **setup-guide.md** - Complete setup instructions (install, configure, trace integration)
-- **tracing-integration.md** - Autolog, decorators, session tracking, verification
+- **setup-guide.md** - Environment setup (MLflow install, tracking URI configuration)
+- **tracing-integration.md** - Authoritative tracing guide (autolog, decorators, session tracking, verification)
 - **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog
 - **scorers.md** - Built-in vs custom scorers, registration, testing
 - **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)

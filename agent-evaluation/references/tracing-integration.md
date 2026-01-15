@@ -1,6 +1,30 @@
-# MLflow Tracing Integration Reference
+# MLflow Tracing Integration
 
-Quick reference for integrating MLflow tracing with agents. For comprehensive documentation, use the Documentation Access Protocol outlined in SKILL.md.
+Complete guide for integrating MLflow tracing with your agent. This is the authoritative source for all tracing implementation - follow these instructions after completing environment setup in setup-guide.md.
+
+**Prerequisites**: Complete setup-guide.md Steps 1-2 (MLflow install + environment configuration)
+
+## Quick Start
+
+Three steps to integrate tracing:
+
+1. **Enable autolog** - Add `mlflow.<library>.autolog()` BEFORE importing agent code
+2. **Decorate entry points** - Add `@mlflow.trace` to agent's main functions
+3. **Verify** - Run test query and check trace is captured
+
+**Minimum implementation:**
+```python
+import mlflow
+mlflow.langchain.autolog()  # Before imports
+
+from my_agent import agent
+
+@mlflow.trace
+def run_agent(query: str) -> str:
+    return agent.run(query)
+```
+
+See sections below for detailed instructions and verification steps.
 
 ## Documentation Access Protocol
 
@@ -68,6 +92,10 @@ def run_agent(query: str, session_id: str = None) -> str:
 ## ⚠️ Critical Verification Checklist
 
 After implementing tracing, verify these requirements **IN ORDER**:
+
+**Quick verification:** Edit and run `scripts/validate_agent_tracing.py` - it checks all items below automatically.
+
+**Manual verification** (if needed):
 
 ### 1. Autolog Enabled
 ```bash
