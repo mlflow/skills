@@ -16,7 +16,7 @@ Complete guide for selecting and creating scorers to evaluate agent quality.
 
 Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that assess the quality of agent responses. They:
 
-- Take agent inputs and outputs as input
+- Take as input single-turn inputs&outputs, or multi-turn conversations, or traces
 - Apply quality criteria (relevance, accuracy, completeness, etc.)
 - Return a score or pass/fail judgment
 - Can be built-in (provided by MLflow) or custom (defined by you)
@@ -26,13 +26,13 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 **1. Reference-Free Scorers**
 
 - Don't require ground truth or expected outputs
-- Judge quality based on the query and response alone
+- Judge quality based on their inputs alone
 - Examples: Relevance, Completeness, Clarity
 - **Easiest to use** - work with any dataset
 
 **2. Ground-Truth Scorers**
 
-- Require expected outputs in the dataset
+- Require expectations in the dataset
 - Compare agent response to ground truth
 - Examples: Factual Accuracy, Answer Correctness
 - Require datasets with `expectations` field
@@ -41,10 +41,10 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 
 Modern scorers use an LLM to judge quality:
 
-1. Scorer receives query and response
+1. Scorer receives information on agent's execution (input&output, or trace, or conversation)
 2. LLM is given evaluation instructions
 3. LLM judges whether criteria is met
-4. Returns structured output (pass/fail or numeric)
+4. Returns a structured assessment (pass/fail or numeric) along with a rationale
 
 ## Built-in Scorers
 
@@ -85,6 +85,8 @@ Output shows:
 - Scorer names
 - Whether they're built-in or custom
 - Registration details
+
+**IMPORTANT: if there are registered scorers in the experiment then they must be used for evaluation.**
 
 ### Understanding Built-in Scorers
 
@@ -276,15 +278,6 @@ uv run mlflow scorers register-llm-judge --help
 
 ### Correct CLI Parameters
 
-```bash
-uv run mlflow scorers register-llm-judge \
-  -n "ScorerName"           # --name (REQUIRED)
-  -i "Instructions..."      # --instructions (REQUIRED, must include variable)
-  -d "Description"          # --description (OPTIONAL)
-  -m "model"               # --model (OPTIONAL)
-  -x "experiment_id"       # --experiment-id (or use MLFLOW_EXPERIMENT_ID env)
-```
-
 ### Registration Example - All Requirements Met
 
 ```bash
@@ -331,10 +324,9 @@ registered_scorer = scorer.register(experiment_id="your_experiment_id")
 
 **When to use make_judge()**:
 
+- `mlflow scorers register-llm-judge` fails with an obscure error
 - Need programmatic control
-- Complex scorer logic
 - Integration with existing code
-- Dynamic scorer generation
 
 **Important**: The `make_judge()` API follows the same constraints documented in the CRITICAL CONSTRAINTS section above. Use `Literal["yes", "no"]` for `feedback_value_type` for binary scorers.
 

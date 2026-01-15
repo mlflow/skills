@@ -4,7 +4,7 @@ Complete guide for creating and managing MLflow evaluation datasets for agent ev
 
 ## Read MLflow Documentation First
 
-Before creating any dataset, read the MLflow GenAI dataset documentation:
+Before creating any dataset, follow the documentation protocol and read the MLflow GenAI dataset documentation:
 
 - Query llms.txt for "evaluation datasets", "dataset schema", "mlflow.genai.datasets"
 - Understand required record schema and APIs
@@ -20,17 +20,22 @@ Before writing dataset code:
 **Example:**
 
 ```python
+# Load config
+config = load_config()
+
 # Agent code
 def run_agent(
     query: str, llm_provider: LLMProvider, session_id: str | None = None
 ) -> str:
     ...
+
+run_agent(query="what can you help me with", llm_provider=config.provider)
 ```
 
 **Parameter analysis:**
 
 - `query` (str) → **FROM DATASET** - this goes in `inputs` dict
-- `llm_provider` (LLMProvider) → **FROM CODE** - provided by predict_fn
+- `llm_provider` (LLMProvider) → **FROM CODE** - provided by agent's config in code, not needed in dataset
 - `session_id` (str, optional) → **FROM CODE** - optional, not needed in dataset
 
 **Therefore, your dataset inputs MUST be:**
@@ -53,7 +58,7 @@ def run_agent(
 
 ### Record Schema
 
-Every dataset record has this structure:
+Every dataset record represents a test case and has this structure:
 
 ```python
 {
@@ -125,17 +130,11 @@ GenAI evaluation datasets are specialized datasets for evaluating language model
 - Have a specific schema with `inputs` and optional `expectations`
 - Are managed through the MLflow GenAI datasets SDK
 - Can be associated with experiments
-- Support pagination and search (in OSS MLflow)
+- Support pagination and search
 
 ### Dataset Schema
 
 See the [Required Schema & APIs](#required-schema--apis) section above for the complete record schema definition.
-
-**Key points**:
-
-- `inputs`: Required dict with parameters matching your agent's function signature
-- `expectations`: Optional dict for ground truth evaluation
-- Each record tests one agent interaction
 
 ## Checking Existing Datasets
 
@@ -156,13 +155,6 @@ uv run python scripts/list_datasets.py --format json
 - Shows sample queries from each dataset
 - Recommends the best dataset based on size and diversity
 - Allows interactive selection
-
-**The script handles:**
-
-- Both OSS MLflow and Databricks environments
-- Pagination for large result sets
-- Field access limitations (Databricks only supports `name` and `dataset_id`)
-- Dataset comparison and recommendation logic
 
 **For manual dataset access**, use the APIs shown in [Required Schema & APIs](#required-schema--apis).
 
@@ -191,7 +183,7 @@ uv run python scripts/create_dataset_template.py \
 
 **The script will:**
 
-1. Detect your environment (OSS MLflow vs Databricks)
+1. Detect your environment
 2. Guide you through naming conventions:
    - **OSS**: Simple names like `mlflow-agent-eval-v1`
    - **Databricks**: UC table names like `main.default.mlflow_agent_eval_v1`

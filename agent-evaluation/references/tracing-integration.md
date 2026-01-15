@@ -4,7 +4,7 @@ Quick reference for integrating MLflow tracing with agents. For comprehensive do
 
 ## Documentation Access Protocol
 
-**MANDATORY: Query MLflow documentation before implementing:**
+**MANDATORY: Follow the documentation protocol to read MLflow documentation before implementing:**
 
 ```bash
 # Query llms.txt for tracing documentation

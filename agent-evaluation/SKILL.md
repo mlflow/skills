@@ -260,11 +260,6 @@ Executable automation for common operations:
   - **Use**: Before expensive operations
   - Tests Databricks/local auth, LLM provider
 
-- **validate_tracing_static.py**: Static tracing validation (NO auth needed)
-
-  - **Use**: Step 3.4 Stage 1
-  - Code analysis only - fast validation
-
 - **validate_agent_tracing.py**: Runtime tracing validation template
   - **Use**: Step 3.4 Stage 2
   - Template script with TODO markers - edit directly before running
@@ -317,7 +312,6 @@ All scripts support non-interactive execution with CLI arguments:
 
 - `validate_environment.py` (no args)
 - `validate_auth.py` (no args)
-- `validate_tracing_static.py [--autolog-file FILE] [--decorated-functions "func:file" ...]`
 - `validate_agent_tracing.py` (edit TODOs first, then run with no args)
 
 **Datasets:**

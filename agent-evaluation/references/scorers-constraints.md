@@ -20,7 +20,6 @@ If you use `{{trace}}` in your instructions, it MUST be the ONLY variable.
 
 - ❌ `{{inputs}}`
 - ❌ `{{outputs}}`
-- ❌ `{{expectations}}`
 
 **Example - Correct:**
 
@@ -65,23 +64,23 @@ Use `{{inputs}}`/`{{outputs}}` when evaluating:
 - ✅ Response relevance
 - ✅ Answer correctness
 
-## Constraint 2: CLI Requires "yes"/"no" Return Values
+## Constraint 2: Prefer "yes"/"no" Return Values for Better UI integration
 
 ⚠️ **Use "yes"/"no" NOT "pass"/"fail"**
 
-**Correct return values:**
+**Return values that are nicely integrated with the UI:**
 
 - "yes" = criteria met
 - "no" = criteria not met
 
-**Wrong return values:**
+**Return values that can still work but are not shown nicely in the UI:**
 
 - "pass"/"fail"
 - "true"/"false"
 - "passed"/"failed"
 - "1"/"0"
 
-**Example - Correct:**
+**Example - Good integration:**
 
 ```bash
 uv run mlflow scorers register-llm-judge \
@@ -89,7 +88,7 @@ uv run mlflow scorers register-llm-judge \
   -i "Evaluate if {{ outputs }} is high quality. Return 'yes' if high quality, 'no' if not."
 ```
 
-**Example - Wrong:**
+**Example - Still works but less nice integration:**
 
 ```bash
 uv run mlflow scorers register-llm-judge \
@@ -99,7 +98,7 @@ uv run mlflow scorers register-llm-judge \
 
 **Why "yes"/"no"?**
 
-The MLflow CLI expects binary yes/no format for consistency with LLM judge patterns. This applies to CLI only - the Python API may support other formats.
+MLflow's built-in judges use the binary yes/no format and the UI is optimized for this use case. 
 
 ## Constraint 3: Instructions Must Include Template Variable
 
@@ -107,8 +106,10 @@ Instructions must contain at least one template variable:
 
 - `{{ inputs }}` - Evaluation inputs
 - `{{ outputs }}` - Agent outputs
-- `{{ expectations }}` - Ground truth (optional)
 - `{{ trace }}` - Complete execution trace
+
+The above can be combined with optional variables:
+- `{{ expectations }}` - Ground truth (optional)
 
 **Example - Wrong (no variables):**
 
