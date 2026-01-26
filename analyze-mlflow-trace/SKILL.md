@@ -16,15 +16,6 @@ It is recommended to read [references/trace-structure.md](references/trace-struc
 ```bash
 # Fetch full trace (recommended - parse the JSON output directly)
 mlflow traces get --trace-id <ID>
-
-# Log feedback on a trace
-mlflow traces log-feedback --trace-id <ID> --name "my_feedback" --value '{"score": 0.8}'
-
-# Log an expectation
-mlflow traces log-expectation --trace-id <ID> --name "expected_output" --value '"correct answer"'
-
-# Evaluate with built-in scorers
-mlflow traces evaluate --experiment-id <EXP_ID> --trace-ids <ID> --scorers correctness,safety
 ```
 
 **Prefer fetching the full trace and parsing the JSON directly** rather than using `--extract-fields`. The `--extract-fields` flag has limited support for nested span data (e.g., span inputs/outputs may return empty objects). Fetch the complete trace once and parse it as needed — traces can be 100KB+ for complex agent executions, which is normal.
