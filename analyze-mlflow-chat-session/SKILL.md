@@ -11,41 +11,43 @@ A session groups multiple traces that belong to the same chat conversation or us
 
 The session ID is stored in trace metadata under the key `mlflow.trace.session`. This key contains dots, which affects filter syntax (see below). All traces sharing the same value for this key belong to the same session.
 
-## Fetching Session Traces
+## Reconstructing the Conversation
+
+Reconstructing a session's conversation is a two-step process: discover the input/output schema from one trace, then extract those fields efficiently across all session traces. **Do NOT fetch full traces for every turn** — use `--extract-fields` on the search command instead.
+
+**Step 1: Discover the schema.** Fetch the full JSON for one trace in the session using `mlflow traces get --trace-id <ID>`. Find the root span (the span with no `parent_id`) and examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
+
+- **MLflow standard attributes**: `mlflow.spanInputs` and `mlflow.spanOutputs` (set by the MLflow Python client)
+- **Custom attributes**: Application-specific keys set via `@mlflow.trace` or `mlflow.start_span()` with custom attribute logging
+- **Third-party OTel attributes**: Keys following GenAI Semantic Conventions, OpenInference, or other instrumentation conventions
+
+The structure of these values also varies by application (e.g., a `query` string, a `messages` array, a dict with multiple fields). Inspect the actual attribute values to understand the format.
+
+**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull just those fields:
 
 ```bash
-# Get all traces in a session, in chronological order
 mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
   --filter-string "metadata.`mlflow.trace.session` = '<SESSION_ID>'" \
   --order-by "timestamp_ms ASC" \
+  --extract-fields "info.trace_id,info.request_time,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`" \
   --output json \
   --max-results 1000
 ```
 
+The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutputs` from trace metadata — adjust the field paths based on what you discovered in step 1.
+
 **CLI syntax notes:**
 
-- The metadata key `mlflow.trace.session` contains dots, so it **must** be escaped with backticks in the filter string: `` metadata.`mlflow.trace.session` ``
+- Metadata keys containing dots **must** be escaped with backticks in filter strings and extract-fields: `` metadata.`mlflow.trace.session` ``
 - In a shell command, backticks inside double quotes are interpreted as command substitution. Ensure proper escaping — e.g., use backslash-escaped backticks within double quotes (`\`mlflow.trace.session\``) or structure quoting carefully.
 - Default `--max-results` is 100. Increase for long conversations.
 
-To inspect a specific turn in detail, fetch its full trace:
+To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
 
 ```bash
 mlflow traces get --trace-id <TRACE_ID>
 ```
-
-## Reconstructing the Conversation
-
-Each trace's inputs and outputs represent one conversational turn. The full (non-truncated) inputs and outputs are available in trace metadata as `mlflow.traceInputs` and `mlflow.traceOutputs` (JSON-encoded strings). The `request_preview` and `response_preview` fields on TraceInfo provide truncated versions for quick scanning.
-
-The input/output structure varies by application. Common patterns:
-
-- **Chat applications**: Inputs contain a `messages` array or a `query` string; outputs contain the assistant's response text.
-- **Agent applications**: Inputs contain the user query; outputs contain the agent's final answer, potentially with intermediate tool results.
-- **RAG applications**: Inputs contain the query; outputs contain the generated answer and retrieved context.
-
-When the structure isn't obvious, fetch one full trace with `mlflow traces get` and examine the root span's `inputs` and `outputs` to understand the schema.
 
 ## Analysis Insights
 
@@ -66,9 +68,9 @@ When the structure isn't obvious, fetch one full trace with `mlflow traces get` 
 
 A user reports that their chatbot gave an incorrect answer on the 5th message of a chat conversation.
 
-**1. Fetch all session traces and scan the conversation.**
+**1. Discover the schema and reconstruct the conversation.**
 
-Retrieve all traces for the session ordered by timestamp. Scan `request_preview` and `response_preview` for each turn to reconstruct the conversation. Confirm that turn 5's response is wrong, and check whether earlier turns look correct.
+Fetch the first trace in the session and inspect the root span's attributes to find which keys hold inputs and outputs. In this case, `mlflow.spanInputs` contains the user query and `mlflow.spanOutputs` contains the assistant response. Then search all session traces, extracting those fields in chronological order. Scanning the extracted inputs and outputs confirms that turn 5's response is wrong, and reveals whether earlier turns look correct.
 
 **2. Check if the error originated in an earlier turn.**
 
