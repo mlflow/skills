@@ -1,13 +1,13 @@
 ---
 name: analyzing-mlflow-session
-description: Analyzes an MLflow session — a sequence of traces from a multi-turn conversation or interaction. Use when the user asks to debug a conversation, review session history, find where a multi-turn chat went wrong, or analyze patterns across turns. Triggers on "analyze this session", "what happened in this conversation", "debug session", "review chat history", "where did this conversation go wrong", "session traces".
+description: Analyzes an MLflow session — a sequence of traces from a multi-turn chat conversation or interaction. Use when the user asks to debug a chat conversation, review session or chat history, find where a multi-turn chat went wrong, or analyze patterns across turns. Triggers on "analyze this session", "what happened in this conversation", "debug session", "review chat history", "where did this chat go wrong", "session traces", "analyze chat", "debug this chat".
 ---
 
-# Analyzing an MLflow Session
+# Analyzing an MLflow Chat Session
 
 ## What is a Session?
 
-A session groups multiple traces that belong to the same user interaction — most commonly a multi-turn chat conversation. Each trace in the session represents one turn: the user's input and the system's response. Traces within a session are linked by a shared session ID stored in trace metadata.
+A session groups multiple traces that belong to the same chat conversation or user interaction. Each trace in the session represents one turn: the user's input and the system's response. Traces within a session are linked by a shared session ID stored in trace metadata.
 
 The session ID is stored in trace metadata under the key `mlflow.trace.session`. This key contains dots, which affects filter syntax (see below). All traces sharing the same value for this key belong to the same session.
 
@@ -62,9 +62,9 @@ When the structure isn't obvious, fetch one full trace with `mlflow traces get` 
 - **Context window management**: Look for how the application constructs the message history passed to the LLM at each turn. Common patterns include sliding window (last N messages), summarization of older turns, or full history. This implementation determines what context the model sees and is a frequent source of multi-turn failures.
 - **Memory and state**: Some applications maintain state across turns beyond message history (e.g., extracted entities, user preferences, accumulated tool results). Search for how this state is stored and passed between turns.
 
-## Example: Wrong Answer on Turn 5
+## Example: Wrong Answer on Chat Turn 5
 
-A user reports that their chatbot gave an incorrect answer on the 5th message of a conversation.
+A user reports that their chatbot gave an incorrect answer on the 5th message of a chat conversation.
 
 **1. Fetch all session traces and scan the conversation.**
 
