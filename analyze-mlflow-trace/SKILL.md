@@ -9,7 +9,7 @@ description: Analyzes a single MLflow trace to answer a user query about it. Use
 
 A trace captures the full execution of an AI/ML application as a tree of **spans**. Each span represents one operation (LLM call, tool invocation, retrieval step, etc.) and records its inputs, outputs, timing, and status. Traces also carry **assessments** — feedback from humans or LLM judges about quality.
 
-It is recommended to read [references/trace-anatomy.md](references/trace-anatomy.md) before analyzing a trace — it covers the complete data model, all fields and types, analysis guidance, and OpenTelemetry compatibility notes.
+It is recommended to read [references/trace-structure.md](references/trace-structure.md) before analyzing a trace — it covers the complete data model, all fields and types, analysis guidance, and OpenTelemetry compatibility notes.
 
 ## Key Commands
 
