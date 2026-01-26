@@ -255,11 +255,18 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 Detailed guides in `references/` (load as needed):
 
+### Core Guides
 - **setup-guide.md** - Environment setup (MLflow install, tracking URI configuration)
-- **tracing-integration.md** - Authoritative tracing guide (autolog, decorators, session tracking, verification)
-- **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog
-- **scorers.md** - Built-in vs custom scorers, registration, testing
+- **tracing-integration.md** - Authoritative tracing guide (autolog, decorators, session tracking, verification, trace analysis)
+- **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog, advanced patterns
+- **scorers.md** - Built-in vs custom scorers, registration, testing, advanced patterns
 - **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)
 - **troubleshooting.md** - Common errors by phase with solutions
+
+### Reference Documentation
+- **GOTCHAS.md** - 15+ common mistakes that cause failures (read before writing code)
+- **CRITICAL-interfaces.md** - Implementation details not in official docs (data schema, return types, filter syntax)
+- **patterns-context-optimization.md** - Token/latency optimization strategies for agents
+- **user-journeys.md** - High-level workflow guides (strategy alignment, regression detection, performance)
 
 Scripts are self-documenting - run with `--help` for usage details.

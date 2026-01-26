@@ -349,3 +349,172 @@ More queries = better coverage but longer evaluation time and higher LLM costs.
 ---
 
 **For troubleshooting dataset creation issues**, see `references/troubleshooting.md`
+
+---
+
+## Advanced Dataset Patterns
+
+### Pattern: Dataset from Production Traces
+
+Convert real traffic into evaluation data.
+
+```python
+import mlflow
+import time
+
+# Search recent production traces
+one_week_ago = int((time.time() - 7 * 86400) * 1000)
+
+prod_traces = mlflow.search_traces(
+    filter_string=f"""
+        attributes.status = 'OK' AND
+        attributes.timestamp_ms > {one_week_ago} AND
+        tags.environment = 'production'
+    """,
+    order_by=["attributes.timestamp_ms DESC"],
+    max_results=100
+)
+
+# Convert to eval format (without outputs - will re-run)
+eval_data = []
+for _, trace in prod_traces.iterrows():
+    eval_data.append({
+        "inputs": trace['request']  # request is already a dict
+    })
+
+# Or with outputs (evaluate existing responses)
+eval_data_with_outputs = []
+for _, trace in prod_traces.iterrows():
+    eval_data_with_outputs.append({
+        "inputs": trace['request'],
+        "outputs": trace['response']
+    })
+```
+
+### Pattern: Build Diverse Evaluation Dataset
+
+Sample across different characteristics for comprehensive coverage.
+
+```python
+import pandas as pd
+
+def build_diverse_eval_dataset(traces_df, sample_size=50):
+    """
+    Build a diverse evaluation dataset from traces.
+    Samples across different characteristics.
+    """
+    samples = []
+
+    # Sample by status
+    ok_traces = traces_df[traces_df['status'] == 'OK']
+    error_traces = traces_df[traces_df['status'] == 'ERROR']
+
+    # Sample by latency buckets
+    fast = ok_traces[ok_traces['execution_time_ms'] < 1000]
+    medium = ok_traces[(ok_traces['execution_time_ms'] >= 1000) &
+                       (ok_traces['execution_time_ms'] < 5000)]
+    slow = ok_traces[ok_traces['execution_time_ms'] >= 5000]
+
+    # Proportional sampling
+    samples_per_bucket = sample_size // 4
+
+    if len(fast) > 0:
+        samples.append(fast.sample(min(samples_per_bucket, len(fast))))
+    if len(medium) > 0:
+        samples.append(medium.sample(min(samples_per_bucket, len(medium))))
+    if len(slow) > 0:
+        samples.append(slow.sample(min(samples_per_bucket, len(slow))))
+    if len(error_traces) > 0:
+        samples.append(error_traces.sample(min(samples_per_bucket, len(error_traces))))
+
+    # Combine and convert to eval format
+    combined = pd.concat(samples, ignore_index=True)
+
+    eval_data = []
+    for _, row in combined.iterrows():
+        eval_data.append({
+            "inputs": row['request'],
+            "outputs": row['response']
+        })
+
+    return eval_data
+```
+
+### Pattern: Dataset with Per-Row Guidelines
+
+For row-specific evaluation criteria using ExpectationsGuidelines.
+
+```python
+eval_data = [
+    {
+        "inputs": {"query": "Explain quantum computing"},
+        "expectations": {
+            "guidelines": [
+                "Must explain in simple terms",
+                "Must avoid excessive jargon",
+                "Must include an analogy"
+            ]
+        }
+    },
+    {
+        "inputs": {"query": "Write code to sort a list"},
+        "expectations": {
+            "guidelines": [
+                "Must include working code",
+                "Must include comments",
+                "Must mention time complexity"
+            ]
+        }
+    }
+]
+
+# Use with ExpectationsGuidelines scorer
+from mlflow.genai.scorers import ExpectationsGuidelines
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[ExpectationsGuidelines()]
+)
+```
+
+### Pattern: Dataset with Stage Expectations
+
+For multi-agent pipelines, include expectations for each stage.
+
+```python
+eval_data = [
+    {
+        "inputs": {
+            "question": "What are the top 10 GenAI growth accounts for MFG?"
+        },
+        "expectations": {
+            # Standard MLflow expectations
+            "expected_facts": ["growth", "accounts", "MFG", "GenAI"],
+
+            # Stage-specific expectations for custom scorers
+            "expected_query_type": "growth_analysis",
+            "expected_tools": ["get_genai_consumption_growth"],
+            "expected_filters": {"vertical": "MFG"}
+        },
+        "metadata": {
+            "test_id": "test_001",
+            "category": "growth_analysis",
+            "difficulty": "easy"
+        }
+    }
+]
+```
+
+### Dataset Categories Checklist
+
+Ensure coverage across these categories:
+
+| Category | Purpose | Example |
+|----------|---------|---------|
+| **Happy Path** | Core functionality | Typical user questions |
+| **Edge Cases** | Boundary conditions | Empty inputs, very long queries |
+| **Adversarial** | Robustness | Prompt injection, off-topic |
+| **Out of Scope** | Graceful decline | Questions agent should refuse |
+| **Multi-turn** | Conversation handling | Follow-up questions |
+| **Error Recovery** | Invalid inputs | Malformed data, null values |

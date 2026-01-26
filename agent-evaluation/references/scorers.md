@@ -428,4 +428,256 @@ Review each output to verify scorer behaves as expected.
 
 ---
 
+## Advanced Scorer Patterns
+
+### Pattern: Custom Scorer with Multiple Metrics
+
+Return multiple metrics from a single scorer.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+
+@scorer
+def comprehensive_check(inputs, outputs):
+    """Return multiple metrics from one scorer."""
+    response = str(outputs.get("response", ""))
+    query = inputs.get("query", "")
+
+    feedbacks = []
+
+    # Check 1: Response exists
+    feedbacks.append(Feedback(
+        name="has_response",
+        value=len(response) > 0,
+        rationale="Response is present" if response else "No response"
+    ))
+
+    # Check 2: Word count
+    word_count = len(response.split())
+    feedbacks.append(Feedback(
+        name="word_count",
+        value=word_count,
+        rationale=f"Response contains {word_count} words"
+    ))
+
+    # Check 3: Query terms in response
+    query_terms = set(query.lower().split())
+    response_terms = set(response.lower().split())
+    overlap = len(query_terms & response_terms) / len(query_terms) if query_terms else 0
+    feedbacks.append(Feedback(
+        name="query_coverage",
+        value=round(overlap, 2),
+        rationale=f"{overlap*100:.0f}% of query terms found in response"
+    ))
+
+    return feedbacks
+```
+
+### Pattern: Trace-Based Scorer
+
+Analyze execution details from the trace.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback, Trace, SpanType
+
+@scorer
+def llm_latency_check(trace: Trace) -> Feedback:
+    """Check if LLM response time is acceptable."""
+
+    # Find LLM spans in trace
+    llm_spans = trace.search_spans(span_type=SpanType.CHAT_MODEL)
+
+    if not llm_spans:
+        return Feedback(
+            value="no",
+            rationale="No LLM calls found in trace"
+        )
+
+    # Calculate total LLM time
+    total_llm_time = 0
+    for span in llm_spans:
+        duration = (span.end_time_ns - span.start_time_ns) / 1e9
+        total_llm_time += duration
+
+    max_acceptable = 5.0  # seconds
+
+    if total_llm_time <= max_acceptable:
+        return Feedback(
+            value="yes",
+            rationale=f"LLM latency {total_llm_time:.2f}s within {max_acceptable}s limit"
+        )
+    else:
+        return Feedback(
+            value="no",
+            rationale=f"LLM latency {total_llm_time:.2f}s exceeds {max_acceptable}s limit"
+        )
+```
+
+### Pattern: Tool Selection Accuracy Scorer
+
+Check if the correct tools were called during agent execution.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback, Trace, SpanType
+from typing import Dict, Any
+
+@scorer
+def tool_selection_accuracy(
+    inputs: Dict[str, Any],
+    outputs: Dict[str, Any],
+    expectations: Dict[str, Any],
+    trace: Trace
+) -> Feedback:
+    """Check if the correct tools were called."""
+
+    expected_tools = expectations.get("expected_tools", [])
+
+    if not expected_tools:
+        return Feedback(
+            name="tool_selection_accuracy",
+            value="skip",
+            rationale="No expected_tools in expectations"
+        )
+
+    # Get actual tool calls from TOOL spans
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    actual_tools = {span.name for span in tool_spans}
+
+    # Normalize names (handle fully qualified names like "catalog.schema.func")
+    def normalize(name: str) -> str:
+        return name.split(".")[-1] if "." in name else name
+
+    expected_normalized = {normalize(t) for t in expected_tools}
+    actual_normalized = {normalize(t) for t in actual_tools}
+
+    # Check if all expected tools were called
+    missing = expected_normalized - actual_normalized
+
+    all_expected_called = len(missing) == 0
+
+    rationale = f"Expected: {list(expected_normalized)}, Actual: {list(actual_normalized)}"
+    if missing:
+        rationale += f" | Missing: {list(missing)}"
+
+    return Feedback(
+        name="tool_selection_accuracy",
+        value="yes" if all_expected_called else "no",
+        rationale=rationale
+    )
+```
+
+### Pattern: Stage Latency Scorer (Multiple Metrics)
+
+Measure latency per pipeline stage and identify bottlenecks.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback, Trace
+from typing import List
+
+@scorer
+def stage_latency_scorer(trace: Trace) -> List[Feedback]:
+    """Measure latency for each pipeline stage."""
+
+    feedbacks = []
+    all_spans = trace.search_spans()
+
+    # Total trace time
+    root_spans = [s for s in all_spans if s.parent_id is None]
+    if root_spans:
+        root = root_spans[0]
+        total_ms = (root.end_time_ns - root.start_time_ns) / 1e6
+        feedbacks.append(Feedback(
+            name="total_latency_ms",
+            value=round(total_ms, 2),
+            rationale=f"Total execution time: {total_ms:.2f}ms"
+        ))
+
+    # Per-stage latency (customize patterns for your pipeline)
+    stage_patterns = ["classifier", "rewriter", "executor", "retriever"]
+    stage_times = {}
+
+    for span in all_spans:
+        span_name_lower = span.name.lower()
+        for pattern in stage_patterns:
+            if pattern in span_name_lower:
+                duration_ms = (span.end_time_ns - span.start_time_ns) / 1e6
+                stage_times[pattern] = stage_times.get(pattern, 0) + duration_ms
+                break
+
+    for stage, time_ms in stage_times.items():
+        feedbacks.append(Feedback(
+            name=f"{stage}_latency_ms",
+            value=round(time_ms, 2),
+            rationale=f"Stage '{stage}' took {time_ms:.2f}ms"
+        ))
+
+    return feedbacks
+```
+
+### Pattern: Scorer with Aggregations
+
+Use for numeric scorers that need aggregate statistics.
+
+```python
+from mlflow.genai.scorers import scorer
+
+@scorer(aggregations=["mean", "min", "max", "median", "p90"])
+def response_latency(outputs) -> float:
+    """Return response generation time."""
+    return outputs.get("latency_ms", 0) / 1000.0  # Convert to seconds
+
+# Valid aggregations: min, max, mean, median, variance, p90
+# NOTE: p50, p99, sum are NOT valid - use median instead of p50
+```
+
+### Pattern: Conditional Scoring Based on Input
+
+Apply different guidelines based on query type.
+
+```python
+from mlflow.genai.scorers import scorer, Guidelines
+
+@scorer
+def conditional_scorer(inputs, outputs):
+    """Apply different guidelines based on query type."""
+
+    query = inputs.get("query", "").lower()
+
+    if "technical" in query or "how to" in query:
+        # Technical queries need detailed responses
+        judge = Guidelines(
+            name="technical_quality",
+            guidelines=[
+                "Response must include step-by-step instructions",
+                "Response must include code examples where relevant"
+            ]
+        )
+    elif "price" in query or "cost" in query:
+        # Pricing queries need specific info
+        judge = Guidelines(
+            name="pricing_quality",
+            guidelines=[
+                "Response must include specific pricing information",
+                "Response must mention any conditions or limitations"
+            ]
+        )
+    else:
+        # General queries
+        judge = Guidelines(
+            name="general_quality",
+            guidelines=[
+                "Response must directly address the question",
+                "Response must be clear and concise"
+            ]
+        )
+
+    return judge(inputs=inputs, outputs=outputs)
+```
+
+---
+
 **For troubleshooting scorer issues**, see `references/troubleshooting.md`

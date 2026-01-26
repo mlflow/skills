@@ -162,3 +162,165 @@ After completing all steps above, verify:
 - [ ] Test run creates traces with non-None trace_id (verified with validate_agent_tracing.py)
 - [ ] Traces visible in MLflow UI or via `mlflow traces search`
 - [ ] Trace hierarchy includes both @mlflow.trace spans and autolog spans
+
+---
+
+## Trace Analysis Patterns
+
+Once tracing is integrated, use these patterns to analyze trace data for debugging and evaluation.
+
+### Search Traces
+
+```python
+import mlflow
+import time
+
+# All traces in current experiment
+all_traces = mlflow.search_traces()
+
+# Successful traces only
+ok_traces = mlflow.search_traces(
+    filter_string="attributes.status = 'OK'"
+)
+
+# Error traces only
+error_traces = mlflow.search_traces(
+    filter_string="attributes.status = 'ERROR'"
+)
+
+# Recent traces (last hour)
+one_hour_ago = int((time.time() - 3600) * 1000)
+recent = mlflow.search_traces(
+    filter_string=f"attributes.timestamp_ms > {one_hour_ago}"
+)
+
+# Slow traces (> 5 seconds)
+slow = mlflow.search_traces(
+    filter_string="attributes.execution_time_ms > 5000"
+)
+
+# By tag
+prod_traces = mlflow.search_traces(
+    filter_string="tags.environment = 'production'"
+)
+
+# By trace name (note backticks for dotted names)
+specific_app = mlflow.search_traces(
+    filter_string="tags.`mlflow.traceName` = 'my_app_function'"
+)
+```
+
+### Latency Breakdown by Span Type
+
+```python
+from mlflow.entities import Trace, SpanType
+from collections import defaultdict
+
+def latency_by_span_type(trace: Trace) -> dict:
+    """Break down latency by span type (LLM, TOOL, RETRIEVER, etc.)"""
+    spans = trace.search_spans()
+    type_latencies = defaultdict(list)
+
+    for span in spans:
+        duration_ms = (span.end_time_ns - span.start_time_ns) / 1e6
+        span_type = str(span.span_type) if span.span_type else "UNKNOWN"
+        type_latencies[span_type].append(duration_ms)
+
+    results = {}
+    for span_type, durations in type_latencies.items():
+        results[span_type] = {
+            "count": len(durations),
+            "total_ms": round(sum(durations), 2),
+            "avg_ms": round(sum(durations) / len(durations), 2),
+        }
+    return results
+```
+
+### Find Bottlenecks
+
+```python
+def find_bottlenecks(trace: Trace, top_n: int = 5) -> list:
+    """Find the slowest spans in a trace."""
+    spans = trace.search_spans()
+    exclude_patterns = ["forward", "predict", "root"]
+
+    span_timings = []
+    for span in spans:
+        span_name_lower = span.name.lower()
+        if any(p in span_name_lower for p in exclude_patterns):
+            continue
+
+        duration_ms = (span.end_time_ns - span.start_time_ns) / 1e6
+        span_timings.append({
+            "name": span.name,
+            "span_type": str(span.span_type) if span.span_type else "UNKNOWN",
+            "duration_ms": round(duration_ms, 2),
+        })
+
+    span_timings.sort(key=lambda x: -x["duration_ms"])
+    return span_timings[:top_n]
+```
+
+### Analyze Tool Calls
+
+```python
+from mlflow.entities import SpanType
+
+def analyze_tool_calls(trace: Trace) -> dict:
+    """Analyze tool calls in a trace."""
+    spans = trace.search_spans()
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+
+    tool_calls = []
+    for span in tool_spans:
+        duration_ms = (span.end_time_ns - span.start_time_ns) / 1e6
+        tool_name = span.name.split(".")[-1] if "." in span.name else span.name
+
+        tool_calls.append({
+            "tool_name": tool_name,
+            "duration_ms": round(duration_ms, 2),
+            "inputs": span.inputs,
+        })
+
+    return {
+        "total_tool_calls": len(tool_calls),
+        "calls": tool_calls,
+    }
+```
+
+### Detect Errors
+
+```python
+from mlflow.entities import SpanStatusCode
+
+def detect_errors(trace: Trace) -> dict:
+    """Detect error patterns in a trace."""
+    spans = trace.search_spans()
+
+    errors = {
+        "failed_spans": [],
+        "empty_outputs": [],
+    }
+
+    for span in spans:
+        if span.status and span.status.status_code == SpanStatusCode.ERROR:
+            errors["failed_spans"].append({
+                "name": span.name,
+                "error": span.status.description if span.status.description else "Unknown"
+            })
+
+        if span.outputs is None or span.outputs == {} or span.outputs == []:
+            errors["empty_outputs"].append({"name": span.name})
+
+    return errors
+```
+
+### Filter Syntax Reference
+
+| Syntax Element | Rule |
+|----------------|------|
+| String values | Use single quotes: `'OK'` NOT `"OK"` |
+| Dotted names | Use backticks: `tags.\`mlflow.traceName\`` |
+| Prefix | Required for attributes: `attributes.status` |
+| Logical operators | `AND` supported, `OR` NOT supported |
+| Time values | Use milliseconds since epoch |
