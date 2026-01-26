@@ -101,9 +101,9 @@ Immutable key-value pairs set when the trace is created. These cannot be changed
 **Standard metadata keys set by the MLflow client** (these are specific to MLflow's Python client and may not be present in traces from third-party OpenTelemetry clients or different MLflow usage patterns):
 
 - **`mlflow.modelId`**: Identifies which model version produced this trace. Essential for comparing behavior across model versions — if a trace shows a regression, check whether it was produced by a new model deployment.
-- **`mlflow.traceUser`**: The end-user who triggered this request. Use this to investigate user-specific issues ("user X is seeing bad results") or to filter traces for a specific user's session history.
-- **`mlflow.traceSession`**: Groups traces belonging to the same user session or conversation. When investigating multi-turn conversation issues, fetch all traces for the session to understand the full context the model had at each turn.
-- **`mlflow.tokenUsage`**: A JSON string containing `input_tokens`, `output_tokens`, and `total_tokens` aggregated across all LLM spans in the trace. High token counts can explain high latency (more tokens = slower generation) or unexpected costs. A sudden spike in input tokens might indicate a prompt injection or an overly large context being passed to the model.
+- **`mlflow.trace.user`**: The end-user who triggered this request. Use this to investigate user-specific issues ("user X is seeing bad results") or to filter traces for a specific user's session history.
+- **`mlflow.trace.session`**: Groups traces belonging to the same user session or conversation. When investigating multi-turn conversation issues, fetch all traces for the session to understand the full context the model had at each turn.
+- **`mlflow.trace.tokenUsage`**: A JSON string containing `input_tokens`, `output_tokens`, and `total_tokens` aggregated across all LLM spans in the trace. High token counts can explain high latency (more tokens = slower generation) or unexpected costs. A sudden spike in input tokens might indicate a prompt injection or an overly large context being passed to the model.
 - **`mlflow.sourceRun`**: Links this trace to an MLflow run (training or evaluation). Use this to correlate production trace behavior with the experiment that produced the model.
 - **`mlflow.traceInputs`** / **`mlflow.traceOutputs`**: The full (non-truncated) trace-level inputs and outputs stored as metadata. Check these when `request_preview` or `response_preview` are truncated and you need the complete data.
 
@@ -114,7 +114,7 @@ Mutable key-value pairs that can be added or updated after trace creation. Keys 
 **Standard tag keys set by the MLflow client** (these are specific to MLflow's Python client and may not be present in traces from third-party OpenTelemetry clients or different MLflow usage patterns):
 
 - **`mlflow.traceName`**: A human-readable name for the trace (e.g., `"customer_support_query"`, `"document_summarization"`). Often set by the application to describe the operation type. Useful for quickly understanding what the trace represents without examining its spans.
-- **`mlflow.sourceScorer`**: If this trace was generated as a side effect of running a scorer (e.g., an LLM judge evaluating another trace), this tag identifies which scorer produced it. Helps distinguish "real" application traces from evaluation traces.
+- **`mlflow.trace.sourceScorer`**: If this trace was generated as a side effect of running a scorer (e.g., an LLM judge evaluating another trace), this tag identifies which scorer produced it. Helps distinguish "real" application traces from evaluation traces.
 - **`mlflow.linkedPrompts`**: A JSON-encoded list of prompt template references used during this trace. Use this to identify which prompt versions were active when the trace was produced, enabling prompt-level debugging ("did the new prompt template cause this regression?").
 
 Custom tags are frequently used for environment (`"production"`, `"staging"`), application version, A/B test variant, or issue tracking labels.
@@ -211,7 +211,7 @@ A key-value dictionary of additional span metadata. Attributes are set by the tr
 - **`mlflow.spanType`**: Redundant with `span_type` but present in raw attribute form.
 - **`mlflow.spanInputs`** / **`mlflow.spanOutputs`**: Serialized input/output data (the `inputs`/`outputs` fields are derived from these).
 - **`mlflow.spanFunctionName`**: The exact function name that was traced, useful when the span `name` has been customized to differ from the function name.
-- **`mlflow.chat.usage`**: Token usage for LLM spans (`prompt_tokens`, `completion_tokens`, `total_tokens`). Compare across LLM spans to find which call consumed the most tokens.
+- **`mlflow.chat.tokenUsage`**: Token usage for LLM spans (`input_tokens`, `output_tokens`, `total_tokens`). Compare across LLM spans to find which call consumed the most tokens.
 - **`mlflow.chat.tools`**: The tool definitions provided to an LLM call. Check these to verify the model had access to the right tools.
 
 ### `events` (list[SpanEvent])
@@ -290,10 +290,10 @@ A free-text explanation of why the feedback value was assigned. This is often th
 #### `metadata` (dict | None)
 
 Additional context about the assessment. Common metadata keys set by the MLflow client (these may not be present in assessments from other systems or custom integrations):
-- **`mlflow.assessmentSourceRunId`**: Links to the evaluation run that produced this assessment.
-- **`mlflow.judgeCost`**: The LLM cost incurred to generate this judgment (for LLM judge assessments).
-- **`mlflow.scorerTraceId`**: The trace ID of the scorer's own execution — useful for debugging the scorer itself if you suspect the judgment is wrong.
-- **`mlflow.onlineScoringSessionId`**: Identifies the online scoring session that triggered this assessment.
+- **`mlflow.assessment.sourceRunId`**: Links to the evaluation run that produced this assessment.
+- **`mlflow.assessment.judgeCost`**: The LLM cost incurred to generate this judgment (for LLM judge assessments).
+- **`mlflow.assessment.scorerTraceId`**: The trace ID of the scorer's own execution — useful for debugging the scorer itself if you suspect the judgment is wrong.
+- **`mlflow.assessment.onlineScoringSessionId`**: Identifies the online scoring session that triggered this assessment.
 
 #### `span_id` (str | None)
 
