@@ -6,7 +6,7 @@
 - [OpenTelemetry Compatibility](#opentelemetry-compatibility)
 - [TraceInfo Fields](#traceinfo-fields) — trace_id, state, request_time, execution_duration, request_preview, response_preview, client_request_id, trace_location, trace_metadata, tags, assessments
 - [Span Fields](#span-fields) — span_id, trace_id, parent_id, name, span_type, start_time_ns/end_time_ns, status, inputs, outputs, attributes, events
-- [Assessment Fields](#assessment-fields) — Feedback (name, value, source, rationale, metadata, span_id, error) and Expectation (name, value, source, metadata, span_id)
+- [Assessment Fields](#assessment-fields) — Common (assessment_id, create_time_ms, last_update_time_ms, valid, overrides, run_id), Feedback (name, value, source, rationale, metadata, span_id, error), and Expectation (name, value, source, metadata, span_id)
 - [Span Types — Analysis Cheat Sheet](#span-types--analysis-cheat-sheet)
 
 ## Trace Composition
@@ -25,6 +25,8 @@ Trace
 │   ├── trace_metadata (dict, immutable)
 │   ├── tags (dict, mutable)
 │   └── assessments (list)
+│       ├── [common] assessment_id, create_time_ms, last_update_time_ms,
+│       │            valid, overrides, run_id
 │       ├── Feedback (name, value, rationale, source, error)
 │       └── Expectation (name, value, source)
 └── TraceData
@@ -96,7 +98,7 @@ The location determines which tracking server or catalog to query when fetching 
 
 Immutable key-value pairs set when the trace is created. These cannot be changed after the fact, making them reliable for recording the conditions under which the trace was produced. Keys and values are capped at 250 characters.
 
-**Standard metadata keys and their analysis uses:**
+**Standard metadata keys set by the MLflow client** (these are specific to MLflow's Python client and may not be present in traces from third-party OpenTelemetry clients or different MLflow usage patterns):
 
 - **`mlflow.modelId`**: Identifies which model version produced this trace. Essential for comparing behavior across model versions — if a trace shows a regression, check whether it was produced by a new model deployment.
 - **`mlflow.traceUser`**: The end-user who triggered this request. Use this to investigate user-specific issues ("user X is seeing bad results") or to filter traces for a specific user's session history.
@@ -109,7 +111,7 @@ Immutable key-value pairs set when the trace is created. These cannot be changed
 
 Mutable key-value pairs that can be added or updated after trace creation. Keys max 250 chars, values max 4,096 chars. Tags are commonly used for categorization, filtering, and annotation workflows.
 
-**Standard tag keys:**
+**Standard tag keys set by the MLflow client** (these are specific to MLflow's Python client and may not be present in traces from third-party OpenTelemetry clients or different MLflow usage patterns):
 
 - **`mlflow.traceName`**: A human-readable name for the trace (e.g., `"customer_support_query"`, `"document_summarization"`). Often set by the application to describe the operation type. Useful for quickly understanding what the trace represents without examining its spans.
 - **`mlflow.sourceScorer`**: If this trace was generated as a side effect of running a scorer (e.g., an LLM judge evaluating another trace), this tag identifies which scorer produced it. Helps distinguish "real" application traces from evaluation traces.
@@ -147,7 +149,7 @@ Categorizes the operation this span represents. This tells you the *role* of the
 
 **This field is a free-form string, not an enum.** MLflow provides built-in span type constants (listed below), but applications can set any custom string value (e.g., `"ROUTER"`, `"VALIDATOR"`, `"CACHE_LOOKUP"`). When analyzing a trace, don't assume span types are limited to the built-in list — custom types reflect application-specific semantics defined by the developer.
 
-**Built-in span types:**
+**Built-in span types** (these are defined by the MLflow client; traces from third-party OpenTelemetry clients may use different type conventions or no span type at all — check the raw `attributes` dict for equivalent categorization):
 
 - **`LLM`**: A language model inference call. Examine `inputs` for the prompt/messages and `outputs` for the model response. Check token usage in attributes. When investigating quality issues, LLM span inputs reveal exactly what the model saw, which may differ from what you'd expect after prompt template rendering, context injection, and message formatting.
 - **`CHAT_MODEL`**: A chat-specific LLM call. Similar to `LLM` but specifically for chat completion APIs. Inputs contain message arrays (system, user, assistant messages) and outputs contain the model's response message. Useful for verifying conversation context is correctly constructed.
@@ -202,7 +204,9 @@ Compare outputs against expectations to identify where the execution diverged fr
 
 ### `attributes` (dict)
 
-A key-value dictionary of additional span metadata. Attributes are set by the tracing instrumentation and may include framework-specific details. Key attributes to look for:
+A key-value dictionary of additional span metadata. Attributes are set by the tracing instrumentation and may include framework-specific details.
+
+**Common MLflow client attributes** (these are specific to the MLflow Python client; traces from third-party OpenTelemetry clients will use different attribute names — e.g., GenAI Semantic Conventions, OpenInference, or custom keys — check the raw `attributes` dict to find equivalent fields):
 
 - **`mlflow.spanType`**: Redundant with `span_type` but present in raw attribute form.
 - **`mlflow.spanInputs`** / **`mlflow.spanOutputs`**: Serialized input/output data (the `inputs`/`outputs` fields are derived from these).
@@ -212,7 +216,9 @@ A key-value dictionary of additional span metadata. Attributes are set by the tr
 
 ### `events` (list[SpanEvent])
 
-Point-in-time occurrences recorded during the span's execution. The most important event type is **exception events**, which capture error details:
+Point-in-time occurrences recorded during the span's execution. The most important event type is **exception events**, which capture error details.
+
+The exception event format below follows the [OpenTelemetry exception semantic conventions](https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-spans/) and is used by the MLflow client. Traces from other OTel-compatible clients should use the same convention, though attribute names may vary:
 
 - **`name`**: For exceptions, this is `"exception"`.
 - **`timestamp`**: When the event occurred (nanoseconds). Useful for understanding whether the error happened early or late in the span's execution.
@@ -223,6 +229,32 @@ Point-in-time occurrences recorded during the span's execution. The most importa
 Non-exception events may also be present for custom instrumentation (e.g., logging checkpoints, state transitions).
 
 ## Assessment Fields
+
+The following fields are common to both Feedback and Expectation assessments.
+
+### `assessment_id` (str | None)
+
+The unique identifier for this assessment, generated by the backend when the assessment is created. Use this to reference a specific assessment when updating or overriding it. May be `None` if the assessment was created locally and not yet persisted to a tracking server.
+
+### `create_time_ms` (int)
+
+The timestamp when the assessment was first created, in milliseconds since the Unix epoch. Use this to understand when the assessment was produced relative to the trace itself — assessments created long after the trace may reflect delayed human review or batch evaluation runs.
+
+### `last_update_time_ms` (int)
+
+The timestamp of the most recent update to this assessment, in milliseconds since the Unix epoch. Compare with `create_time_ms` to determine if the assessment was modified after initial creation (e.g., a human reviewer revised their feedback).
+
+### `valid` (bool | None)
+
+Whether this assessment is currently valid (i.e., has not been overridden by a newer assessment). Set automatically by the backend — when a new assessment overrides this one, `valid` is set to `false`. When analyzing assessments, filter for `valid: true` to see only the most current judgments. An overridden assessment's `value` and `rationale` may be outdated.
+
+### `overrides` (str | None)
+
+The `assessment_id` of the assessment that this assessment supersedes. When a human corrects an LLM judge's feedback or re-evaluates a trace, the new assessment's `overrides` field points to the previous one. Use this to trace the revision history of assessments on a trace.
+
+### `run_id` (str | None)
+
+Links this assessment to an MLflow run (e.g., an evaluation run). When assessments are produced as part of `mlflow.evaluate()` or similar batch evaluation workflows, this field identifies which run generated them. Use this to group assessments by evaluation run or to find the evaluation configuration that produced a particular judgment.
 
 ### Feedback
 
@@ -257,7 +289,7 @@ A free-text explanation of why the feedback value was assigned. This is often th
 
 #### `metadata` (dict | None)
 
-Additional context about the assessment. Common metadata keys:
+Additional context about the assessment. Common metadata keys set by the MLflow client (these may not be present in assessments from other systems or custom integrations):
 - **`mlflow.assessmentSourceRunId`**: Links to the evaluation run that produced this assessment.
 - **`mlflow.judgeCost`**: The LLM cost incurred to generate this judgment (for LLM judge assessments).
 - **`mlflow.scorerTraceId`**: The trace ID of the scorer's own execution — useful for debugging the scorer itself if you suspect the judgment is wrong.
@@ -299,6 +331,8 @@ Additional context about the expectation, such as labeling instructions, confide
 If set, this expectation applies to a specific span's output rather than the trace's overall output. Span-level expectations are useful for testing intermediate steps — for example, verifying that a retriever span returned the right documents regardless of what the LLM did with them.
 
 ## Span Types — Analysis Cheat Sheet
+
+The types below are built into the MLflow client. Traces from third-party OpenTelemetry clients may use different type conventions or omit span types entirely — in that case, infer the operation's role from its name, attributes, and inputs/outputs.
 
 | Type | What to check when investigating issues |
 |---|---|
