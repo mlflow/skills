@@ -59,11 +59,16 @@ ROOT_ID=$(jq -r '.data.spans[] | select(.parent_span_id == null) | .span_id' tra
 jq --arg root "$ROOT_ID" '.data.spans[] | select(.parent_span_id == $root) | {name: .name, inputs: .attributes["mlflow.spanInputs"], outputs: .attributes["mlflow.spanOutputs"]}' trace_detail.json
 ```
 
-Also check the first trace's assessments. Assessments are quality judgments from scorers or human reviewers — they can help narrow down issues across the session. Filter out assessments with `feedback.error`, which indicate scorer/judge failures (not trace issues):
+Also check the first trace's assessments. **Session-level assessments are attached to the first trace in the session** — these evaluate the session as a whole (e.g., overall conversation quality, multi-turn coherence) and can indicate the presence of issues somewhere across the entire session, not just the first turn. The first trace may also have per-turn assessments for that specific turn.
+
+Both types appear in `.info.assessments`. Session-level assessments are identified by the presence of `mlflow.trace.session` in their `metadata` field:
 
 ```bash
-# Show assessments with actual values (exclude scorer errors)
-jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
+# Show session-level assessments (exclude scorer errors)
+jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"]) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
+
+# Show per-turn assessments (exclude scorer errors)
+jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"] == null) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
 ```
 
 **Assessment errors are not trace errors.** If an assessment has a `feedback.error` field, it means the scorer or judge failed — not that the trace itself has a problem. Exclude these when using assessments to identify trace issues.
