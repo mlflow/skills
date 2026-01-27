@@ -28,9 +28,9 @@ The structure of these values also varies by application (e.g., a `query` string
 ```bash
 mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
-  --filter-string "metadata.`mlflow.trace.session` = '<SESSION_ID>'" \
+  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
   --order-by "timestamp_ms ASC" \
-  --extract-fields "info.trace_id,info.request_time,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`" \
+  --extract-fields 'info.trace_id,info.request_time,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
   --output json \
   --max-results 1000
 ```
@@ -40,8 +40,8 @@ The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutp
 **CLI syntax notes:**
 
 - Metadata keys containing dots **must** be escaped with backticks in filter strings and extract-fields: `` metadata.`mlflow.trace.session` ``
-- In a shell command, backticks inside double quotes are interpreted as command substitution. Ensure proper escaping — e.g., use backslash-escaped backticks within double quotes (`\`mlflow.trace.session\``) or structure quoting carefully.
-- Default `--max-results` is 100. Increase for long conversations.
+- **Shell quoting**: Backticks inside **double quotes** are interpreted by bash as command substitution (e.g., bash will try to run `` `mlflow.trace.session` `` as a command). Always use **single quotes** for the outer string when the value contains backticks. For example: `--filter-string 'metadata.\`mlflow.trace.session\` = "value"'`
+- `--max-results` defaults to 100. Always set `--max-results 1000` to avoid missing turns. If exactly 1000 results are returned (meaning more may exist), increase the value.
 
 To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
 
