@@ -13,9 +13,26 @@ The session ID is stored in trace metadata under the key `mlflow.trace.session`.
 
 ## Reconstructing the Conversation
 
-Reconstructing a session's conversation is a two-step process: discover the input/output schema from one trace, then extract those fields efficiently across all session traces. **Do NOT fetch full traces for every turn** — use `--extract-fields` on the search command instead.
+Reconstructing a session's conversation is a multi-step process: discover the input/output schema from the first trace, extract those fields efficiently across all session traces, then inspect specific turns as needed. **Do NOT fetch full traces for every turn** — use `--extract-fields` on the search command instead.
 
-**Step 1: Discover the schema.** Fetch the full JSON for one trace in the session using `mlflow traces get --trace-id <ID>`. Find the root span (the span with no `parent_id`) and examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
+**Step 1: Discover the schema.** First, find a trace ID from the session, then fetch its full JSON to inspect the schema:
+
+```bash
+# Get the first trace in the session
+mlflow traces search \
+  --experiment-id <EXPERIMENT_ID> \
+  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
+  --order-by "timestamp_ms ASC" \
+  --extract-fields 'info.trace_id' \
+  --output json \
+  --max-results 1 > first_trace.json
+
+# Fetch the full trace (always outputs JSON, no --output flag needed)
+mlflow traces get \
+  --trace-id <TRACE_ID_FROM_ABOVE> > trace_detail.json
+```
+
+Find the root span (the span with no `parent_id`) and examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
 
 - **MLflow standard attributes**: `mlflow.spanInputs` and `mlflow.spanOutputs` (set by the MLflow Python client)
 - **Custom attributes**: Application-specific keys set via `@mlflow.trace` or `mlflow.start_span()` with custom attribute logging
@@ -23,7 +40,7 @@ Reconstructing a session's conversation is a two-step process: discover the inpu
 
 The structure of these values also varies by application (e.g., a `query` string, a `messages` array, a dict with multiple fields). Inspect the actual attribute values to understand the format.
 
-**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull just those fields:
+**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull just those fields (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
 
 ```bash
 mlflow traces search \
@@ -32,37 +49,59 @@ mlflow traces search \
   --order-by "timestamp_ms ASC" \
   --extract-fields 'info.trace_id,info.request_time,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
   --output json \
-  --max-results 1000
+  --max-results 100 > session_traces.json
 ```
+
+Then use bash commands (e.g., `jq`, `wc`, `head`) on the file to analyze it.
 
 The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutputs` from trace metadata — adjust the field paths based on what you discovered in step 1.
 
 **CLI syntax notes:**
 
+- **`--experiment-id` is required** for all `mlflow traces search` commands. The command will fail without it.
 - Metadata keys containing dots **must** be escaped with backticks in filter strings and extract-fields: `` metadata.`mlflow.trace.session` ``
 - **Shell quoting**: Backticks inside **double quotes** are interpreted by bash as command substitution (e.g., bash will try to run `` `mlflow.trace.session` `` as a command). Always use **single quotes** for the outer string when the value contains backticks. For example: `--filter-string 'metadata.\`mlflow.trace.session\` = "value"'`
-- `--max-results` defaults to 100. Always set `--max-results 1000` to avoid missing turns. If exactly 1000 results are returned (meaning more may exist), increase the value.
+- `--max-results` defaults to 100, which is sufficient for most sessions. Increase up to 500 (the maximum) for longer conversations. If 500 results are returned, use pagination to retrieve the rest.
+
+## Handling CLI Output
+
+MLflow trace output can be large, and Claude Code's Bash tool has a ~30KB output limit for piped commands. When output exceeds this threshold, it gets saved to a file instead of being piped, causing silent failures.
+
+**Safe approach (always works):**
+```bash
+# Step 1: Save to file
+mlflow traces search \
+  --experiment-id <EXPERIMENT_ID> \
+  [...] \
+  --output json > output.json
+
+# Step 2: Process the file
+cat output.json | jq '.traces[0].info.trace_id'
+head -50 output.json
+wc -l output.json
+```
+
+**Never pipe MLflow CLI output directly** (e.g., `mlflow traces search ... | jq '.'`). This can silently produce no output. Always redirect to a file first, then run commands on the file.
 
 To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
 
 ```bash
-mlflow traces get --trace-id <TRACE_ID>
+mlflow traces get --trace-id <TRACE_ID> > turn_detail.json
 ```
 
-## Analysis Insights
-
-- **Conversation quality often degrades over turns.** Early turns may be correct while later ones fail. When a user reports a bad answer, check whether earlier turns were fine — this narrows the problem to what changed (new context, accumulated errors, context window overflow).
-- **Context accumulation is a common failure mode.** Many chat applications pass the full conversation history to the LLM at each turn. As the conversation grows, the context can exceed the model's window, cause truncation, or dilute relevant information. Compare token usage across turns (via `mlflow.trace.tokenUsage` in trace metadata, if set) to detect growing context.
-- **Each turn is a full trace with its own span tree.** To understand *why* a specific turn went wrong, analyze that turn's trace the same way you would a single trace — check assessments, examine spans, correlate with code.
-- **Earlier turns can poison later ones.** If the system gave a wrong answer in turn 3 and the user didn't correct it, turns 4+ may build on that wrong information. When investigating a failure at turn N, always check turns N-1 and N-2 for earlier errors that propagated.
-- **Gaps in timestamps indicate pauses or lost turns.** Sorting by `timestamp_ms` gives chronological order. Large gaps may mean the user left and returned, or that some turns failed silently and weren't recorded.
-- **Session-level patterns reveal systemic issues.** If multiple sessions fail at similar turn counts or with similar queries, the problem is likely in the application's context management rather than a one-off issue.
 
 ## Codebase Correlation
 
 - **Session ID assignment**: Search the codebase for where `mlflow.trace.session` is set to understand how sessions are created — per user login, per browser tab, per explicit "new conversation" action, etc.
 - **Context window management**: Look for how the application constructs the message history passed to the LLM at each turn. Common patterns include sliding window (last N messages), summarization of older turns, or full history. This implementation determines what context the model sees and is a frequent source of multi-turn failures.
 - **Memory and state**: Some applications maintain state across turns beyond message history (e.g., extracted entities, user preferences, accumulated tool results). Search for how this state is stored and passed between turns.
+
+## Reference Scripts
+
+The `scripts/` subdirectory contains ready-to-run bash scripts for each analysis step. All scripts follow the output handling rules above (redirect to file, then process).
+
+- **`scripts/discover_schema.sh <EXPERIMENT_ID> <SESSION_ID>`** — Finds the first trace in the session, fetches its full detail, and prints the root span's attribute keys and input/output values.
+- **`scripts/inspect_turn.sh <TRACE_ID>`** — Fetches a specific trace, lists all spans, highlights error spans, and shows assessments.
 
 ## Example: Wrong Answer on Chat Turn 5
 
