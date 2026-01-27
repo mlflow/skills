@@ -73,6 +73,12 @@ jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["m
 
 **Assessment errors are not trace errors.** If an assessment has a `feedback.error` field, it means the scorer or judge failed — not that the trace itself has a problem. Exclude these when using assessments to identify trace issues.
 
+**Always consult the rationale when interpreting assessment values.** The `value` alone can be misleading — for example, a `user_frustration` assessment with `value: "no"` could mean "no frustration detected" or "the frustration check did not pass" (i.e., frustration *is* present), depending on how the scorer was configured. The `.rationale` field (a top-level assessment field, **not** nested under `.feedback`) explains what the value means in context. Include rationale when extracting assessments:
+
+```bash
+jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value, rationale: .rationale}]' trace_detail.json
+```
+
 **Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull those fields along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
 
 ```bash

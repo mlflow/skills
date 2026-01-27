@@ -52,6 +52,7 @@ The trace JSON has two top-level keys: `info` (metadata, assessments) and `data`
 | Assessment name | `.info.assessments[].assessment_name` |
 | Feedback value | `.info.assessments[].feedback.value` |
 | Feedback error | `.info.assessments[].feedback.error` |
+| Assessment rationale | `.info.assessments[].rationale` |
 
 **Important**: Span inputs and outputs are stored as serialized JSON strings inside `attributes`, not as top-level span fields. Traces from third-party OpenTelemetry clients may use different attribute names (e.g., GenAI Semantic Conventions, OpenInference, or custom keys) — check the raw `attributes` dict to find the equivalent fields.
 
@@ -84,7 +85,7 @@ jq '{
 ## Analysis Insights
 
 - **`state: OK` does not mean correct output.** It only means no unhandled exception. Check assessments for quality signals, and if none exist, analyze the trace's inputs, outputs, and intermediate span data directly for issues.
-- **Assessment `rationale` is the fastest path to understanding an issue** when assessments are present. It often describes the problem in plain language before you need to examine any spans.
+- **Always consult the `rationale` when interpreting assessment values.** The `value` alone can be misleading — for example, a `user_frustration` assessment with `value: "no"` could mean "no frustration detected" or "the frustration check did not pass" (i.e., frustration *is* present), depending on how the scorer was configured. The `.rationale` field (a top-level assessment field, **not** nested under `.feedback`) explains what the value means in context and often describes the issue in plain language before you need to examine any spans.
 - **Assessments tell you *what* went wrong; spans tell you *where*.** If assessments exist, use feedback/expectations to form a hypothesis, then confirm it in the span tree. If no assessments exist, examine span inputs/outputs to identify where the execution diverged from expected behavior.
 - **Assessment errors are not trace errors.** If an assessment has an `error` field, it means the scorer or judge that evaluated the trace failed — not that the trace itself has a problem. The trace may be perfectly fine; the assessment's `value` is just unreliable. This can happen when a scorer crashes (e.g., timed out, returned unparseable output) or when a scorer was applied to a trace type it wasn't designed for (e.g., a retrieval relevance scorer applied to a trace with no retrieval steps). The latter is a scorer configuration issue, not a trace issue.
 - **Span timing reveals performance issues.** Gaps between parent and child spans indicate overhead; repeated span names suggest retries; compare individual span durations to find bottlenecks.
