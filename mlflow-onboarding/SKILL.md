@@ -42,6 +42,8 @@ grep -rl --include='*.py' -E '(from sklearn|import torch|import tensorflow|impor
 
 ### Signal 2: Check the Experiment Type Tag
 
+If the codebase or project directory is the MLflow repository itself, skip to Signal 3 — the MLflow repo contains code for all use cases and does not indicate the user's intent.
+
 If the experiment ID is known, check its `mlflow.experimentKind` tag. This tag is set by MLflow to indicate the experiment type:
 
 ```bash
@@ -71,28 +73,28 @@ Once the use case is determined, recommend the appropriate quickstart tutorials 
 
 The MLflow GenAI documentation is at: https://mlflow.org/docs/latest/genai/getting-started/
 
-Recommend these tutorials in order:
+Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
 
-1. **Tracing Quickstart** (https://mlflow.org/docs/latest/genai/tracing/quickstart/) — Walks through enabling automatic tracing for LLM calls with a single line of code. Covers starting an MLflow server, creating an experiment, enabling autologging, and viewing traces in the UI.
-   - Python + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/
-   - TypeScript + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/typescript-openai
-   - OpenTelemetry (language-agnostic) variant: also linked from the quickstart page
+- **Tracing Quickstart** (https://mlflow.org/docs/latest/genai/tracing/quickstart/) — Enabling automatic tracing for LLM calls. Covers starting an MLflow server, creating an experiment, enabling autologging, and viewing traces in the UI.
+  - Python + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/
+  - TypeScript + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/typescript-openai
+  - OpenTelemetry (language-agnostic) variant: also linked from the quickstart page
+- **Evaluation Quickstart** (https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/) — Evaluating GenAI application quality using LLM judges (scorers). Covers defining datasets, prediction functions, and built-in + custom scorers.
+- **Version Tracking Quickstart** (https://mlflow.org/docs/latest/genai/version-tracking/quickstart/) — Prompt management, application versioning, and connecting tracing to versioned prompts.
 
-2. **Evaluation Quickstart** (https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/) — Walks through evaluating GenAI application quality using LLM judges (scorers). Covers defining datasets, prediction functions, and built-in + custom scorers.
-
-3. **Version Tracking Quickstart** (https://mlflow.org/docs/latest/genai/version-tracking/quickstart/) — Covers prompt management, application versioning, and connecting tracing to versioned prompts.
+If none of these match the user's needs, look up the MLflow GenAI documentation for more relevant guides.
 
 ### Traditional ML Path
 
 The MLflow ML documentation is at: https://mlflow.org/docs/latest/ml/getting-started/
 
-Recommend these tutorials in order:
+Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
 
-1. **Tracking Quickstart** (https://mlflow.org/docs/latest/ml/tracking/quickstart/) — Walks through experiment tracking with scikit-learn: autologging, manual parameter/metric/model logging, and exploring results in the MLflow UI.
+- **Tracking Quickstart** (https://mlflow.org/docs/latest/ml/tracking/quickstart/) — Experiment tracking with scikit-learn: autologging, manual parameter/metric/model logging, and exploring results in the MLflow UI.
+- **Deep Learning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/deep-learning/) — Training a PyTorch model with MLflow logging: parameters, metrics, checkpoints, and system metrics (GPU utilization, memory).
+- **Hyperparameter Tuning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/hyperparameter-tuning/) — Running hyperparameter searches with Optuna + MLflow, comparing results, and selecting the best model.
 
-2. **Deep Learning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/deep-learning/) — Walks through training a PyTorch model with MLflow logging: parameters, metrics, checkpoints, and system metrics (GPU utilization, memory).
-
-3. **Hyperparameter Tuning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/hyperparameter-tuning/) — Covers running hyperparameter searches with Optuna + MLflow, comparing results, and selecting the best model.
+If none of these match the user's needs, look up the MLflow ML documentation for more relevant guides.
 
 ## Step 3: Integrate MLflow into the User's Project
 
@@ -102,7 +104,29 @@ After the user has reviewed the quickstart tutorials (or opted to skip them), of
 
 The core integration for GenAI apps is **tracing** — capturing LLM calls, tool invocations, and agent steps automatically.
 
-**What to set up:**
+**If asked to create an example project:** Do not assume the user has LLM API keys (e.g., OpenAI, Anthropic). Instead, create traces with mock data using `@mlflow.trace` and `mlflow.start_span()` to demonstrate tracing without requiring external API access. For example:
+
+```python
+import mlflow
+
+mlflow.set_experiment("example-genai-app")
+
+@mlflow.trace
+def mock_chat(query: str) -> str:
+    with mlflow.start_span(name="retrieve_context") as span:
+        context = "Mock retrieved context for: " + query
+        span.set_inputs({"query": query})
+        span.set_outputs({"context": context})
+    with mlflow.start_span(name="generate_response") as span:
+        response = "Mock response based on: " + context
+        span.set_inputs({"context": context, "query": query})
+        span.set_outputs({"response": response})
+    return response
+
+mock_chat("What is MLflow?")
+```
+
+**What to set up (for an existing project):**
 
 1. **Autologging** — If the user's code uses a supported framework, a single line automatically traces all calls to their LLM provider. See https://mlflow.org/docs/latest/genai/tracing/ for the full list of supported providers. If the provider is supported:
 
