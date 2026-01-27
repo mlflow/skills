@@ -11,18 +11,75 @@ A trace captures the full execution of an AI/ML application as a tree of **spans
 
 It is recommended to read [references/trace-structure.md](references/trace-structure.md) before analyzing a trace — it covers the complete data model, all fields and types, analysis guidance, and OpenTelemetry compatibility notes.
 
-## Key Commands
+## Handling CLI Output
+
+Traces can be 100KB+ for complex agent executions. **Always redirect output to a file** — do not pipe `mlflow traces get` directly to `jq`, `head`, or other commands, as piping can silently produce no output.
 
 ```bash
-# Fetch full trace (recommended - parse the JSON output directly)
-mlflow traces get --trace-id <ID>
+# Fetch full trace to a file (traces get always outputs JSON, no --output flag needed)
+mlflow traces get --trace-id <ID> > trace.json
+
+# Then process the file
+jq '.info.state' trace.json
+jq '.data.spans | length' trace.json
 ```
 
-**Prefer fetching the full trace and parsing the JSON directly** rather than using `--extract-fields`. The `--extract-fields` flag has limited support for nested span data (e.g., span inputs/outputs may return empty objects). Fetch the complete trace once and parse it as needed — traces can be 100KB+ for complex agent executions, which is normal.
+**Prefer fetching the full trace and parsing the JSON directly** rather than using `--extract-fields`. The `--extract-fields` flag has limited support for nested span data (e.g., span inputs/outputs may return empty objects). Fetch the complete trace once and parse it as needed.
 
-## JSON Structure Notes
+## JSON Structure
 
-In the raw trace JSON, span inputs and outputs are stored as serialized strings inside `attributes`, not as top-level span fields. For MLflow-instrumented traces, these are `attributes."mlflow.spanInputs"` and `attributes."mlflow.spanOutputs"`. Traces from third-party OpenTelemetry clients may use different attribute names (e.g., GenAI Semantic Conventions, OpenInference, or custom keys) — check the raw `attributes` dict to find the equivalent fields. Assessment names appear as `assessment_name`, and feedback values are nested under `feedback.value`.
+The trace JSON has two top-level keys: `info` (metadata, assessments) and `data` (spans).
+
+```
+{
+  "info": { "trace_id", "state", "request_time", "assessments", ... },
+  "data": { "spans": [ { "span_id", "name", "status", "attributes", ... } ] }
+}
+```
+
+**Key paths** (verified against actual CLI output):
+
+| What | jq path |
+|---|---|
+| Trace state | `.info.state` |
+| All spans | `.data.spans` |
+| Root span | `.data.spans[] \| select(.parent_span_id == null)` |
+| Span status code | `.data.spans[].status.code` (values: `STATUS_CODE_OK`, `STATUS_CODE_ERROR`, `STATUS_CODE_UNSET`) |
+| Span status message | `.data.spans[].status.message` |
+| Span inputs | `.data.spans[].attributes["mlflow.spanInputs"]` |
+| Span outputs | `.data.spans[].attributes["mlflow.spanOutputs"]` |
+| Assessments | `.info.assessments` |
+| Assessment name | `.info.assessments[].assessment_name` |
+| Feedback value | `.info.assessments[].feedback.value` |
+| Feedback error | `.info.assessments[].feedback.error` |
+
+**Important**: Span inputs and outputs are stored as serialized JSON strings inside `attributes`, not as top-level span fields. Traces from third-party OpenTelemetry clients may use different attribute names (e.g., GenAI Semantic Conventions, OpenInference, or custom keys) — check the raw `attributes` dict to find the equivalent fields.
+
+**If paths don't match** (structure may vary by MLflow version), discover them:
+
+```bash
+# Top-level keys
+jq 'keys' trace.json
+
+# Span keys
+jq '.data.spans[0] | keys' trace.json
+
+# Status structure
+jq '.data.spans[0].status' trace.json
+```
+
+## Quick Health Check
+
+After fetching a trace to a file, run this to get a summary:
+
+```bash
+jq '{
+  state: .info.state,
+  span_count: (.data.spans | length),
+  error_spans: [.data.spans[] | select(.status.code == "STATUS_CODE_ERROR") | .name],
+  assessment_errors: [.info.assessments[] | select(.feedback.error) | .assessment_name]
+}' trace.json
+```
 
 ## Analysis Insights
 

@@ -5,7 +5,7 @@
 - [Trace Composition](#trace-composition)
 - [OpenTelemetry Compatibility](#opentelemetry-compatibility)
 - [TraceInfo Fields](#traceinfo-fields) — trace_id, state, request_time, execution_duration, request_preview, response_preview, client_request_id, trace_location, trace_metadata, tags, assessments
-- [Span Fields](#span-fields) — span_id, trace_id, parent_id, name, span_type, start_time_ns/end_time_ns, status, inputs, outputs, attributes, events
+- [Span Fields](#span-fields) — span_id, trace_id, parent_span_id, name, span_type, start_time_unix_nano/end_time_unix_nano, status, inputs, outputs, attributes, events
 - [Assessment Fields](#assessment-fields) — Common (assessment_id, create_time_ms, last_update_time_ms, valid, overrides, run_id), Feedback (name, value, source, rationale, metadata, span_id, error), and Expectation (name, value, source, metadata, span_id)
 - [Span Types — Analysis Cheat Sheet](#span-types--analysis-cheat-sheet)
 
@@ -31,10 +31,10 @@ Trace
 │       └── Expectation (name, value, source)
 └── TraceData
     └── spans (list[Span])
-        ├── span_id, trace_id, parent_id
+        ├── span_id, trace_id, parent_span_id
         ├── name, span_type
-        ├── start_time_ns, end_time_ns
-        ├── status (code + description)
+        ├── start_time_unix_nano, end_time_unix_nano
+        ├── status (code + message)
         ├── inputs, outputs
         ├── attributes (dict)
         └── events (list[SpanEvent])
@@ -135,7 +135,7 @@ A unique identifier for this span within the trace. Used to reference specific s
 
 The trace this span belongs to. All spans in a trace share the same `trace_id`. Use this to confirm that a span belongs to the trace you're analyzing, especially when working with spans from batch queries.
 
-### `parent_id` (str | None)
+### `parent_span_id` (str | None)
 
 The `span_id` of this span's parent. `None` for the root span (the top-level operation). The parent-child relationships form a tree that mirrors the application's call stack. When investigating an error, trace upward from the failing span through its parents to understand the sequence of calls that led to the failure. When investigating quality issues, trace downward from the root span through its children to follow the execution flow.
 
@@ -166,21 +166,23 @@ Categorizes the operation this span represents. This tells you the *role* of the
 - **`WORKFLOW`** / **`TASK`**: Higher-level orchestration spans grouping multiple operations into a logical unit.
 - **`UNKNOWN`**: The default when no type is specified.
 
-### `start_time_ns` / `end_time_ns` (int)
+### `start_time_unix_nano` / `end_time_unix_nano` (int)
 
 Span start and end times in nanoseconds since epoch. The difference gives the span's wall-clock duration. Use these to build a timeline of execution:
-- **Find the slowest span**: The span with the largest `end_time_ns - start_time_ns` is your bottleneck.
+- **Find the slowest span**: The span with the largest `end_time_unix_nano - start_time_unix_nano` is your bottleneck.
 - **Find gaps**: If a parent span's duration is much longer than the sum of its children, time is being spent between child calls (e.g., data processing, serialization, network overhead).
 - **Detect sequential vs. parallel**: If child spans overlap in time, operations are running in parallel. If they're strictly sequential, look for parallelization opportunities.
 - **Identify retries**: Multiple child spans with the same name and sequential timing suggest retry behavior.
 
 ### `status` (SpanStatus)
 
-The completion status of this span:
+The completion status of this span. Contains two fields: `code` and `message`.
 
-- **`OK`**: The operation completed without error.
-- **`ERROR`**: The operation raised an exception or was explicitly marked as failed. When `status` is `ERROR`, check the `events` list for exception details. The `status.description` field may contain the error message.
-- **`UNSET`**: The status was not explicitly set. This is the default for spans that complete normally without explicit status management. Treat as equivalent to `OK` in most cases.
+The `code` field values are:
+
+- **`STATUS_CODE_OK`**: The operation completed without error.
+- **`STATUS_CODE_ERROR`**: The operation raised an exception or was explicitly marked as failed. When `status.code` is `STATUS_CODE_ERROR`, check the `events` list for exception details. The `status.message` field may contain the error message.
+- **`STATUS_CODE_UNSET`**: The status was not explicitly set. This is the default for spans that complete normally without explicit status management. Treat as equivalent to `STATUS_CODE_OK` in most cases.
 
 ### `inputs` (Any)
 

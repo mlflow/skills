@@ -32,7 +32,14 @@ mlflow traces get \
   --trace-id <TRACE_ID_FROM_ABOVE> > trace_detail.json
 ```
 
-Find the root span (the span with no `parent_id`) and examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
+Find the **root span** — the span with `parent_span_id` equal to `null` (i.e., it has no parent). This is the top-level operation in the trace:
+
+```bash
+# Find the root span
+jq '.data.spans[] | select(.parent_span_id == null)' trace_detail.json
+```
+
+Examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
 
 - **MLflow standard attributes**: `mlflow.spanInputs` and `mlflow.spanOutputs` (set by the MLflow Python client)
 - **Custom attributes**: Application-specific keys set via `@mlflow.trace` or `mlflow.start_span()` with custom attribute logging
@@ -40,14 +47,35 @@ Find the root span (the span with no `parent_id`) and examine its `attributes` d
 
 The structure of these values also varies by application (e.g., a `query` string, a `messages` array, a dict with multiple fields). Inspect the actual attribute values to understand the format.
 
-**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull just those fields (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
+**If the root span has empty or missing inputs/outputs**, it may be a wrapper span (e.g., an orchestrator or middleware) that doesn't directly carry the chat turn data. In that case, look at its immediate children — find the closest span to the top of the hierarchy that has meaningful inputs and outputs corresponding to a chat turn:
+
+The following example assumes the trace comes from the MLflow Python client (which stores inputs/outputs in `mlflow.spanInputs`/`mlflow.spanOutputs`) and that the relevant span is a direct child of root. In practice, the relevant span may be deeper in the hierarchy, and traces from other clients may use different attribute keys — explore the span tree as needed:
+
+```bash
+# Get the root span's ID
+ROOT_ID=$(jq -r '.data.spans[] | select(.parent_span_id == null) | .span_id' trace_detail.json)
+
+# List immediate children of the root span with their inputs/outputs
+jq --arg root "$ROOT_ID" '.data.spans[] | select(.parent_span_id == $root) | {name: .name, inputs: .attributes["mlflow.spanInputs"], outputs: .attributes["mlflow.spanOutputs"]}' trace_detail.json
+```
+
+Also check the first trace's assessments. Assessments are quality judgments from scorers or human reviewers — they can help narrow down issues across the session. Filter out assessments with `feedback.error`, which indicate scorer/judge failures (not trace issues):
+
+```bash
+# Show assessments with actual values (exclude scorer errors)
+jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
+```
+
+**Assessment errors are not trace errors.** If an assessment has a `feedback.error` field, it means the scorer or judge failed — not that the trace itself has a problem. Exclude these when using assessments to identify trace issues.
+
+**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull those fields along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
 
 ```bash
 mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
   --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
   --order-by "timestamp_ms ASC" \
-  --extract-fields 'info.trace_id,info.request_time,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
+  --extract-fields 'info.trace_id,info.state,info.request_time,info.assessments,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
   --output json \
   --max-results 100 > session_traces.json
 ```
@@ -55,6 +83,21 @@ mlflow traces search \
 Then use bash commands (e.g., `jq`, `wc`, `head`) on the file to analyze it.
 
 The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutputs` from trace metadata — adjust the field paths based on what you discovered in step 1.
+
+Assessments contain quality judgments (e.g., correctness, relevance) that can pinpoint which turns had issues without needing to read every trace in detail. To identify which turns have assessment signals (excluding scorer errors):
+
+```bash
+# List turns with their valid assessments (scorer errors filtered out)
+jq '.traces[] | {
+  trace_id: .info.trace_id,
+  time: .info.request_time,
+  state: .info.state,
+  assessments: [.info.assessments[]? | select(.feedback.error == null) | {
+    name: .assessment_name,
+    value: .feedback.value
+  }]
+}' session_traces.json
+```
 
 **CLI syntax notes:**
 
