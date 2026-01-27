@@ -25,18 +25,18 @@ mlflow traces search \
   --order-by "timestamp_ms ASC" \
   --extract-fields 'info.trace_id' \
   --output json \
-  --max-results 1 > first_trace.json
+  --max-results 1 > /tmp/first_trace.json
 
 # Fetch the full trace (always outputs JSON, no --output flag needed)
 mlflow traces get \
-  --trace-id <TRACE_ID_FROM_ABOVE> > trace_detail.json
+  --trace-id <TRACE_ID_FROM_ABOVE> > /tmp/trace_detail.json
 ```
 
 Find the **root span** — the span with `parent_span_id` equal to `null` (i.e., it has no parent). This is the top-level operation in the trace:
 
 ```bash
 # Find the root span
-jq '.data.spans[] | select(.parent_span_id == null)' trace_detail.json
+jq '.data.spans[] | select(.parent_span_id == null)' /tmp/trace_detail.json
 ```
 
 Examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
@@ -53,10 +53,10 @@ The following example assumes the trace comes from the MLflow Python client (whi
 
 ```bash
 # Get the root span's ID
-ROOT_ID=$(jq -r '.data.spans[] | select(.parent_span_id == null) | .span_id' trace_detail.json)
+ROOT_ID=$(jq -r '.data.spans[] | select(.parent_span_id == null) | .span_id' /tmp/trace_detail.json)
 
 # List immediate children of the root span with their inputs/outputs
-jq --arg root "$ROOT_ID" '.data.spans[] | select(.parent_span_id == $root) | {name: .name, inputs: .attributes["mlflow.spanInputs"], outputs: .attributes["mlflow.spanOutputs"]}' trace_detail.json
+jq --arg root "$ROOT_ID" '.data.spans[] | select(.parent_span_id == $root) | {name: .name, inputs: .attributes["mlflow.spanInputs"], outputs: .attributes["mlflow.spanOutputs"]}' /tmp/trace_detail.json
 ```
 
 Also check the first trace's assessments. **Session-level assessments are attached to the first trace in the session** — these evaluate the session as a whole (e.g., overall conversation quality, multi-turn coherence) and can indicate the presence of issues somewhere across the entire session, not just the first turn. The first trace may also have per-turn assessments for that specific turn.
@@ -65,10 +65,10 @@ Both types appear in `.info.assessments`. Session-level assessments are identifi
 
 ```bash
 # Show session-level assessments (exclude scorer errors)
-jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"]) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
+jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"]) | {name: .assessment_name, value: .feedback.value}]' /tmp/trace_detail.json
 
 # Show per-turn assessments (exclude scorer errors)
-jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"] == null) | {name: .assessment_name, value: .feedback.value}]' trace_detail.json
+jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"] == null) | {name: .assessment_name, value: .feedback.value}]' /tmp/trace_detail.json
 ```
 
 **Assessment errors are not trace errors.** If an assessment has a `feedback.error` field, it means the scorer or judge failed — not that the trace itself has a problem. Exclude these when using assessments to identify trace issues.
@@ -76,7 +76,7 @@ jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["m
 **Always consult the rationale when interpreting assessment values.** The `value` alone can be misleading — for example, a `user_frustration` assessment with `value: "no"` could mean "no frustration detected" or "the frustration check did not pass" (i.e., frustration *is* present), depending on how the scorer was configured. The `.rationale` field (a top-level assessment field, **not** nested under `.feedback`) explains what the value means in context. Include rationale when extracting assessments:
 
 ```bash
-jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value, rationale: .rationale}]' trace_detail.json
+jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value, rationale: .rationale}]' /tmp/trace_detail.json
 ```
 
 **Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull those fields along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
@@ -88,7 +88,7 @@ mlflow traces search \
   --order-by "timestamp_ms ASC" \
   --extract-fields 'info.trace_id,info.state,info.request_time,info.assessments,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
   --output json \
-  --max-results 100 > session_traces.json
+  --max-results 100 > /tmp/session_traces.json
 ```
 
 Then use bash commands (e.g., `jq`, `wc`, `head`) on the file to analyze it.
@@ -107,7 +107,7 @@ jq '.traces[] | {
     name: .assessment_name,
     value: .feedback.value
   }]
-}' session_traces.json
+}' /tmp/session_traces.json
 ```
 
 **CLI syntax notes:**
@@ -127,12 +127,12 @@ MLflow trace output can be large, and Claude Code's Bash tool has a ~30KB output
 mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
   [...] \
-  --output json > output.json
+  --output json > /tmp/output.json
 
 # Step 2: Process the file
-cat output.json | jq '.traces[0].info.trace_id'
-head -50 output.json
-wc -l output.json
+cat /tmp/output.json | jq '.traces[0].info.trace_id'
+head -50 /tmp/output.json
+wc -l /tmp/output.json
 ```
 
 **Never pipe MLflow CLI output directly** (e.g., `mlflow traces search ... | jq '.'`). This can silently produce no output. Always redirect to a file first, then run commands on the file.
@@ -140,7 +140,7 @@ wc -l output.json
 To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
 
 ```bash
-mlflow traces get --trace-id <TRACE_ID> > turn_detail.json
+mlflow traces get --trace-id <TRACE_ID> > /tmp/turn_detail.json
 ```
 
 

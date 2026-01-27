@@ -17,11 +17,11 @@ Traces can be 100KB+ for complex agent executions. **Always redirect output to a
 
 ```bash
 # Fetch full trace to a file (traces get always outputs JSON, no --output flag needed)
-mlflow traces get --trace-id <ID> > trace.json
+mlflow traces get --trace-id <ID> > /tmp/trace.json
 
 # Then process the file
-jq '.info.state' trace.json
-jq '.data.spans | length' trace.json
+jq '.info.state' /tmp/trace.json
+jq '.data.spans | length' /tmp/trace.json
 ```
 
 **Prefer fetching the full trace and parsing the JSON directly** rather than using `--extract-fields`. The `--extract-fields` flag has limited support for nested span data (e.g., span inputs/outputs may return empty objects). Fetch the complete trace once and parse it as needed.
@@ -60,13 +60,13 @@ The trace JSON has two top-level keys: `info` (metadata, assessments) and `data`
 
 ```bash
 # Top-level keys
-jq 'keys' trace.json
+jq 'keys' /tmp/trace.json
 
 # Span keys
-jq '.data.spans[0] | keys' trace.json
+jq '.data.spans[0] | keys' /tmp/trace.json
 
 # Status structure
-jq '.data.spans[0].status' trace.json
+jq '.data.spans[0].status' /tmp/trace.json
 ```
 
 ## Quick Health Check
@@ -79,7 +79,7 @@ jq '{
   span_count: (.data.spans | length),
   error_spans: [.data.spans[] | select(.status.code == "STATUS_CODE_ERROR") | .name],
   assessment_errors: [.info.assessments[] | select(.feedback.error) | .assessment_name]
-}' trace.json
+}' /tmp/trace.json
 ```
 
 ## Analysis Insights
