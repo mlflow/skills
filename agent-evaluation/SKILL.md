@@ -1,6 +1,6 @@
 ---
 name: agent-evaluation
-description: Use this when you need to IMPROVE or OPTIMIZE an existing LLM agent's performance - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
+description: Use this when you need to EVALUATE OR IMPROVE or OPTIMIZE an existing LLM agent's output quality - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
 allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 ---
 
@@ -23,7 +23,7 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 **Evaluation workflow in 4 steps**:
 
 1. **Understand**: Run agent, inspect traces, understand purpose
-2. **Define**: Select/create scorers for quality criteria
+2. **Define**: Select/create and register scorers for quality criteria
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
@@ -78,17 +78,6 @@ uv run mlflow traces evaluate ... --output json > results.json 2> evaluation.log
 - Dataset creation (read GenAI dataset docs from llms.txt)
 - Scorer registration (check MLflow docs for scorer APIs)
 - Evaluation execution (understand mlflow.genai.evaluate API)
-
-## Pre-Flight Validation
-
-Validate environment before starting:
-
-```bash
-uv run mlflow --version  # Should be >=3.8.0
-uv run python -c "import mlflow; print(f'MLflow {mlflow.__version__} installed')"
-```
-
-If MLflow is missing or version is <3.8.0, see Setup Overview below.
 
 ## Discovering Agent Structure
 
@@ -158,8 +147,6 @@ uv run python scripts/validate_environment.py  # Check MLflow install, env vars,
 uv run python scripts/validate_auth.py         # Test authentication before expensive operations
 ```
 
-**For complete setup instructions:** See `references/setup-guide.md`
-
 ## Evaluation Workflow
 
 ### Step 1: Understand Agent Purpose
@@ -171,21 +158,40 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 ### Step 2: Define Quality Scorers
 
-1. **Discover built-in scorers using documentation protocol:**
-   - Query `https://mlflow.org/docs/latest/llms.txt` for "What built-in LLM judges or scorers are available?"
-   - Read scorer documentation to understand their purpose and requirements
-   - Note: Do NOT use `mlflow scorers list -b` - use documentation instead for accurate information
-
-2. **Check registered scorers in your experiment:**
+1. **Check registered scorers in your experiment:**
    ```bash
    uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
    ```
 
-3. Identify quality dimensions for your agent and select appropriate scorers
-4. Register scorers and test on sample trace before full evaluation
+**IMPORTANT: if there are registered scorers in the experiment then they must be used for evaluation.**
 
-**For scorer selection and registration:** See `references/scorers.md`
-**For CLI constraints (yes/no format, template variables):** See `references/scorers-constraints.md`
+2. **Select additional built-in scorers that apply to the agent** 
+
+See `references/scorers.md` for the built-in scorers. Select any that are useful for assessing the agent's quality and that are not already registered. 
+
+3. **Create additional custom scorers as needed**
+
+If needed, create additional scorers using the `make_judge()` API. See `references/scorers.md` on how to create custom scorers and `references/scorers-constraints.md` for best practices.
+
+4. **REQUIRED: Register new scorers before evaluation** using Python API:
+   
+   ```python
+   from mlflow.genai.judges import make_judge
+   from mlflow.genai.scorers import BuiltinScorerName
+   import os
+
+   scorer = make_judge(...)  # Or, scorer = BuiltinScorerName()
+   scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
+   ```
+
+** IMPORTANT:  See `references/scorers.md` → "Model Selection for Scorers" to configure the `model` parameter of scorers before registration.
+
+⚠️ **Scorers MUST be registered before evaluation.** Inline scorers that aren't registered won't appear in `mlflow scorers list` and won't be reusable.
+
+5. **Verify registration:**
+   ```bash
+   uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID  # Should show your scorers
+   ```
 
 ### Step 3: Prepare Evaluation Dataset
 

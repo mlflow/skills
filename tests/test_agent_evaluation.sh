@@ -19,10 +19,11 @@
 #   extra_prompt    - Optional text to append to the Claude Code prompt
 #
 # Options via environment variables:
-#   SKILL_DIR       - Path to agent-evaluation skill (default: script's parent dir)
-#   TIMEOUT_SECONDS - Claude Code execution timeout (default: 900 = 15 mins)
-#   MLFLOW_PORT     - Port for local MLflow server (default: 5000)
-#   KEEP_WORKDIR    - Set to "true" to keep the working directory after completion
+#   SKILL_DIR            - Path to agent-evaluation skill (default: script's parent dir)
+#   TIMEOUT_SECONDS      - Claude Code execution timeout (default: 900 = 15 mins)
+#   MLFLOW_PORT          - Port for local MLflow server (default: 5000)
+#   KEEP_WORKDIR         - Set to "true" to keep the working directory after completion
+#   MLFLOW_TRACKING_URI  - If set, use this external MLflow server instead of starting a local one
 #
 
 set -euo pipefail
@@ -45,6 +46,8 @@ TEST_EXPERIMENT_ID=""
 LOG_FILE=""
 MLFLOW_SERVER_PID=""
 EXTRA_PROMPT="${1:-}"  # Optional extra prompt from first argument
+EXTERNAL_MLFLOW_URI="${MLFLOW_TRACKING_URI:-}"  # Optional external MLflow URI
+USE_EXTERNAL_SERVER=false
 
 # Exit codes
 EXIT_SUCCESS=0
@@ -98,8 +101,8 @@ cleanup() {
         fi
     fi
 
-    # Stop MLflow server if running
-    if [[ -n "${MLFLOW_SERVER_PID}" ]]; then
+    # Stop MLflow server if we started one (not when using external server)
+    if [[ -n "${MLFLOW_SERVER_PID}" && "${USE_EXTERNAL_SERVER}" != "true" ]]; then
         log_info "Stopping MLflow server (PID: ${MLFLOW_SERVER_PID})..."
         kill "${MLFLOW_SERVER_PID}" 2>/dev/null || true
         wait "${MLFLOW_SERVER_PID}" 2>/dev/null || true
@@ -114,7 +117,11 @@ cleanup() {
         log_info "Keeping working directory: ${WORK_DIR}"
         log_info "  Claude Code output log: ${LOG_FILE:-N/A}"
         log_info "  Claude session logs: ${WORK_DIR}/claude-sessions/"
-        log_info "  MLflow data: ${WORK_DIR}/mlflow-data"
+        if [[ "${USE_EXTERNAL_SERVER}" == "true" ]]; then
+            log_info "  MLflow tracking URI: ${EXTERNAL_MLFLOW_URI}"
+        else
+            log_info "  MLflow data: ${WORK_DIR}/mlflow-data"
+        fi
         log_info "  Evaluation experiment ID: ${TEST_EXPERIMENT_ID:-N/A}"
     fi
 
@@ -168,14 +175,19 @@ check_prerequisites() {
 
     log_info "Skill directory found: ${SKILL_DIR}"
 
-    # Check if port is available
-    if lsof -i ":${MLFLOW_PORT}" &>/dev/null; then
-        log_error "Port ${MLFLOW_PORT} is already in use"
-        log_error "Set MLFLOW_PORT to use a different port"
-        return 1
+    # Check if using external MLflow server
+    if [[ -n "${EXTERNAL_MLFLOW_URI}" ]]; then
+        USE_EXTERNAL_SERVER=true
+        log_info "Using external MLflow server: ${EXTERNAL_MLFLOW_URI}"
+    else
+        # Check if port is available (only needed for local server)
+        if lsof -i ":${MLFLOW_PORT}" &>/dev/null; then
+            log_error "Port ${MLFLOW_PORT} is already in use"
+            log_error "Set MLFLOW_PORT to use a different port"
+            return 1
+        fi
+        log_info "Port ${MLFLOW_PORT} is available"
     fi
-
-    log_info "Port ${MLFLOW_PORT} is available"
 
     log_success "All prerequisites satisfied"
     return 0
@@ -291,15 +303,45 @@ setup_phase() {
     fi
     log_info "MLflow package added"
 
-    # Start local MLflow server (must be after uv sync so mlflow is available)
-    if ! start_mlflow_server; then
-        popd > /dev/null
-        return 1
+    # Start local MLflow server or use external one
+    if [[ "${USE_EXTERNAL_SERVER}" == "true" ]]; then
+        log_section "Using External MLflow Server"
+        export MLFLOW_TRACKING_URI="${EXTERNAL_MLFLOW_URI}"
+        log_info "MLFLOW_TRACKING_URI set to: ${MLFLOW_TRACKING_URI}"
+        log_success "External MLflow server configured"
+    else
+        # Start local MLflow server (must be after uv sync so mlflow is available)
+        if ! start_mlflow_server; then
+            popd > /dev/null
+            return 1
+        fi
     fi
 
     # Create test experiment
     local timestamp=$(date +%Y%m%d-%H%M%S)
-    TEST_EXPERIMENT_NAME="agent-eval-test-${timestamp}"
+    local base_experiment_name="agent-eval-test-${timestamp}"
+
+    # For Databricks, experiment names must be absolute workspace paths
+    if [[ "${USE_EXTERNAL_SERVER}" == "true" && "${EXTERNAL_MLFLOW_URI}" == databricks://* ]]; then
+        # Extract profile name from databricks://<profile> URI
+        local db_profile="${EXTERNAL_MLFLOW_URI#databricks://}"
+        log_info "Detecting Databricks workspace user for profile: ${db_profile}"
+
+        # Get current user's email from Databricks CLI
+        local db_user
+        db_user=$(databricks current-user me -p "${db_profile}" 2>/dev/null | python3 -c "import sys, json; print(json.load(sys.stdin).get('userName', ''))" 2>/dev/null || echo "")
+
+        if [[ -z "${db_user}" ]]; then
+            log_error "Failed to get Databricks user. Make sure 'databricks auth login -p ${db_profile}' has been run."
+            popd > /dev/null
+            return 1
+        fi
+
+        TEST_EXPERIMENT_NAME="/Users/${db_user}/${base_experiment_name}"
+        log_info "Using Databricks workspace path for experiment"
+    else
+        TEST_EXPERIMENT_NAME="${base_experiment_name}"
+    fi
 
     log_info "Creating test experiment: ${TEST_EXPERIMENT_NAME}"
 
@@ -539,6 +581,9 @@ main() {
     log_info "Starting test at $(date)"
     if [[ -n "${EXTRA_PROMPT}" ]]; then
         log_info "Extra prompt argument: ${EXTRA_PROMPT}"
+    fi
+    if [[ -n "${EXTERNAL_MLFLOW_URI}" ]]; then
+        log_info "External MLflow URI: ${EXTERNAL_MLFLOW_URI}"
     fi
 
     # Phase 1: Check prerequisites

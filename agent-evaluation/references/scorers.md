@@ -6,9 +6,10 @@ Complete guide for selecting and creating scorers to evaluate agent quality.
 
 1. [Understanding Scorers](#understanding-scorers)
 2. [Built-in Scorers](#built-in-scorers)
-3. [Custom Scorer Design](#custom-scorer-design)
-4. [Scorer Registration](#scorer-registration)
-5. [Testing Scorers](#testing-scorers)
+3. [Model Selection for Scorers](#model-selection-for-scorers)
+4. [Custom Scorer Design](#custom-scorer-design)
+5. [Scorer Registration](#scorer-registration)
+6. [Testing Scorers](#testing-scorers)
 
 ## Understanding Scorers
 
@@ -18,7 +19,7 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 
 - Take as input single-turn inputs&outputs, or multi-turn conversations, or traces
 - Apply quality criteria (relevance, accuracy, completeness, etc.)
-- Return a score or pass/fail judgment
+- Return a structured assessment (pass/fail or numeric) along with a rationale
 - Can be built-in (provided by MLflow) or custom (defined by you)
 
 ### Types of Scorers
@@ -37,75 +38,42 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 - Examples: Factual Accuracy, Answer Correctness
 - Require datasets with `expectations` field
 
-### LLM-as-a-Judge Pattern
-
-Modern scorers use an LLM to judge quality:
-
-1. Scorer receives information on agent's execution (input&output, or trace, or conversation)
-2. LLM is given evaluation instructions
-3. LLM judges whether criteria is met
-4. Returns a structured assessment (pass/fail or numeric) along with a rationale
-
 ## Built-in Scorers
 
 MLflow provides several built-in scorers for common evaluation criteria.
 
-### Discovering Built-in Scorers
+### Single-Turn Scorers[â€‹](#single-turn-scorers "Direct link to Single-Turn Scorers")
 
-**IMPORTANT: Use the documentation protocol to discover built-in scorers.**
+| Scorer                                                                                                                        | What does it evaluate?                                        | Requires ground-truth? | Requires traces?      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | --------------------- |
+| [RelevanceToQuery](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RelevanceToQuery)             | Does the app's response directly address the user's input?    | No                     | No                    |
+| [Correctness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Correctness)                       | Are the expected facts supported by the app's response?       | Yes\*                  | No                    |
+| [Completeness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Completeness)                | Does the agent address all questions in a single user prompt? | No                     | No                    |
+| [Fluency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Fluency)                               | Is the response grammatically correct and naturally flowing?  | No                     | No                    |
+| [Guidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Guidelines)                         | Does the response adhere to provided guidelines?              | Yes\*                  | No                    |
+| [ExpectationsGuidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ExpectationsGuidelines) | Does the response meet specific expectations and guidelines?  | Yes\*                  | No                    |
+| [Safety](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Safety)                                 | Does the app's response avoid harmful or toxic content?       | No                     | No                    |
+| [Equivalence](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Equivalence)                       | Is the app's response equivalent to the expected output?      | Yes                    | No                    |
+| [RetrievalGroundedness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalGroundedness)   | Is the app's response grounded in retrieved information?      | No                     |  **Trace Required** |
+| [RetrievalRelevance](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalRelevance)         | Are retrieved documents relevant to the user's request?       | No                     | **Trace Required** |
+| [RetrievalSufficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalSufficiency)     | Do retrieved documents contain all necessary information?     | Yes                    | **Trace Required** |
+| [ToolCallCorrectness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ToolCallCorrectness)   | Are the tool calls and arguments correct for the user query?  | No                     | **Trace Required** |
+| [ToolCallEfficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ToolCallEfficiency)    | Are the tool calls efficient without redundancy?              | No                     |  **Trace Required** |
 
-Do NOT use `mlflow scorers list -b` - it may be incomplete or unavailable in some environments. Instead:
 
-1. Query MLflow documentation via llms.txt:
-   ```
-   WebFetch https://mlflow.org/docs/latest/llms.txt with prompt:
-   "What built-in LLM judges or scorers are available in MLflow for evaluating GenAI agents?"
-   ```
+### Multi-Turn Scorers(#multi-turn-scorers "Direct link to Multi-Turn Scorers")
 
-2. Read scorer documentation pages referenced in llms.txt to understand:
-   - Scorer names and how to import them
-   - What each scorer evaluates
-   - Required inputs (trace structure, expected_response, etc.)
-   - When to use each scorer
+Multi-turn scorers evaluate entire conversation sessions rather than individual turns. They require traces with session IDs.
 
-3. Verify scorer availability by attempting import:
-   ```python
-   from mlflow.genai.scorers import Correctness, RelevanceToQuery
-   ```
-
-### Checking Registered Scorers
-
-List scorers registered in your experiment:
-
-```bash
-uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
-```
-
-Output shows:
-- Scorer names
-- Whether they're built-in or custom
-- Registration details
-
-**IMPORTANT: if there are registered scorers in the experiment then they must be used for evaluation.**
-
-### Understanding Built-in Scorers
-
-After querying the documentation, you'll typically find scorers in these categories:
-
-**Reference-free scorers** (judge without ground truth):
-
-- Relevance, Completeness, Coherence, Clarity
-- Use for: All agents, no expected outputs needed
-
-**Ground-truth scorers** (require expected outputs):
-
-- Answer Correctness, Faithfulness, Accuracy
-- Use for: When you have known correct answers in dataset
-
-**Context-based scorers** (require context/documents):
-
-- Groundedness, Citation Quality
-- Use for: RAG systems, knowledge base agents
+| Scorer                                                                                                                                                | What does it evaluate?                                                     | Requires Session? |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------- |
+| [ConversationCompleteness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationCompleteness)                 | Does the agent address all user questions throughout the conversation?     | Yes               |
+| [ConversationalGuidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalGuidelines)                | Do the assistant's responses comply with provided guidelines?              | Yes               |
+| [ConversationalRoleAdherence](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalRoleAdherence)           | Does the assistant maintain its assigned role throughout the conversation? | Yes               |
+| [ConversationalSafety](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalSafety)                        | Are the assistant's responses safe and free of harmful content?            | Yes               |
+| [ConversationalToolCallEfficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalToolCallEfficiency) | Was tool usage across the conversation efficient and appropriate?          | Yes               |
+| [KnowledgeRetention](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.KnowledgeRetention)                           | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
+| [UserFrustration](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.UserFrustration)                                | Is the user frustrated? Was the frustration resolved?                      | Yes               |
 
 ### Important: Trace Structure Assumptions
 
@@ -117,39 +85,49 @@ Before using a built-in scorer:
 2. **Check trace structure** matches expectations
 3. **Verify it works** with a test trace before full evaluation
 
-**Example issue**:
+Read `troubleshooting.md` for some common issues with built-in scorers.
 
-- Scorer expects `context` field in trace
-- Your agent doesn't provide `context`
-- Scorer fails or returns null
+## Model Selection for Scorers
 
-**Solution**:
+Scorers require an LLM to judge quality. The `model=` parameter accepts MLflow model URIs.
 
-- Read scorer docs carefully
-- Test on single trace first
-- Create custom scorer if built-in doesn't match your structure
+### Default Model Behavior
 
-### Using Built-in Scorers
+When `model=None` (default), MLflow selects based on tracking URI:
+- **Databricks tracking URI**: Uses `"databricks"` managed judge (no API key needed)
+- **Local/other tracking URI**: Uses `"openai:/gpt-4.1-mini"` (requires `OPENAI_API_KEY`)
 
-After discovering scorers via documentation, register them to your experiment:
+#### Testing whether the default model works
 
 ```python
-import os
-from mlflow.genai.scorers import Correctness, RelevanceToQuery
+from mlflow.genai.judges import make_judge
 
-# Note: Import exact class names from documentation
-# Common mistake: trying to import "Relevance" when it's actually "RelevanceToQuery"
-
-# Register built-in scorer to experiment
-scorer = Correctness()
-scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
+test_judge = make_judge(name="test", instructions="Test whether {{inputs}} is in english")
+test_judge(inputs="hello")  # Should return a valid Feedback object if default model works
 ```
 
-**Benefits of registration**:
+### If default model does not work
 
-- Shows up in `mlflow scorers list -x <id>`
-- Keeps all evaluation criteria in one place
-- Makes it clear what scorers are being used for the experiment
+#### MLflow Model URI Format
+
+MLflow uses the format `<provider>:/<model-name>`. Examples:
+
+| URI | Description |
+|-----|-------------|
+| `databricks` | Databricks managed judge (good default if there is a databricks connection) |
+| `databricks:/<endpoint>` | Databricks serving endpoint |
+| `openai:/<model>` | OpenAI (e.g., `openai:/gpt-4`) |
+| `anthropic:/<model>` | Anthropic |
+
+#### Reusing the Agent's LLM
+
+If the agent uses a working LLM, reuse it for scorers to avoid credential issues:
+
+1. **Find agent's model config** - Look for settings/config module
+2. **Check environment** - `LLM_MODEL` or provider-specific env vars
+3. **Convert to MLflow URI** - If agent uses LiteLLM format, convert:
+   - `"gpt-4o"` → `"openai:/gpt-4o"`
+   - `"databricks/endpoint"` → `"databricks:/endpoint"`
 
 ## Custom Scorer Design
 
@@ -160,7 +138,7 @@ Create custom scorers when:
 - Your agent has unique requirements
 - Trace structure doesn't match built-in assumptions
 
-## MLflow Judge Constraints
+### MLflow Judge Constraints
 
 ⚠️ **The MLflow CLI has specific requirements for custom scorers.**
 
@@ -268,7 +246,20 @@ Output: yes/no
 
 ## Scorer Registration
 
-### Check CLI Help First
+*IMPORTANT: All scorers (built-in and custom) must be registered so that they can be reused in future runs*
+
+### Registering built-in scorers
+
+```python
+from mlflow.genai.scorers import <scorer_name>
+
+scorer=<scorer_name>(...)
+scorer.register(experiment_id="your_experiment_id")
+```
+
+### Registering custom scorers
+
+#### Check CLI Help First
 
 Run `--help` to verify parameter names:
 
@@ -276,9 +267,9 @@ Run `--help` to verify parameter names:
 uv run mlflow scorers register-llm-judge --help
 ```
 
-### Correct CLI Parameters
+#### Correct CLI Parameters
 
-### Registration Example - All Requirements Met
+#### Registration Example - All Requirements Met
 
 ```bash
 # ✅ CORRECT - Has variable, uses yes/no, correct parameters
@@ -296,9 +287,7 @@ uv run mlflow scorers register-llm-judge \
   -i "Examine the trace {{ trace }}. Did the agent use appropriate tools for the query? Return 'yes' if appropriate, 'no' if not."
 ```
 
-### Using make_judge() Function
-
-**Programmatic registration** for advanced use cases:
+#### Programmatic registration (for advanced use cases):
 
 ```python
 from mlflow.genai.judges import make_judge
@@ -322,13 +311,13 @@ scorer = make_judge(
 registered_scorer = scorer.register(experiment_id="your_experiment_id")
 ```
 
-**When to use make_judge()**:
+**When to use**:
 
 - `mlflow scorers register-llm-judge` fails with an obscure error
 - Need programmatic control
 - Integration with existing code
 
-**Important**: The `make_judge()` API follows the same constraints documented in the CRITICAL CONSTRAINTS section above. Use `Literal["yes", "no"]` for `feedback_value_type` for binary scorers.
+**Important**: The `make_judge()` API follows the same constraints documented in the CRITICAL CONSTRAINTS section above. 
 
 ### Best Practices
 

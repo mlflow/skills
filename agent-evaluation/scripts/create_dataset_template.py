@@ -31,7 +31,7 @@ def parse_arguments():
     parser.add_argument(
         "--test-cases-file",
         required=True,
-        help="File with test cases (one per line, minimum 10)",
+        help="File with test cases (one per line, minimum 5)",
     )
     parser.add_argument(
         "--dataset-name",
@@ -50,8 +50,8 @@ def load_test_cases_from_file(file_path: str) -> list[str]:
         with open(file_path) as f:
             test_cases = [line.strip() for line in f if line.strip()]
 
-        if len(test_cases) < 10:
-            print(f"✗ File has only {len(test_cases)} test cases (minimum: 10)")
+        if len(test_cases) < 5:
+            print(f"✗ File has only {len(test_cases)} test cases (minimum: 5)")
             print("  Please add more test cases to the file")
             sys.exit(1)
 
@@ -142,27 +142,28 @@ print(f"Dataset: {{DATASET_NAME}}")
 print(f"Test cases: {{len(TEST_CASES)}}")
 print()
 
-# Create dataset
+# Create dataset (two-step process: create empty, then add records)
 print("Creating dataset...")
 try:
+    # Step 1: Create empty dataset
     dataset = create_dataset(
         name=DATASET_NAME,
-        source={{
-            "inputs": [
-                {{"query": query}}
-                for query in TEST_CASES
-            ]
-        }},
-        targets=[
-            {{"expected_output": "TODO: Add expected output"}}
-            for _ in TEST_CASES
-        ],
         experiment_id=[EXPERIMENT_ID]
+        # Note: No tags parameter for Databricks UC
     )
+    print(f"✓ Dataset created: {{dataset.dataset_id}}")
 
-    print(f"✓ Dataset created: {{DATASET_NAME}}")
-    print(f"  Location: Unity Catalog table")
-    print(f"  Queries: {{len(TEST_CASES)}}")
+    # Step 2: Add records using merge_records
+    print("Adding records...")
+    records = [
+        {{"inputs": {{"query": query}}}}
+        for query in TEST_CASES
+    ]
+    dataset.merge_records(records)
+
+    # Verify records were added
+    df = dataset.to_df()
+    print(f"✓ Added {{len(df)}} records to dataset")
     print()
     print("=" * 60)
     print("Next Steps")
@@ -207,26 +208,27 @@ print(f"Dataset: {{DATASET_NAME}}")
 print(f"Test cases: {{len(TEST_CASES)}}")
 print()
 
-# Create dataset
+# Create dataset (two-step process: create empty, then add records)
 print("Creating dataset...")
 try:
+    # Step 1: Create empty dataset
     dataset = create_dataset(
         name=DATASET_NAME,
-        source={{
-            "inputs": [
-                {{"query": query}}
-                for query in TEST_CASES
-            ]
-        }},
-        targets=[
-            {{"expected_output": "TODO: Add expected output"}}
-            for _ in TEST_CASES
-        ],
         experiment_id=[EXPERIMENT_ID]
     )
+    print(f"✓ Dataset created: {{dataset.dataset_id}}")
 
-    print(f"✓ Dataset created: {{DATASET_NAME}}")
-    print(f"  Queries: {{len(TEST_CASES)}}")
+    # Step 2: Add records using merge_records
+    print("Adding records...")
+    records = [
+        {{"inputs": {{"query": query}}}}
+        for query in TEST_CASES
+    ]
+    dataset.merge_records(records)
+
+    # Verify records were added
+    df = dataset.to_df()
+    print(f"✓ Added {{len(df)}} records to dataset")
     print()
     print("=" * 60)
     print("Next Steps")

@@ -1,28 +1,16 @@
 # MLflow Tracing Integration
 
-Complete guide for integrating MLflow tracing with your agent. This is the authoritative source for all tracing implementation - follow these instructions after completing environment setup in setup-guide.md.
+Complete guide for integrating MLflow tracing with your agent. 
 
 **Prerequisites**: Complete setup-guide.md Steps 1-2 (MLflow install + environment configuration)
 
 ## Quick Start
 
-Three steps to integrate tracing:
+Three steps to integrate tracing in the agent's code:
 
-1. **Enable autolog** - Add `mlflow.<library>.autolog()` BEFORE importing agent code
+1. **Enable autolog** - Add `mlflow.<library>.autolog()` BEFORE initializing the agent
 2. **Decorate entry points** - Add `@mlflow.trace` to agent's main functions
 3. **Verify** - Run test query and check trace is captured
-
-**Minimum implementation:**
-```python
-import mlflow
-mlflow.langchain.autolog()  # Before imports
-
-from my_agent import agent
-
-@mlflow.trace
-def run_agent(query: str) -> str:
-    return agent.run(query)
-```
 
 See sections below for detailed instructions and verification steps.
 
@@ -30,12 +18,7 @@ See sections below for detailed instructions and verification steps.
 
 **MANDATORY: Follow the documentation protocol to read MLflow documentation before implementing:**
 
-```bash
-# Query llms.txt for tracing documentation
-curl https://mlflow.org/docs/latest/llms.txt | grep -A 20 "tracing"
-```
-
-Or use WebFetch:
+WebFetch:
 - Start: `https://mlflow.org/docs/latest/llms.txt`
 - Query for: "MLflow tracing documentation", "autolog setup", "trace decorators"
 - Follow referenced URLs for detailed guides
@@ -45,6 +28,7 @@ Or use WebFetch:
 1. **Enable Autolog FIRST** - Call `mlflow.{library}.autolog()` before importing agent code
    - Captures internal library calls automatically
    - Supported: `langchain`, `langgraph`, `openai`, `anthropic`, etc.
+   - Prefer autologging for authoring frameworks (e.g., `langchain`, `openai`) over gateways (e.g., `litellm`).
 
 2. **Add @mlflow.trace to Entry Points** - Decorate agent's main functions
    - Creates top-level span in trace hierarchy
@@ -68,23 +52,20 @@ Or use WebFetch:
 
 ```python
 # step 1: Enable autolog BEFORE imports
-import mlflow
-mlflow.langchain.autolog()  # Or langgraph, openai, etc. Use the documentation protocol to find the integration for different libraries.
++ import mlflow
++ mlflow.langchain.autolog()  # Or langgraph, openai, etc. Use the documentation protocol to find the integration for different libraries.
 
-# step 2: Import agent code
-from my_agent import agent
-
-# step 3: Add @mlflow.trace decorator
-@mlflow.trace
+# step 2: Add @mlflow.trace decorator to all existing entry points
++ @mlflow.trace
 def run_agent(query: str, session_id: str = None) -> str:
-    """Agent entry point with tracing."""
-    result = agent.run(query)
+    """Agent entry point."""
+    ... # Agent logic
 
-    # step 4 (optional): Track session for multi-turn
-    if session_id:
-        trace_id = mlflow.get_last_active_trace_id()
-        if trace_id:
-            mlflow.set_trace_tag(trace_id, "session_id", session_id)
++    # step 3 (optional): Track session for multi-turn
++    if session_id:
++        trace_id = mlflow.get_last_active_trace_id()
++        if trace_id:
++            mlflow.set_trace_tag(trace_id, "session_id", session_id)
 
     return result
 ```
