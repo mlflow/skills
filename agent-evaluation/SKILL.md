@@ -23,7 +23,7 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 **Evaluation workflow in 4 steps**:
 
 1. **Understand**: Run agent, inspect traces, understand purpose
-2. **Define**: Select/create and register scorers for quality criteria
+2. **Scorers**: Select and register scorers for quality criteria
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
@@ -44,25 +44,9 @@ This ensures commands run in the correct environment with proper dependencies.
 When saving CLI command output to files for parsing (JSON, CSV, etc.), always redirect stderr separately to avoid mixing logs with structured data:
 
 ```bash
-# WRONG - mixes progress bars and logs with JSON output
-uv run mlflow traces evaluate ... --output json > results.json
-
-# CORRECT - separates stderr from JSON output
-uv run mlflow traces evaluate ... --output json 2>/dev/null > results.json
-
-# ALTERNATIVE - save both separately for debugging
+# Save both separately for debugging
 uv run mlflow traces evaluate ... --output json > results.json 2> evaluation.log
 ```
-
-**When to separate streams:**
-- Any command with `--output json` flag
-- Commands that output structured data (CSV, JSON, XML)
-- When piping output to parsing tools (`jq`, `grep`, etc.)
-
-**When NOT to separate:**
-- Interactive commands where you want to see progress
-- Debugging scenarios where logs provide context
-- Commands that only output unstructured text
 
 ## Documentation Access Protocol
 
@@ -95,18 +79,6 @@ ls main.py app.py src/*/agent.py 2>/dev/null
 # Look for API routes
 grep -r "@app\.(get|post)" . --include="*.py"  # FastAPI/Flask
 grep -r "def.*route" . --include="*.py"
-```
-
-### Find Tracing Integration
-```bash
-# Find autolog calls
-grep -r "mlflow.*autolog" . --include="*.py"
-
-# Find trace decorators
-grep -r "@mlflow.trace" . --include="*.py"
-
-# Check imports
-grep -r "import mlflow" . --include="*.py"
 ```
 
 ### Understand Project Structure
@@ -228,32 +200,50 @@ If needed, create additional scorers using the `make_judge()` API. See `referenc
 
 **For complete dataset guide:** See `references/dataset-preparation.md`
 
+**Checkpoint - verify before proceeding:**
+
+- [ ] Scorers have been registered
+- [ ] Dataset has been created
+
 ### Step 4: Run Evaluation
 
-1. Generate traces:
+1. Generate and run evaluation script:
 
    ```bash
-   # Generates evaluation script (auto-detects agent module, entry point, dataset)
-   uv run python scripts/run_evaluation_template.py
-   uv run python scripts/run_evaluation_template.py --help  # Override auto-detection
+   # Generate evaluation script (specify module and entry point)
+   uv run python scripts/run_evaluation_template.py \
+     --module mlflow_agent.agent \
+     --entry-point run_agent
+
+   # Review the generated script, then execute it
+   uv run python run_agent_evaluation.py
    ```
 
-   Generated script uses `mlflow.genai.evaluate()` - review and execute it.
+   The generated script creates a wrapper function that:
+   - Accepts keyword arguments matching the dataset's input keys
+   - Provides any additional arguments the agent needs (like `llm_provider`)
+   - Runs `mlflow.genai.evaluate(data=df, predict_fn=wrapper, scorers=registered_scorers)`
+   - Saves results to `evaluation_results.csv`
 
-2. Apply scorers:
+⚠️ **CRITICAL: wrapper Signature Must Match Dataset Input Keys**
 
-   ```bash
-   # IMPORTANT: Redirect stderr to avoid mixing logs with JSON output
-   uv run mlflow traces evaluate \
-     --trace-ids <comma_separated_trace_ids> \
-     --scorers <scorer1>,<scorer2>,... \
-     --output json 2>/dev/null > evaluation_results.json
-   ```
+MLflow calls `predict_fn(**inputs)` - it unpacks the inputs dict as keyword arguments.
 
-3. Analyze results:
+| Dataset Record | MLflow Calls | predict_fn Must Be |
+|----------------|--------------|-------------------|
+| `{"inputs": {"query": "..."}}` | `predict_fn(query="...")` | `def wrapper(query):` |
+| `{"inputs": {"question": "...", "context": "..."}}` | `predict_fn(question="...", context="...")` | `def wrapper(question, context):` |
+
+**Common Mistake (WRONG):**
+```python
+def wrapper(inputs):  # ❌ WRONG - inputs is NOT a dict
+    return agent(inputs["query"])
+```
+
+2. Analyze results:
    ```bash
    # Pattern detection, failure analysis, recommendations
-   uv run python scripts/analyze_results.py evaluation_results.json
+   uv run python scripts/analyze_results.py evaluation_results.csv
    ```
    Generates `evaluation_report.md` with pass rates and improvement suggestions.
 

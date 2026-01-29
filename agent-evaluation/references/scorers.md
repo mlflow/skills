@@ -27,22 +27,19 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 **1. Reference-Free Scorers**
 
 - Don't require ground truth or expected outputs
-- Judge quality based on their inputs alone
-- Examples: Relevance, Completeness, Clarity
 - **Easiest to use** - work with any dataset
 
 **2. Ground-Truth Scorers**
 
 - Require expectations in the dataset
 - Compare agent response to ground truth
-- Examples: Factual Accuracy, Answer Correctness
 - Require datasets with `expectations` field
 
 ## Built-in Scorers
 
 MLflow provides several built-in scorers for common evaluation criteria.
 
-### Single-Turn Scorers[â€‹](#single-turn-scorers "Direct link to Single-Turn Scorers")
+### Single-Turn Scorers
 
 | Scorer                                                                                                                        | What does it evaluate?                                        | Requires ground-truth? | Requires traces?      |
 | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | --------------------- |
@@ -61,7 +58,7 @@ MLflow provides several built-in scorers for common evaluation criteria.
 | [ToolCallEfficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ToolCallEfficiency)    | Are the tool calls efficient without redundancy?              | No                     |  **Trace Required** |
 
 
-### Multi-Turn Scorers(#multi-turn-scorers "Direct link to Multi-Turn Scorers")
+### Multi-Turn Scorers
 
 Multi-turn scorers evaluate entire conversation sessions rather than individual turns. They require traces with session IDs.
 

@@ -24,6 +24,7 @@
 #   MLFLOW_PORT          - Port for local MLflow server (default: 5000)
 #   KEEP_WORKDIR         - Set to "true" to keep the working directory after completion
 #   MLFLOW_TRACKING_URI  - If set, use this external MLflow server instead of starting a local one
+#   OPENAI_API_KEY       - If set, passed to Claude Code for MLflow's default judge (OpenAI-based scorers)
 #
 
 set -euo pipefail
@@ -47,6 +48,7 @@ LOG_FILE=""
 MLFLOW_SERVER_PID=""
 EXTRA_PROMPT="${1:-}"  # Optional extra prompt from first argument
 EXTERNAL_MLFLOW_URI="${MLFLOW_TRACKING_URI:-}"  # Optional external MLflow URI
+EXTERNAL_OPENAI_KEY="${OPENAI_API_KEY:-}"  # Optional OpenAI API key for MLflow judges
 USE_EXTERNAL_SERVER=false
 
 # Exit codes
@@ -308,6 +310,19 @@ setup_phase() {
         log_section "Using External MLflow Server"
         export MLFLOW_TRACKING_URI="${EXTERNAL_MLFLOW_URI}"
         log_info "MLFLOW_TRACKING_URI set to: ${MLFLOW_TRACKING_URI}"
+
+        # Install Databricks-specific packages if using Databricks tracking URI
+        if [[ "${EXTERNAL_MLFLOW_URI}" == databricks://* ]]; then
+            log_info "Installing Databricks packages for Unity Catalog dataset support..."
+            if ! uv add databricks-agents databricks-connect 2>&1; then
+                log_error "Failed to install Databricks packages"
+                log_error "Dataset operations may fail without databricks-agents and databricks-connect"
+                # Don't fail - evaluation can still work with local DataFrames
+            else
+                log_info "Databricks packages installed (databricks-agents, databricks-connect)"
+            fi
+        fi
+
         log_success "External MLflow server configured"
     else
         # Start local MLflow server (must be after uv sync so mlflow is available)
@@ -362,6 +377,12 @@ print(experiment_id)
 
     # Export the experiment ID for the evaluation task
     export MLFLOW_EXPERIMENT_ID="${TEST_EXPERIMENT_ID}"
+
+    # Export OpenAI API key if provided (for MLflow's default judge)
+    if [[ -n "${EXTERNAL_OPENAI_KEY}" ]]; then
+        export OPENAI_API_KEY="${EXTERNAL_OPENAI_KEY}"
+        log_info "OPENAI_API_KEY set (for MLflow scorers)"
+    fi
 
     popd > /dev/null
 
@@ -584,6 +605,9 @@ main() {
     fi
     if [[ -n "${EXTERNAL_MLFLOW_URI}" ]]; then
         log_info "External MLflow URI: ${EXTERNAL_MLFLOW_URI}"
+    fi
+    if [[ -n "${EXTERNAL_OPENAI_KEY}" ]]; then
+        log_info "OPENAI_API_KEY: provided (for MLflow scorers)"
     fi
 
     # Phase 1: Check prerequisites

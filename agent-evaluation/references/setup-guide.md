@@ -39,6 +39,8 @@ uv run python scripts/setup_mlflow.py
 # Outputs: export MLFLOW_TRACKING_URI="..." and export MLFLOW_EXPERIMENT_ID="..."
 ```
 
+⚠️ **Do NOT change the detected MLFLOW_TRACKING_URI** - Trust the detection script unless there is a very serious reason/failure.
+
 **After running the above command**, automatically detect and update the agent's configuration:
 
 1. **Detect configuration mechanism** by checking for:
