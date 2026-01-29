@@ -39,38 +39,11 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 
 MLflow provides several built-in scorers for common evaluation criteria.
 
-### Single-Turn Scorers
+```python
+uv run mlflow scorers list -b
+```
 
-| Scorer                                                                                                                        | What does it evaluate?                                        | Requires ground-truth? | Requires traces?      |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | --------------------- |
-| [RelevanceToQuery](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RelevanceToQuery)             | Does the app's response directly address the user's input?    | No                     | No                    |
-| [Correctness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Correctness)                       | Are the expected facts supported by the app's response?       | Yes\*                  | No                    |
-| [Completeness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Completeness)                | Does the agent address all questions in a single user prompt? | No                     | No                    |
-| [Fluency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Fluency)                               | Is the response grammatically correct and naturally flowing?  | No                     | No                    |
-| [Guidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Guidelines)                         | Does the response adhere to provided guidelines?              | Yes\*                  | No                    |
-| [ExpectationsGuidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ExpectationsGuidelines) | Does the response meet specific expectations and guidelines?  | Yes\*                  | No                    |
-| [Safety](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Safety)                                 | Does the app's response avoid harmful or toxic content?       | No                     | No                    |
-| [Equivalence](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.Equivalence)                       | Is the app's response equivalent to the expected output?      | Yes                    | No                    |
-| [RetrievalGroundedness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalGroundedness)   | Is the app's response grounded in retrieved information?      | No                     |  **Trace Required** |
-| [RetrievalRelevance](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalRelevance)         | Are retrieved documents relevant to the user's request?       | No                     | **Trace Required** |
-| [RetrievalSufficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.RetrievalSufficiency)     | Do retrieved documents contain all necessary information?     | Yes                    | **Trace Required** |
-| [ToolCallCorrectness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ToolCallCorrectness)   | Are the tool calls and arguments correct for the user query?  | No                     | **Trace Required** |
-| [ToolCallEfficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ToolCallEfficiency)    | Are the tool calls efficient without redundancy?              | No                     |  **Trace Required** |
-
-
-### Multi-Turn Scorers
-
-Multi-turn scorers evaluate entire conversation sessions rather than individual turns. They require traces with session IDs.
-
-| Scorer                                                                                                                                                | What does it evaluate?                                                     | Requires Session? |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------- |
-| [ConversationCompleteness](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationCompleteness)                 | Does the agent address all user questions throughout the conversation?     | Yes               |
-| [ConversationalGuidelines](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalGuidelines)                | Do the assistant's responses comply with provided guidelines?              | Yes               |
-| [ConversationalRoleAdherence](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalRoleAdherence)           | Does the assistant maintain its assigned role throughout the conversation? | Yes               |
-| [ConversationalSafety](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalSafety)                        | Are the assistant's responses safe and free of harmful content?            | Yes               |
-| [ConversationalToolCallEfficiency](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.ConversationalToolCallEfficiency) | Was tool usage across the conversation efficient and appropriate?          | Yes               |
-| [KnowledgeRetention](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.KnowledgeRetention)                           | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
-| [UserFrustration](/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.scorers.UserFrustration)                                | Is the user frustrated? Was the frustration resolved?                      | Yes               |
+Detailed documentation for builtin-scorers can be found at `https://mlflow.org/docs/latest/api_reference/python_api/mlflow.genai.html`
 
 ### Important: Trace Structure Assumptions
 
