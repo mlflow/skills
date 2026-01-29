@@ -224,7 +224,7 @@ Output: yes/no
 from mlflow.genai.scorers import <scorer_name>
 
 scorer=<scorer_name>(...)
-scorer.register(experiment_id="your_experiment_id")
+scorer.register()
 ```
 
 ### Registering custom scorers
@@ -278,7 +278,7 @@ scorer = make_judge(
 )
 
 # Register the scorer
-registered_scorer = scorer.register(experiment_id="your_experiment_id")
+registered_scorer = scorer.register()
 ```
 
 **When to use**:

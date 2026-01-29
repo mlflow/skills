@@ -99,7 +99,7 @@ try:
 
     if not registered_scorers:
         print("  ⚠ No registered scorers found in experiment")
-        print("  Register scorers first with: scorer.register(experiment_id=...)")
+        print("  Register scorers first with: scorer.register()")
         sys.exit(1)
 
     print(f"  Found {{len(registered_scorers)}} registered scorer(s):")

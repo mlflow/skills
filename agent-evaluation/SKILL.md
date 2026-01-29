@@ -8,6 +8,19 @@ allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 
 Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for the complete evaluation workflow or individual components - tracing setup, environment configuration, dataset creation, scorer definition, or evaluation execution. Each section can be used independently based on your needs.
 
+## ⛔ CRITICAL: Must Use MLflow APIs
+
+**DO NOT create custom evaluation frameworks.** You MUST use MLflow's native APIs:
+
+- **Datasets**: Use `mlflow.genai.datasets.create_dataset()` - NOT custom test case files
+- **Scorers**: Use `mlflow.genai.scorers` and `mlflow.genai.judges.make_judge()` - NOT custom scorer functions
+- **Evaluation**: Use `mlflow.genai.evaluate()` - NOT custom evaluation loops
+- **Scripts**: Use the provided `scripts/` directory templates - NOT custom `evaluation/` directories
+
+**Why?** MLflow tracks everything (datasets, scorers, traces, results) in the experiment. Custom frameworks bypass this and lose all observability.
+
+If you're tempted to create `evaluation/eval_dataset.py` or similar custom files, STOP. Use `scripts/create_dataset_template.py` instead.
+
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
@@ -18,9 +31,11 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 
 ## Quick Start
 
+**⚠️ REMINDER: Use MLflow APIs from this skill. Do not create custom evaluation frameworks.**
+
 **Setup (prerequisite)**: Install MLflow 3.8+, configure environment, integrate tracing
 
-**Evaluation workflow in 4 steps**:
+**Evaluation workflow in 4 steps** (each uses MLflow APIs):
 
 1. **Understand**: Run agent, inspect traces, understand purpose
 2. **Scorers**: Select and register scorers for quality criteria
@@ -153,7 +168,7 @@ If needed, create additional scorers using the `make_judge()` API. See `referenc
    import os
 
    scorer = make_judge(...)  # Or, scorer = BuiltinScorerName()
-   scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
+   scorer.register()
    ```
 
 ** IMPORTANT:  See `references/scorers.md` → "Model Selection for Scorers" to configure the `model` parameter of scorers before registration.
