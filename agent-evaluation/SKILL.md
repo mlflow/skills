@@ -1,12 +1,25 @@
 ---
 name: agent-evaluation
-description: Use this when you need to IMPROVE or OPTIMIZE an existing LLM agent's performance - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
+description: Use this when you need to EVALUATE OR IMPROVE or OPTIMIZE an existing LLM agent's output quality - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
 allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 ---
 
 # Agent Evaluation with MLflow
 
 Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for the complete evaluation workflow or individual components - tracing setup, environment configuration, dataset creation, scorer definition, or evaluation execution. Each section can be used independently based on your needs.
+
+## ⛔ CRITICAL: Must Use MLflow APIs
+
+**DO NOT create custom evaluation frameworks.** You MUST use MLflow's native APIs:
+
+- **Datasets**: Use `mlflow.genai.datasets.create_dataset()` - NOT custom test case files
+- **Scorers**: Use `mlflow.genai.scorers` and `mlflow.genai.judges.make_judge()` - NOT custom scorer functions
+- **Evaluation**: Use `mlflow.genai.evaluate()` - NOT custom evaluation loops
+- **Scripts**: Use the provided `scripts/` directory templates - NOT custom `evaluation/` directories
+
+**Why?** MLflow tracks everything (datasets, scorers, traces, results) in the experiment. Custom frameworks bypass this and lose all observability.
+
+If you're tempted to create `evaluation/eval_dataset.py` or similar custom files, STOP. Use `scripts/create_dataset_template.py` instead.
 
 ## Table of Contents
 
@@ -18,12 +31,14 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 
 ## Quick Start
 
+**⚠️ REMINDER: Use MLflow APIs from this skill. Do not create custom evaluation frameworks.**
+
 **Setup (prerequisite)**: Install MLflow 3.8+, configure environment, integrate tracing
 
-**Evaluation workflow in 4 steps**:
+**Evaluation workflow in 4 steps** (each uses MLflow APIs):
 
 1. **Understand**: Run agent, inspect traces, understand purpose
-2. **Define**: Select/create scorers for quality criteria
+2. **Scorers**: Select and register scorers for quality criteria
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
@@ -44,25 +59,9 @@ This ensures commands run in the correct environment with proper dependencies.
 When saving CLI command output to files for parsing (JSON, CSV, etc.), always redirect stderr separately to avoid mixing logs with structured data:
 
 ```bash
-# WRONG - mixes progress bars and logs with JSON output
-uv run mlflow traces evaluate ... --output json > results.json
-
-# CORRECT - separates stderr from JSON output
-uv run mlflow traces evaluate ... --output json 2>/dev/null > results.json
-
-# ALTERNATIVE - save both separately for debugging
+# Save both separately for debugging
 uv run mlflow traces evaluate ... --output json > results.json 2> evaluation.log
 ```
-
-**When to separate streams:**
-- Any command with `--output json` flag
-- Commands that output structured data (CSV, JSON, XML)
-- When piping output to parsing tools (`jq`, `grep`, etc.)
-
-**When NOT to separate:**
-- Interactive commands where you want to see progress
-- Debugging scenarios where logs provide context
-- Commands that only output unstructured text
 
 ## Documentation Access Protocol
 
@@ -78,17 +77,6 @@ uv run mlflow traces evaluate ... --output json > results.json 2> evaluation.log
 - Dataset creation (read GenAI dataset docs from llms.txt)
 - Scorer registration (check MLflow docs for scorer APIs)
 - Evaluation execution (understand mlflow.genai.evaluate API)
-
-## Pre-Flight Validation
-
-Validate environment before starting:
-
-```bash
-uv run mlflow --version  # Should be >=3.8.0
-uv run python -c "import mlflow; print(f'MLflow {mlflow.__version__} installed')"
-```
-
-If MLflow is missing or version is <3.8.0, see Setup Overview below.
 
 ## Discovering Agent Structure
 
@@ -106,18 +94,6 @@ ls main.py app.py src/*/agent.py 2>/dev/null
 # Look for API routes
 grep -r "@app\.(get|post)" . --include="*.py"  # FastAPI/Flask
 grep -r "def.*route" . --include="*.py"
-```
-
-### Find Tracing Integration
-```bash
-# Find autolog calls
-grep -r "mlflow.*autolog" . --include="*.py"
-
-# Find trace decorators
-grep -r "@mlflow.trace" . --include="*.py"
-
-# Check imports
-grep -r "import mlflow" . --include="*.py"
 ```
 
 ### Understand Project Structure
@@ -158,8 +134,6 @@ uv run python scripts/validate_environment.py  # Check MLflow install, env vars,
 uv run python scripts/validate_auth.py         # Test authentication before expensive operations
 ```
 
-**For complete setup instructions:** See `references/setup-guide.md`
-
 ## Evaluation Workflow
 
 ### Step 1: Understand Agent Purpose
@@ -171,21 +145,40 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 ### Step 2: Define Quality Scorers
 
-1. **Discover built-in scorers using documentation protocol:**
-   - Query `https://mlflow.org/docs/latest/llms.txt` for "What built-in LLM judges or scorers are available?"
-   - Read scorer documentation to understand their purpose and requirements
-   - Note: Do NOT use `mlflow scorers list -b` - use documentation instead for accurate information
-
-2. **Check registered scorers in your experiment:**
+1. **Check registered scorers in your experiment:**
    ```bash
    uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
    ```
 
-3. Identify quality dimensions for your agent and select appropriate scorers
-4. Register scorers and test on sample trace before full evaluation
+**IMPORTANT: if there are registered scorers in the experiment then they must be used for evaluation.**
 
-**For scorer selection and registration:** See `references/scorers.md`
-**For CLI constraints (yes/no format, template variables):** See `references/scorers-constraints.md`
+2. **Select additional built-in scorers that apply to the agent** 
+
+See `references/scorers.md` for the built-in scorers. Select any that are useful for assessing the agent's quality and that are not already registered. 
+
+3. **Create additional custom scorers as needed**
+
+If needed, create additional scorers using the `make_judge()` API. See `references/scorers.md` on how to create custom scorers and `references/scorers-constraints.md` for best practices.
+
+4. **REQUIRED: Register new scorers before evaluation** using Python API:
+   
+   ```python
+   from mlflow.genai.judges import make_judge
+   from mlflow.genai.scorers import BuiltinScorerName
+   import os
+
+   scorer = make_judge(...)  # Or, scorer = BuiltinScorerName()
+   scorer.register()
+   ```
+
+** IMPORTANT:  See `references/scorers.md` → "Model Selection for Scorers" to configure the `model` parameter of scorers before registration.
+
+⚠️ **Scorers MUST be registered before evaluation.** Inline scorers that aren't registered won't appear in `mlflow scorers list` and won't be reusable.
+
+5. **Verify registration:**
+   ```bash
+   uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID  # Should show your scorers
+   ```
 
 ### Step 3: Prepare Evaluation Dataset
 
@@ -222,32 +215,50 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 **For complete dataset guide:** See `references/dataset-preparation.md`
 
+**Checkpoint - verify before proceeding:**
+
+- [ ] Scorers have been registered
+- [ ] Dataset has been created
+
 ### Step 4: Run Evaluation
 
-1. Generate traces:
+1. Generate and run evaluation script:
 
    ```bash
-   # Generates evaluation script (auto-detects agent module, entry point, dataset)
-   uv run python scripts/run_evaluation_template.py
-   uv run python scripts/run_evaluation_template.py --help  # Override auto-detection
+   # Generate evaluation script (specify module and entry point)
+   uv run python scripts/run_evaluation_template.py \
+     --module mlflow_agent.agent \
+     --entry-point run_agent
+
+   # Review the generated script, then execute it
+   uv run python run_agent_evaluation.py
    ```
 
-   Generated script uses `mlflow.genai.evaluate()` - review and execute it.
+   The generated script creates a wrapper function that:
+   - Accepts keyword arguments matching the dataset's input keys
+   - Provides any additional arguments the agent needs (like `llm_provider`)
+   - Runs `mlflow.genai.evaluate(data=df, predict_fn=wrapper, scorers=registered_scorers)`
+   - Saves results to `evaluation_results.csv`
 
-2. Apply scorers:
+⚠️ **CRITICAL: wrapper Signature Must Match Dataset Input Keys**
 
-   ```bash
-   # IMPORTANT: Redirect stderr to avoid mixing logs with JSON output
-   uv run mlflow traces evaluate \
-     --trace-ids <comma_separated_trace_ids> \
-     --scorers <scorer1>,<scorer2>,... \
-     --output json 2>/dev/null > evaluation_results.json
-   ```
+MLflow calls `predict_fn(**inputs)` - it unpacks the inputs dict as keyword arguments.
 
-3. Analyze results:
+| Dataset Record | MLflow Calls | predict_fn Must Be |
+|----------------|--------------|-------------------|
+| `{"inputs": {"query": "..."}}` | `predict_fn(query="...")` | `def wrapper(query):` |
+| `{"inputs": {"question": "...", "context": "..."}}` | `predict_fn(question="...", context="...")` | `def wrapper(question, context):` |
+
+**Common Mistake (WRONG):**
+```python
+def wrapper(inputs):  # ❌ WRONG - inputs is NOT a dict
+    return agent(inputs["query"])
+```
+
+2. Analyze results:
    ```bash
    # Pattern detection, failure analysis, recommendations
-   uv run python scripts/analyze_results.py evaluation_results.json
+   uv run python scripts/analyze_results.py evaluation_results.csv
    ```
    Generates `evaluation_report.md` with pass rates and improvement suggestions.
 

@@ -32,61 +32,6 @@ uv pip install mlflow>=3.8.0
 
 **Auto-detects Databricks or local MLflow server:**
 
-Run these commands to auto-configure MLflow:
-
-```bash
-# 1. Detect tracking server type
-if databricks current-user me &> /dev/null; then
-    # Databricks detected
-    export MLFLOW_TRACKING_URI="databricks"
-    export DB_USER=$(databricks current-user me --output json | grep -o '"value":"[^"]*"' | head -1 | cut -d'"' -f4)
-    export PROJECT_NAME=$(basename $(pwd))
-    export EXP_NAME="/Users/$DB_USER/${PROJECT_NAME}-evaluation"
-    echo "✓ Detected Databricks"
-    echo "  User: $DB_USER"
-    echo "  Experiment: $EXP_NAME"
-else
-    # Local or other server
-    export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
-    export PROJECT_NAME=$(basename $(pwd))
-    export EXP_NAME="${PROJECT_NAME}-evaluation"
-    echo "✓ Using local MLflow server"
-    echo "  URI: $MLFLOW_TRACKING_URI"
-    echo "  Experiment: $EXP_NAME"
-    echo ""
-    echo "  Note: If MLflow server isn't running, start it with:"
-    echo "    mlflow server --host 127.0.0.1 --port 5000 &"
-fi
-
-# 2. Find existing or create new experiment
-export EXP_ID=$(uv run python -c "
-import mlflow
-mlflow.set_tracking_uri('$MLFLOW_TRACKING_URI')
-experiments = mlflow.search_experiments(
-    filter_string=\"name = '$EXP_NAME'\",
-    max_results=1
-)
-if experiments:
-    print(experiments[0].experiment_id)
-else:
-    print(mlflow.create_experiment('$EXP_NAME'))
-")
-
-# 3. Display configuration
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✓ MLflow Configuration Complete"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Tracking URI:   $MLFLOW_TRACKING_URI"
-echo "Experiment ID:  $EXP_ID"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# Export for use in subsequent steps
-export MLFLOW_EXPERIMENT_ID="$EXP_ID"
-```
-
-**Alternative**: Use the setup script with auto-detection:
 
 ```bash
 uv run python scripts/setup_mlflow.py
@@ -94,7 +39,9 @@ uv run python scripts/setup_mlflow.py
 # Outputs: export MLFLOW_TRACKING_URI="..." and export MLFLOW_EXPERIMENT_ID="..."
 ```
 
-**After running the above commands**, automatically detect and update the agent's configuration:
+⚠️ **Do NOT change the detected MLFLOW_TRACKING_URI** - Trust the detection script unless there is a very serious reason/failure.
+
+**After running the above command**, automatically detect and update the agent's configuration:
 
 1. **Detect configuration mechanism** by checking for:
    - `.env` file (most common)

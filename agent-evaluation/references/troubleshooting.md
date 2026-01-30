@@ -25,6 +25,28 @@ Common errors and solutions for agent evaluation with MLflow.
 3. Check virtual environment is activated
 4. For command line: Add MLflow to PATH
 
+### Wrong API Imports
+
+**Error/Symptoms**: `ImportError`, `AttributeError`, or methods not found
+
+**WRONG:**
+```python
+# These don't exist in MLflow 3 GenAI
+from mlflow.evaluate import evaluate
+from mlflow.metrics import genai
+import mlflow.llm
+```
+
+**CORRECT:**
+```python
+import mlflow.genai
+from mlflow.genai.scorers import Guidelines, Safety, Correctness, scorer
+from mlflow.genai.judges import meets_guidelines, is_correct, make_judge
+from mlflow.entities import Feedback, Trace
+```
+
+**Why**: MLflow 3 GenAI has a completely new API structure. Old MLflow 2 imports don't exist.
+
 ### Databricks Profile Not Authenticated
 
 **Error**: `Profile X not authenticated` or `Invalid credentials`
@@ -156,6 +178,44 @@ Common errors and solutions for agent evaluation with MLflow.
 
 4. Grep for decorators: `grep -B 2 "def run_agent" src/*/agent/*.py`
 
+### Wrong Trace Search Syntax
+
+**Error/Symptoms**: Empty results, syntax errors, or unexpected trace filtering behavior
+
+**WRONG:**
+```python
+# Missing prefix
+mlflow.search_traces("status = 'OK'")
+
+# Using double quotes
+mlflow.search_traces('attributes.status = "OK"')
+
+# Missing backticks for dotted names
+mlflow.search_traces("tags.mlflow.traceName = 'my_app'")
+
+# Using OR (not supported)
+mlflow.search_traces("attributes.status = 'OK' OR attributes.status = 'ERROR'")
+```
+
+**CORRECT:**
+```python
+# Use prefix and single quotes
+mlflow.search_traces("attributes.status = 'OK'")
+
+# Backticks for dotted names
+mlflow.search_traces("tags.`mlflow.traceName` = 'my_app'")
+
+# AND is supported
+mlflow.search_traces("attributes.status = 'OK' AND tags.env = 'prod'")
+
+# Time in milliseconds
+import time
+cutoff = int((time.time() - 3600) * 1000)  # 1 hour ago
+mlflow.search_traces(f"attributes.timestamp_ms > {cutoff}")
+```
+
+**Why**: MLflow trace search has specific syntax rules - attributes need prefixes, string values use single quotes, dotted tag names need backticks, and OR is not supported.
+
 ### Session ID Not Captured
 
 **Symptoms**: Trace exists but no session_id in tags
@@ -204,6 +264,59 @@ Common errors and solutions for agent evaluation with MLflow.
 4. Verify PYTHONPATH includes project: `echo $PYTHONPATH`
 
 ## Dataset Creation Issues
+
+### Wrong Data Format
+
+**Error/Symptoms**: Schema validation error, missing fields, or evaluation doesn't use your data correctly
+
+**WRONG:**
+```python
+# Flat data structure - missing nested structure
+eval_data = [
+    {"query": "What is X?", "expected": "X is..."}
+]
+```
+
+**CORRECT:**
+```python
+# Must have 'inputs' key, optionally 'expectations'
+eval_data = [
+    {
+        "inputs": {"query": "What is X?"},
+        "expectations": {"expected_response": "X is..."}
+    }
+]
+```
+
+**Why**: MLflow GenAI expects a specific nested structure with `inputs` containing the data passed to predict_fn and `expectations` containing ground truth for scorers.
+
+### Wrong Dataset Creation - Spark Session
+
+**Error/Symptoms**: `No Spark session available` or Unity Catalog dataset creation fails
+
+**WRONG:**
+```python
+# Need Spark for MLflow-managed datasets
+import mlflow.genai.datasets
+
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.my_dataset"
+)
+# Error: No Spark session available
+```
+
+**CORRECT:**
+```python
+from databricks.connect import DatabricksSession
+
+spark = DatabricksSession.builder.remote(serverless=True).getOrCreate()
+
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.my_dataset"
+)
+```
+
+**Why**: Unity Catalog dataset creation requires an active Spark session for table operations.
 
 ### Databricks Dataset APIs Not Supported
 
@@ -298,6 +411,99 @@ records = [
 
 ## Evaluation Execution Issues
 
+### Wrong Evaluate Function
+
+**Error/Symptoms**: Wrong API, unexpected results, or `model_type` parameter errors
+
+**WRONG:**
+```python
+# This is the old API for classic ML
+results = mlflow.evaluate(
+    model=my_model,
+    data=eval_data,
+    model_type="text"
+)
+```
+
+**CORRECT:**
+```python
+# MLflow 3 GenAI evaluation
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_app,
+    scorers=[Guidelines(name="test", guidelines="...")]
+)
+```
+
+**Why**: `mlflow.evaluate()` is for classic ML models. GenAI agents use `mlflow.genai.evaluate()` with different parameters.
+
+### Wrong predict_fn Signature
+
+**Error/Symptoms**: `TypeError` about unexpected arguments, or predict_fn receives wrong data
+
+**WRONG:**
+```python
+# predict_fn receives **unpacked inputs, not a dict
+def my_app(inputs):  # Receives dict
+    query = inputs["query"]
+    return {"response": "..."}
+```
+
+**CORRECT:**
+```python
+# inputs are unpacked as kwargs
+def my_app(query, context=None):  # Receives individual keys
+    return {"response": f"Answer to {query}"}
+
+# If inputs = {"query": "What is X?", "context": "..."}
+# Then my_app is called as: my_app(query="What is X?", context="...")
+```
+
+**Why**: `mlflow.genai.evaluate()` unpacks the `inputs` dict as keyword arguments to your predict_fn.
+
+### Using Model Serving Endpoints for Development
+
+**Error/Symptoms**: Slow iteration, hard to debug, no stack traces
+
+**WRONG:**
+```python
+# Don't use model serving endpoints during development
+from databricks.sdk import WorkspaceClient
+
+w = WorkspaceClient()
+client = w.serving_endpoints.get_open_ai_client()
+
+def predict_fn(messages):
+    response = client.chat.completions.create(
+        model="my-agent-endpoint",  # Deployed endpoint
+        messages=messages
+    )
+    return {"response": response.choices[0].message.content}
+```
+
+**CORRECT:**
+```python
+# Import agent directly for fast iteration
+from plan_execute_agent import AGENT  # Your local agent module
+
+def predict_fn(messages):
+    result = AGENT.predict({"messages": messages})
+    # Extract response from ResponsesAgent format
+    if isinstance(result, dict) and "messages" in result:
+        for msg in reversed(result["messages"]):
+            if msg.get("role") == "assistant":
+                return {"response": msg.get("content", "")}
+    return {"response": str(result)}
+```
+
+**Why**:
+- Local testing enables faster iteration (no deployment needed)
+- Full stack traces for debugging
+- No serving endpoint costs
+- Direct access to agent internals
+
+**When to use endpoints**: Only for production monitoring, load testing, or A/B testing deployed versions.
+
 ### Agent Import Errors
 
 **Error**: Cannot import agent module or entry point
@@ -383,6 +589,300 @@ records = [
 
 ## Scorer Issues
 
+### Wrong Scorer Decorator Usage
+
+**Error/Symptoms**: Scorer not recognized, or function not treated as a scorer
+
+**WRONG:**
+```python
+# Missing @scorer decorator
+def my_scorer(outputs):
+    return True
+```
+
+**CORRECT:**
+```python
+from mlflow.genai.scorers import scorer
+
+@scorer
+def my_scorer(outputs):
+    return True
+```
+
+**Why**: The `@scorer` decorator is required for MLflow to recognize and use your function as a scorer.
+
+### Wrong Feedback Return
+
+**Error/Symptoms**: `TypeError`, serialization errors, or scorer results not recorded
+
+**WRONG:**
+```python
+@scorer
+def bad_scorer(outputs):
+    # Can't return dict
+    return {"score": 0.5, "reason": "..."}
+
+    # Can't return tuple
+    return (True, "rationale")
+```
+
+**CORRECT:**
+```python
+from mlflow.entities import Feedback
+
+@scorer
+def good_scorer(outputs):
+    # Return primitive
+    return True
+    return 0.85
+    return "yes"
+
+    # Return Feedback object
+    return Feedback(
+        value=True,
+        rationale="Explanation"
+    )
+
+    # Return list of Feedbacks
+    return [
+        Feedback(name="metric_1", value=True),
+        Feedback(name="metric_2", value=0.9)
+    ]
+```
+
+**Why**: Scorers must return primitives (bool, float, str) or Feedback objects. Dicts and tuples are not supported.
+
+### Wrong Guidelines Scorer Setup
+
+**Error/Symptoms**: `TypeError` about missing required argument, or scorer doesn't work
+
+**WRONG:**
+```python
+# Missing 'name' parameter
+scorer = Guidelines(guidelines="Must be professional")
+```
+
+**CORRECT:**
+```python
+scorer = Guidelines(
+    name="professional_tone",  # REQUIRED
+    guidelines="The response must be professional"  # REQUIRED
+)
+```
+
+**Why**: `Guidelines` requires both `name` and `guidelines` parameters.
+
+### Wrong Custom Scorer Imports
+
+**Error/Symptoms**: Serialization fails when registering scorer for production monitoring
+
+**WRONG:**
+```python
+# External import at module level - fails for production monitoring
+import my_custom_library
+
+@scorer
+def production_scorer(outputs):
+    return my_custom_library.process(outputs)
+```
+
+**CORRECT:**
+```python
+# Import inside function for serialization
+@scorer
+def production_scorer(outputs):
+    import json  # Import inside for production monitoring
+    return len(json.dumps(outputs)) > 100
+```
+
+**Why**: Production monitoring scorers are serialized. External imports at module level break serialization. Put imports inside the function.
+
+### Wrong Multiple Feedback Names
+
+**Error/Symptoms**: Feedback values overwrite each other, missing metrics in results
+
+**WRONG:**
+```python
+@scorer
+def bad_multi_scorer(outputs):
+    # Feedbacks will conflict - no unique names
+    return [
+        Feedback(value=True),
+        Feedback(value=0.8)
+    ]
+```
+
+**CORRECT:**
+```python
+@scorer
+def good_multi_scorer(outputs):
+    # Each has unique name
+    return [
+        Feedback(name="check_1", value=True),
+        Feedback(name="check_2", value=0.8)
+    ]
+```
+
+**Why**: When returning multiple Feedbacks, each must have a unique `name` to avoid conflicts.
+
+### Wrong Guidelines Context Reference
+
+**Error/Symptoms**: Guidelines don't see your data, or judge evaluates wrong content
+
+**WRONG:**
+```python
+# Guidelines use 'request' and 'response', not custom keys
+Guidelines(
+    name="check",
+    guidelines="The output must address the query"  # 'output' and 'query' not available
+)
+```
+
+**CORRECT:**
+```python
+# These are auto-extracted
+Guidelines(
+    name="check",
+    guidelines="The response must address the request"
+)
+```
+
+**Why**: Guidelines scorers automatically extract `request` (input) and `response` (output) from traces. Use these variable names in your guidelines text.
+
+### Wrong Custom Judge Model Format
+
+**Error/Symptoms**: Model not found, or wrong LLM used for judging
+
+**WRONG:**
+```python
+# Missing provider prefix
+Guidelines(name="test", guidelines="...", model="gpt-4o")
+
+# Wrong separator
+Guidelines(name="test", guidelines="...", model="databricks:gpt-4o")
+```
+
+**CORRECT:**
+```python
+# Use :/ separator
+Guidelines(name="test", guidelines="...", model="databricks:/my-endpoint")
+Guidelines(name="test", guidelines="...", model="openai:/gpt-4o")
+```
+
+**Why**: Model specification requires the format `provider:/model-name` with `:/` as the separator.
+
+### Wrong Aggregation Values
+
+**Error/Symptoms**: `ValueError` about invalid aggregation, or aggregations silently ignored
+
+**WRONG:**
+```python
+# p50, p99, sum are not valid
+@scorer(aggregations=["mean", "p50", "p99", "sum"])
+def my_scorer(outputs) -> float:
+    return 0.5
+```
+
+**CORRECT:**
+```python
+# Only these 6 are valid
+@scorer(aggregations=["min", "max", "mean", "median", "variance", "p90"])
+def my_scorer(outputs) -> float:
+    return 0.5
+```
+
+**Valid aggregations:**
+- `min` - minimum value
+- `max` - maximum value
+- `mean` - average value
+- `median` - 50th percentile (NOT `p50`)
+- `variance` - statistical variance
+- `p90` - 90th percentile (only p90, NOT p50 or p99)
+
+### Built-in Scorer Not Working
+
+**Symptoms**: Built-in scorer errors or returns unexpected or null results
+
+**Causes**:
+
+1. Trace structure doesn't match scorer assumptions
+2. Required fields missing
+3. Scorer expects ground truth but dataset doesn't have it
+4. MLflow version incompatibility
+
+**Solutions**:
+
+1. Read scorer documentation for requirements:
+
+   - Required trace fields
+   - Expected structure
+   - Ground truth needs
+
+2. Verify trace has expected fields/structure
+
+3. Check dataset has `expectations` if scorer needs ground truth
+
+4. Consider custom scorer if built-in doesn't match your structure
+
+5. Test with verbose output to see what scorer received
+
+#### Correctness Scorer Requires Expectations
+
+**WRONG:**
+```python
+# Correctness requires expected_facts or expected_response
+eval_data = [
+    {"inputs": {"query": "What is X?"}}
+]
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[Correctness()]  # Will fail - no ground truth!
+)
+```
+
+**CORRECT:**
+```python
+eval_data = [
+    {
+        "inputs": {"query": "What is X?"},
+        "expectations": {
+            "expected_facts": ["X is a platform", "X is open-source"]
+        }
+    }
+]
+```
+
+**Why**: `Correctness` scorer compares agent output to expected facts/response. Without expectations, it has nothing to compare against.
+
+#### RetrievalGroundedness Requires RETRIEVER Span
+
+**WRONG:**
+```python
+# App has no RETRIEVER span type
+@mlflow.trace
+def my_rag_app(query):
+    docs = get_documents(query)  # Not marked as retriever
+    return generate_response(docs, query)
+
+# RetrievalGroundedness will fail - can't find retriever spans
+```
+
+**CORRECT:**
+```python
+# Use span_type="RETRIEVER"
+@mlflow.trace(span_type="RETRIEVER")
+def retrieve_documents(query):
+    return [doc1, doc2]
+
+@mlflow.trace
+def my_rag_app(query):
+    docs = retrieve_documents(query)  # Now has RETRIEVER span
+    return generate_response(docs, query)
+```
+
+**Why**: `RetrievalGroundedness` scorer looks for spans with type `RETRIEVER` to find retrieved documents. Without proper span typing, it can't locate the retrieval step.
+
 ### Scorer Returns Null
 
 **Symptoms**: Scorer output is null, empty, or missing
@@ -447,33 +947,6 @@ records = [
 4. Consider adjusting criteria if too strict
 
 5. Add examples to scorer instructions
-
-### Built-in Scorer Not Working
-
-**Symptoms**: Built-in scorer errors or returns unexpected results
-
-**Causes**:
-
-1. Trace structure doesn't match scorer assumptions
-2. Required fields missing
-3. Scorer expects ground truth but dataset doesn't have it
-4. MLflow version incompatibility
-
-**Solutions**:
-
-1. Read scorer documentation for requirements:
-
-   - Required trace fields
-   - Expected structure
-   - Ground truth needs
-
-2. Verify trace has expected fields/structure
-
-3. Check dataset has `expectations` if scorer needs ground truth
-
-4. Consider custom scorer if built-in doesn't match your structure
-
-5. Test with verbose output to see what scorer received
 
 ### Scorer Registration Fails
 

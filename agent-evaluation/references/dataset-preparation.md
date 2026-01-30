@@ -186,8 +186,8 @@ uv run python scripts/create_dataset_template.py \
 1. Detect your environment
 2. Guide you through naming conventions:
    - **OSS**: Simple names like `mlflow-agent-eval-v1`
-   - **Databricks**: UC table names like `main.default.mlflow_agent_eval_v1`
-3. Help create 10+ diverse sample queries interactively
+   - **Databricks**: UC table names like `{catalog}.{schema}.mlflow_agent_eval_v1`
+3. Help create a few diverse sample queries interactively
 4. Generate a complete Python script using correct APIs
 5. Optionally execute the script to create the dataset
 
@@ -217,7 +217,6 @@ When using Databricks as your tracking URI, special considerations apply.
 **1. Fully-Qualified Table Name**
 
 - Format: `<catalog>.<schema>.<table>`
-- Example: `main.default.mlflow_agent_eval_v1`
 - Cannot use simple names like `my_dataset`
 
 **2. Tags Not Supported**
@@ -254,17 +253,7 @@ databricks schemas list <catalog_name>
 ```
 
 **Option 3: Use Default**
-Suggest the default location:
-
-```
-main.default.mlflow_agent_eval_v1
-```
-
-Where:
-
-- `main`: Default catalog
-- `default`: Default schema
-- `mlflow_agent_eval_v1`: Your table name (include version)
+Suggest `main.default` for {catalog}.{schema} but *ONLY* if it exists.
 
 ### Code Pattern
 
@@ -318,8 +307,7 @@ See generated script output for more examples.
 
 ### Sample Size
 
-- **Minimum**: 10 queries (for initial testing)
-- **Recommended**: 20-50 queries (for comprehensive evaluation)
+- **Minimum**: 5 queries (prefer this for initial setup)
 - **Balance**: Coverage vs execution time/cost
 
 More queries = better coverage but longer evaluation time and higher LLM costs.
@@ -340,7 +328,7 @@ More queries = better coverage but longer evaluation time and higher LLM costs.
 
 ### Iteration
 
-1. **Start small**: 10-15 queries for initial evaluation
+1. **Start small**: 5 queries for initial evaluation
 2. **Analyze results**: See what fails, what's missing
 3. **Expand**: Add queries to cover gaps
 4. **Refine**: Improve existing queries based on agent behavior
