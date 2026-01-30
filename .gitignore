@@ -206,4 +206,3 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .venv-mlflow-test/
-test-runs/
