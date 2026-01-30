@@ -21,6 +21,7 @@ Options:
     --mlflow-port PORT       Port for local MLflow server (default: 5000)
     --keep-workdir           Keep the working directory after completion
     --tracking-uri URI       Use external MLflow server instead of local
+    --test-runs-dir PATH     Directory to store test run data (default: /tmp)
 
 Environment variables:
     OPENAI_API_KEY           Passed to Claude Code for MLflow's default judge
@@ -57,6 +58,7 @@ class Config:
     """Test configuration."""
 
     skill_dir: Path
+    test_runs_dir: Path = field(default_factory=lambda: Path("/tmp"))
     timeout_seconds: int = 900
     mlflow_port: int = 5000
     keep_workdir: bool = True
@@ -333,10 +335,8 @@ def setup_phase(config: Config) -> bool:
     log.section("Setup Phase")
 
     # Create working directory
-    repo_root = config.skill_dir.parent
-    test_runs_dir = repo_root / "test-runs"
-    test_runs_dir.mkdir(exist_ok=True)
-    config.work_dir = Path(tempfile.mkdtemp(prefix="agent-eval-test-", dir=test_runs_dir))
+    config.test_runs_dir.mkdir(exist_ok=True)
+    config.work_dir = Path(tempfile.mkdtemp(prefix="agent-eval-test-", dir=config.test_runs_dir))
     log.info(f"Created working directory: {config.work_dir}")
 
     # Clone mlflow-agent repository
@@ -734,11 +734,18 @@ def main() -> int:
         default=os.environ.get("MLFLOW_TRACKING_URI"),
         help="Use external MLflow server instead of local (can also set MLFLOW_TRACKING_URI env var)",
     )
+    parser.add_argument(
+        "--test-runs-dir",
+        type=Path,
+        default=Path("/tmp"),
+        help="Directory to store test run data (default: /tmp)",
+    )
 
     args = parser.parse_args()
 
     config = Config(
         skill_dir=args.skill_dir.resolve(),
+        test_runs_dir=args.test_runs_dir.resolve(),
         timeout_seconds=args.timeout_seconds,
         mlflow_port=args.mlflow_port,
         keep_workdir=args.keep_workdir,
