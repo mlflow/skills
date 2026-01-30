@@ -1,0 +1,130 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient backgrounds -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0f1a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0d1829;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a1628;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="blueGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0194E2;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#0194E2;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#0194E2;stop-opacity:0" />
+    </linearGradient>
+
+    <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#43C9ED;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#43C9ED;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#43C9ED;stop-opacity:0" />
+    </linearGradient>
+
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="300" fill="url(#bgGradient)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.05">
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0194E2" stroke-width="0.5"/>
+    </pattern>
+    <rect width="1200" height="300" fill="url(#grid)"/>
+  </g>
+
+  <!-- Decorative glowing lines -->
+  <rect x="0" y="80" width="1200" height="1" fill="url(#blueGlow)"/>
+  <rect x="0" y="220" width="1200" height="1" fill="url(#cyanGlow)"/>
+
+  <!-- Floating particles/dots -->
+  <g opacity="0.4">
+    <circle cx="100" cy="40" r="2" fill="#0194E2"/>
+    <circle cx="250" cy="260" r="1.5" fill="#43C9ED"/>
+    <circle cx="400" cy="30" r="1" fill="#0194E2"/>
+    <circle cx="550" cy="270" r="2" fill="#43C9ED"/>
+    <circle cx="750" cy="25" r="1.5" fill="#0194E2"/>
+    <circle cx="900" cy="275" r="1" fill="#43C9ED"/>
+    <circle cx="1050" cy="45" r="2" fill="#0194E2"/>
+    <circle cx="1150" cy="255" r="1.5" fill="#43C9ED"/>
+  </g>
+
+  <!-- Background upward trend line chart -->
+  <g transform="translate(650, 40)" opacity="0.25">
+    <!-- Chart area fill -->
+    <path d="M0 220 L80 200 L160 185 L240 150 L320 110 L400 60 L480 20 L480 220 Z" fill="#0194E2" fill-opacity="0.3"/>
+    <!-- Trend line -->
+    <polyline points="0,220 80,200 160,185 240,150 320,110 400,60 480,20" fill="none" stroke="#43C9ED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Data points -->
+    <circle cx="0" cy="220" r="4" fill="#43C9ED"/>
+    <circle cx="160" cy="185" r="4" fill="#43C9ED"/>
+    <circle cx="320" cy="110" r="4" fill="#43C9ED"/>
+    <circle cx="480" cy="20" r="5" fill="#43C9ED"/>
+  </g>
+
+  <!-- MLflow Logo (scaled and positioned) -->
+  <g transform="translate(80, 95) scale(2.2)">
+    <path d="M0 31.0316V15.5024H3.54258V17.4699C4.43636 15.8756 6.38278 15.045 8.13589 15.045C10.178 15.045 11.9636 15.9713 12.7943 17.7895C14.0096 15.7474 15.8278 15.045 17.8373 15.045C20.6469 15.045 23.3263 16.8325 23.3263 20.9493V31.0316H19.7531V21.5541C19.7531 19.7359 18.8268 18.3636 16.7522 18.3636C14.8057 18.3636 13.5292 19.8947 13.5292 21.8086V31.0297H9.89282V21.5541C9.89282 19.7684 8.99522 18.3732 6.88995 18.3732C4.91292 18.3732 3.66699 19.8412 3.66699 21.8182V31.0392Z" fill="#ffffff"/>
+    <path d="M27.8546 31.0316V7.92917H31.5579V31.0316Z" fill="#ffffff"/>
+    <path d="M30.0708 39.4871C30.9033 39.7187 31.6517 39.8699 33.2402 39.8699C36.1933 39.8699 39.6765 38.2048 40.5933 33.5311L44.3789 14.7923H50.0076L50.6947 11.6746H45.0086L45.7741 7.95023C46.3598 5.05837 47.9598 3.59234 50.5282 3.59234C51.1962 3.59234 51.0086 3.64975 51.6038 3.76267L52.4268 0.570327C51.6344 0.333006 50.9244 0.191379 49.378 0.191379C47.7454 0.166831 46.1514 0.688934 44.8497 1.67463C43.4086 2.78851 42.4574 4.42487 42.023 6.53779L40.9569 11.6746H35.9234L35.5119 14.7943H40.3349L36.8593 32.1206C36.4765 34.0861 35.3588 36.4364 32.1512 36.4364C31.4239 36.4364 31.688 36.3809 31.0297 36.2737Z" fill="#0194E2"/>
+    <path d="M53.3416 30.9053H49.6402L54.7139 7.59616H58.4153Z" fill="#0194E2"/>
+    <path d="M71.8067 16.4766C68.5762 14.2161 64.1778 14.6606 61.4649 17.5216C58.7519 20.3826 58.5416 24.7984 60.9703 27.9043L63.3952 26.1244C62.1915 24.6312 61.9471 22.5815 62.7658 20.8471C63.5845 19.1127 65.3224 17.9987 67.2402 17.979V19.8737Z" fill="#43C9ED"/>
+    <path d="M62.6179 29.4717C65.8484 31.7322 70.2468 31.2877 72.9597 28.4267C75.6727 25.5657 75.883 21.1499 73.4543 18.044L71.0294 19.8239C72.2331 21.3171 72.4775 23.3668 71.6588 25.1012C70.8401 26.8356 69.1022 27.9496 67.1844 27.9693V26.0746Z" fill="#0194E2"/>
+    <path d="M78.0919 15.4928H82.1359L82.9588 26.1053L88.7177 15.4928L92.5569 15.5483L94.0651 26.1053L99.1387 15.4928L102.84 15.5483L95.1617 31.0412H91.4603L89.6765 19.9349L83.7818 31.0412H79.9426Z" fill="#0194E2"/>
+  </g>
+
+  <!-- "Skills" text with styling -->
+  <text x="340" y="155" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="600" fill="#0194E2" filter="url(#glow)">Skills</text>
+
+  <!-- Tagline -->
+  <text x="80" y="210" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="400" fill="#94a3b8">Supercharge your AI coding agent with MLflow expertise</text>
+
+  <!-- Right side: Abstract AI/Agent visualization -->
+  <g transform="translate(700, 30)">
+    <!-- Central node (Agent) -->
+    <circle cx="220" cy="120" r="55" fill="#0d1829" stroke="#0194E2" stroke-width="2" filter="url(#softGlow)"/>
+    <text x="220" y="112" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">AI</text>
+    <text x="220" y="132" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">Agent</text>
+
+    <!-- Skill nodes orbiting -->
+    <!-- Tracing node -->
+    <circle cx="90" cy="55" r="38" fill="#0d1829" stroke="#43C9ED" stroke-width="1.5"/>
+    <text x="90" y="60" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="#43C9ED" text-anchor="middle">Trace</text>
+
+    <!-- Eval node -->
+    <circle cx="350" cy="55" r="38" fill="#0d1829" stroke="#43C9ED" stroke-width="1.5"/>
+    <text x="350" y="60" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="#43C9ED" text-anchor="middle">Eval</text>
+
+    <!-- Debug node -->
+    <circle cx="90" cy="185" r="38" fill="#0d1829" stroke="#43C9ED" stroke-width="1.5"/>
+    <text x="90" y="190" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="#43C9ED" text-anchor="middle">Debug</text>
+
+    <!-- Metrics node -->
+    <circle cx="350" cy="185" r="38" fill="#0d1829" stroke="#43C9ED" stroke-width="1.5"/>
+    <text x="350" y="190" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="500" fill="#43C9ED" text-anchor="middle">Metrics</text>
+
+    <!-- Connection lines -->
+    <line x1="125" y1="70" x2="170" y2="95" stroke="#0194E2" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4"/>
+    <line x1="315" y1="70" x2="270" y2="95" stroke="#0194E2" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4"/>
+    <line x1="125" y1="170" x2="170" y2="145" stroke="#0194E2" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4"/>
+    <line x1="315" y1="170" x2="270" y2="145" stroke="#0194E2" stroke-width="1" stroke-opacity="0.5" stroke-dasharray="4,4"/>
+
+    <!-- Animated pulse circles (static representation) -->
+    <circle cx="220" cy="120" r="70" fill="none" stroke="#0194E2" stroke-width="1" stroke-opacity="0.3"/>
+    <circle cx="220" cy="120" r="90" fill="none" stroke="#0194E2" stroke-width="0.5" stroke-opacity="0.15"/>
+  </g>
+</svg>
