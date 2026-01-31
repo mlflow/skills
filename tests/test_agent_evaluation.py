@@ -74,6 +74,10 @@ class Config:
     mlflow_server_pid: Optional[int] = None
     use_external_server: bool = False
 
+    # Claude Code tracing
+    cc_tracing_experiment_name: Optional[str] = None
+    cc_tracing_experiment_id: Optional[str] = None
+
     # Constants
     mlflow_agent_repo: str = "https://github.com/alkispoly-db/mlflow-agent"
 
@@ -197,6 +201,7 @@ def cleanup(config: Config) -> None:
             else:
                 log.info(f"  MLflow data: {config.work_dir}/mlflow-data")
             log.info(f"  Evaluation experiment ID: {config.experiment_id or 'N/A'}")
+            log.info(f"  Claude Code tracing experiment ID: {config.cc_tracing_experiment_id or 'N/A'}")
 
 
 def check_prerequisites(config: Config) -> bool:
@@ -330,6 +335,104 @@ def start_mlflow_server(config: Config) -> bool:
     return True
 
 
+def setup_claude_code_tracing(config: Config) -> bool:
+    """Set up MLflow tracing for Claude Code execution."""
+    log.section("Setting Up Claude Code Tracing")
+
+    project_dir = config.work_dir / "mlflow-agent"
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
+
+    # Generate experiment name with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base_name = f"claude-code-skill-{timestamp}"
+
+    # Handle Databricks workspace path
+    if config.use_external_server and config.tracking_uri.startswith("databricks://"):
+        # Extract user from existing experiment path
+        user_prefix = "/".join(config.experiment_name.split("/")[:-1])
+        config.cc_tracing_experiment_name = f"{user_prefix}/{base_name}"
+    else:
+        config.cc_tracing_experiment_name = base_name
+
+    # Create experiment
+    log.info(f"Creating Claude Code tracing experiment: {config.cc_tracing_experiment_name}")
+    try:
+        result = run_command(
+            [
+                "uv",
+                "run",
+                "python",
+                "-c",
+                f"import mlflow; print(mlflow.create_experiment('{config.cc_tracing_experiment_name}'))",
+            ],
+            cwd=project_dir,
+        )
+        config.cc_tracing_experiment_id = result.stdout.strip()
+
+        if not config.cc_tracing_experiment_id or "Error" in config.cc_tracing_experiment_id or "Traceback" in config.cc_tracing_experiment_id:
+            log.error(f"Failed to create tracing experiment: {config.cc_tracing_experiment_id}")
+            return False
+
+        log.info(f"Created tracing experiment with ID: {config.cc_tracing_experiment_id}")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to create tracing experiment: {e}")
+        return False
+
+    # Configure MLflow autolog for Claude Code
+    log.info("Configuring MLflow autolog for Claude Code...")
+    try:
+        cmd = [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "mlflow",
+            "autolog",
+            "claude",
+            str(project_dir),
+            "-u",
+            tracking_uri,
+            "-e",
+            config.cc_tracing_experiment_id,
+        ]
+        run_command(cmd, cwd=project_dir)
+        log.info("MLflow autolog claude command completed")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to configure Claude Code tracing: {e}")
+        return False
+
+    # Patch settings.json to use 'uv run python' instead of bare 'python'
+    # The system Python may not have mlflow installed
+    settings_file = project_dir / ".claude" / "settings.json"
+    if settings_file.exists():
+        log.info("Patching settings.json to use 'uv run python'...")
+        try:
+            with open(settings_file) as f:
+                settings = json.load(f)
+
+            # Update the hook command to use 'uv run python'
+            if "hooks" in settings and "Stop" in settings["hooks"]:
+                for hook_group in settings["hooks"]["Stop"]:
+                    if "hooks" in hook_group:
+                        for hook in hook_group["hooks"]:
+                            if hook.get("type") == "command" and "command" in hook:
+                                hook["command"] = hook["command"].replace(
+                                    'python -c "from mlflow',
+                                    'uv run python -c "from mlflow'
+                                )
+
+            with open(settings_file, "w") as f:
+                json.dump(settings, f, indent=2)
+
+            log.info("Settings.json patched successfully")
+        except Exception as e:
+            log.error(f"Failed to patch settings.json: {e}")
+            return False
+
+    log.success("Claude Code tracing configured")
+    return True
+
+
 def setup_phase(config: Config) -> bool:
     """Set up the test environment."""
     log.section("Setup Phase")
@@ -457,6 +560,10 @@ def setup_phase(config: Config) -> bool:
         os.environ["OPENAI_API_KEY"] = config.openai_api_key
         log.info("OPENAI_API_KEY set (for MLflow scorers)")
 
+    # Set up Claude Code tracing
+    if not setup_claude_code_tracing(config):
+        return False
+
     log.success("Setup phase completed")
     return True
 
@@ -498,6 +605,40 @@ def test_claude_headless(config: Config) -> bool:
 
     log.info(f"Claude Code responded: {output[:100]}...")
     log.success("Claude Code headless mode is working")
+
+    # Verify Claude Code tracing worked
+    log.info("Verifying Claude Code tracing captured the test query...")
+    log.info("Waiting for trace to be flushed...")
+    time.sleep(5)  # Allow time for trace to be written to MLflow
+
+    try:
+        result = run_command(
+            [
+                "uv",
+                "run",
+                "python",
+                "-c",
+                f"""
+import mlflow
+from mlflow import MlflowClient
+client = MlflowClient()
+traces = client.search_traces(experiment_ids=['{config.cc_tracing_experiment_id}'])
+print(f'Found {{len(traces)}} trace(s)')
+if traces:
+    print(f'First trace ID: {{traces[0].info.request_id}}')
+""",
+            ],
+            cwd=project_dir,
+        )
+        if "Found 0 trace" in result.stdout:
+            log.error("Claude Code tracing verification failed - no traces found")
+            return False
+        log.info(result.stdout.strip())
+        log.success("Claude Code tracing is working")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to verify Claude Code tracing: {e}")
+        return False
+
     return True
 
 
