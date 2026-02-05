@@ -401,33 +401,11 @@ def setup_claude_code_tracing(config: Config) -> bool:
         log.error(f"Failed to configure Claude Code tracing: {e}")
         return False
 
-    # Patch settings.json to use 'uv run python' instead of bare 'python'
-    # The system Python may not have mlflow installed
-    settings_file = project_dir / ".claude" / "settings.json"
-    if settings_file.exists():
-        log.info("Patching settings.json to use 'uv run python'...")
-        try:
-            with open(settings_file) as f:
-                settings = json.load(f)
-
-            # Update the hook command to use 'uv run python'
-            if "hooks" in settings and "Stop" in settings["hooks"]:
-                for hook_group in settings["hooks"]["Stop"]:
-                    if "hooks" in hook_group:
-                        for hook in hook_group["hooks"]:
-                            if hook.get("type") == "command" and "command" in hook:
-                                hook["command"] = hook["command"].replace(
-                                    'python -c "from mlflow',
-                                    'uv run python -c "from mlflow'
-                                )
-
-            with open(settings_file, "w") as f:
-                json.dump(settings, f, indent=2)
-
-            log.info("Settings.json patched successfully")
-        except Exception as e:
-            log.error(f"Failed to patch settings.json: {e}")
-            return False
+    # Prepend the project's venv bin to PATH so the hook's 'python' resolves
+    # to the venv Python that has mlflow installed
+    venv_bin = str(project_dir / ".venv" / "bin")
+    os.environ["PATH"] = venv_bin + os.pathsep + os.environ.get("PATH", "")
+    log.info(f"Prepended {venv_bin} to PATH for Claude Code hooks")
 
     log.success("Claude Code tracing configured")
     return True
