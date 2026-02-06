@@ -377,8 +377,6 @@ def setup_claude_code_tracing(config: Config) -> bool:
     log.info("Configuring MLflow autolog for Claude Code...")
     try:
         cmd = [
-            "python",
-            "-m",
             "mlflow",
             "autolog",
             "claude",
