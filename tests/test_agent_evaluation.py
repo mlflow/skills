@@ -79,8 +79,8 @@ class Config:
     use_external_server: bool = False
 
     # Claude Code tracing
-    cc_tracing_experiment_name: Optional[str] = None
-    cc_tracing_experiment_id: Optional[str] = None
+    cc_tracing_experiment_name: str | None = None
+    cc_tracing_experiment_id: str | None = None
 
 
 
