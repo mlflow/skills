@@ -13,7 +13,10 @@ This script:
 8. Cleans up (stops server, removes temp files unless --keep-workdir)
 
 Usage:
-    python tests/test_agent_evaluation.py [OPTIONS] [extra_prompt]
+    python tests/test_agent_evaluation.py REPO_URL [OPTIONS] [extra_prompt]
+
+Arguments:
+    REPO_URL                 Git URL of the repository to clone and test against
 
 Options:
     --skill-dir PATH         Path to agent-evaluation skill
@@ -57,6 +60,7 @@ EXIT_VERIFICATION_FAILED = 3
 class Config:
     """Test configuration."""
 
+    repo_url: str
     skill_dir: Path
     test_runs_dir: Path = field(default_factory=lambda: Path("/tmp"))
     timeout_seconds: int = 900
@@ -74,8 +78,10 @@ class Config:
     mlflow_server_pid: Optional[int] = None
     use_external_server: bool = False
 
-    # Constants
-    mlflow_agent_repo: str = "https://github.com/alkispoly-db/mlflow-agent"
+    # Claude Code tracing
+    cc_tracing_experiment_name: str | None = None
+    cc_tracing_experiment_id: str | None = None
+
 
 
 class Logger:
@@ -197,6 +203,7 @@ def cleanup(config: Config) -> None:
             else:
                 log.info(f"  MLflow data: {config.work_dir}/mlflow-data")
             log.info(f"  Evaluation experiment ID: {config.experiment_id or 'N/A'}")
+            log.info(f"  Claude Code tracing experiment ID: {config.cc_tracing_experiment_id or 'N/A'}")
 
 
 def check_prerequisites(config: Config) -> bool:
@@ -210,16 +217,13 @@ def check_prerequisites(config: Config) -> bool:
         missing_deps.append("claude (Claude Code CLI)")
     if not command_exists("git"):
         missing_deps.append("git")
-    if not command_exists("uv"):
-        missing_deps.append("uv (Python package manager)")
-
     if missing_deps:
         log.error("Missing required commands:")
         for dep in missing_deps:
             log.error(f"  - {dep}")
         return False
 
-    log.info("All required commands available: claude, git, uv")
+    log.info("All required commands available: claude, git")
 
     # Check skill directory
     if not config.skill_dir.exists():
@@ -267,8 +271,6 @@ def start_mlflow_server(config: Config) -> bool:
     with open(log_file, "w") as f:
         process = subprocess.Popen(
             [
-                "uv",
-                "run",
                 "python",
                 "-m",
                 "mlflow",
@@ -330,6 +332,70 @@ def start_mlflow_server(config: Config) -> bool:
     return True
 
 
+def setup_claude_code_tracing(config: Config) -> bool:
+    """Set up MLflow tracing for Claude Code execution."""
+    log.section("Setting Up Claude Code Tracing")
+
+    project_dir = config.work_dir / "mlflow-agent"
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
+
+    # Generate experiment name with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base_name = f"claude-code-skill-{timestamp}"
+
+    # Handle Databricks workspace path
+    if config.use_external_server and config.tracking_uri.startswith("databricks://"):
+        # Extract user from existing experiment path
+        user_prefix = "/".join(config.experiment_name.split("/")[:-1])
+        config.cc_tracing_experiment_name = f"{user_prefix}/{base_name}"
+    else:
+        config.cc_tracing_experiment_name = base_name
+
+    # Create experiment
+    log.info(f"Creating Claude Code tracing experiment: {config.cc_tracing_experiment_name}")
+    try:
+        result = run_command(
+            [
+                "python",
+                "-c",
+                f"import mlflow; print(mlflow.create_experiment('{config.cc_tracing_experiment_name}'))",
+            ],
+            cwd=project_dir,
+        )
+        config.cc_tracing_experiment_id = result.stdout.strip()
+
+        if not config.cc_tracing_experiment_id or "Error" in config.cc_tracing_experiment_id or "Traceback" in config.cc_tracing_experiment_id:
+            log.error(f"Failed to create tracing experiment: {config.cc_tracing_experiment_id}")
+            return False
+
+        log.info(f"Created tracing experiment with ID: {config.cc_tracing_experiment_id}")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to create tracing experiment: {e}")
+        return False
+
+    # Configure MLflow autolog for Claude Code
+    log.info("Configuring MLflow autolog for Claude Code...")
+    try:
+        cmd = [
+            "mlflow",
+            "autolog",
+            "claude",
+            str(project_dir),
+            "-u",
+            tracking_uri,
+            "-e",
+            config.cc_tracing_experiment_id,
+        ]
+        run_command(cmd, cwd=project_dir)
+        log.info("MLflow autolog claude command completed")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to configure Claude Code tracing: {e}")
+        return False
+
+    log.success("Claude Code tracing configured")
+    return True
+
+
 def setup_phase(config: Config) -> bool:
     """Set up the test environment."""
     log.section("Setup Phase")
@@ -343,7 +409,7 @@ def setup_phase(config: Config) -> bool:
     log.info("Cloning mlflow-agent repository...")
     try:
         run_command(
-            ["git", "clone", "--depth", "1", config.mlflow_agent_repo, str(config.work_dir / "mlflow-agent")]
+            ["git", "clone", "--depth", "1", config.repo_url, str(config.work_dir / "mlflow-agent")]
         )
         log.info("Repository cloned successfully")
     except subprocess.CalledProcessError as e:
@@ -359,40 +425,11 @@ def setup_phase(config: Config) -> bool:
 
     project_dir = config.work_dir / "mlflow-agent"
 
-    # Install dependencies
-    log.info("Installing Python dependencies with uv sync...")
-    try:
-        run_command(["uv", "sync"], cwd=project_dir)
-        log.info("Dependencies installed successfully")
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed to install dependencies: {e}")
-        return False
-
-    # Add mlflow package
-    log.info("Adding mlflow package...")
-    try:
-        run_command(["uv", "add", "mlflow"], cwd=project_dir)
-        log.info("MLflow package added")
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed to add mlflow package: {e}")
-        return False
-
     # Start local MLflow server or use external one
     if config.use_external_server:
         log.section("Using External MLflow Server")
         os.environ["MLFLOW_TRACKING_URI"] = config.tracking_uri
         log.info(f"MLFLOW_TRACKING_URI set to: {config.tracking_uri}")
-
-        # Install Databricks packages if needed
-        if config.tracking_uri.startswith("databricks://"):
-            log.info("Installing Databricks packages for Unity Catalog dataset support...")
-            try:
-                run_command(["uv", "add", "databricks-agents", "databricks-connect"], cwd=project_dir)
-                log.info("Databricks packages installed (databricks-agents, databricks-connect)")
-            except subprocess.CalledProcessError:
-                log.error("Failed to install Databricks packages")
-                log.error("Dataset operations may fail without databricks-agents and databricks-connect")
-                # Don't fail - evaluation can still work with local DataFrames
 
         log.success("External MLflow server configured")
     else:
@@ -430,8 +467,6 @@ def setup_phase(config: Config) -> bool:
     try:
         result = run_command(
             [
-                "uv",
-                "run",
                 "python",
                 "-c",
                 f"import mlflow; print(mlflow.create_experiment('{config.experiment_name}'))",
@@ -456,6 +491,10 @@ def setup_phase(config: Config) -> bool:
     if config.openai_api_key:
         os.environ["OPENAI_API_KEY"] = config.openai_api_key
         log.info("OPENAI_API_KEY set (for MLflow scorers)")
+
+    # Set up Claude Code tracing
+    if not setup_claude_code_tracing(config):
+        return False
 
     log.success("Setup phase completed")
     return True
@@ -498,6 +537,38 @@ def test_claude_headless(config: Config) -> bool:
 
     log.info(f"Claude Code responded: {output[:100]}...")
     log.success("Claude Code headless mode is working")
+
+    # Verify Claude Code tracing worked
+    log.info("Verifying Claude Code tracing captured the test query...")
+    log.info("Waiting for trace to be flushed...")
+    time.sleep(5)  # Allow time for trace to be written to MLflow
+
+    try:
+        result = run_command(
+            [
+                "python",
+                "-c",
+                f"""
+import mlflow
+from mlflow import MlflowClient
+client = MlflowClient()
+traces = client.search_traces(experiment_ids=['{config.cc_tracing_experiment_id}'])
+print(f'Found {{len(traces)}} trace(s)')
+if traces:
+    print(f'First trace ID: {{traces[0].info.request_id}}')
+""",
+            ],
+            cwd=project_dir,
+        )
+        if "Found 0 trace" in result.stdout:
+            log.error("Claude Code tracing verification failed - no traces found")
+            return False
+        log.info(result.stdout.strip())
+        log.success("Claude Code tracing is working")
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed to verify Claude Code tracing: {e}")
+        return False
+
     return True
 
 
@@ -605,7 +676,7 @@ except Exception as e:
 # Check scorers
 try:
     scorer_result = subprocess.run(
-        ['uv', 'run', 'python', '-m', 'mlflow', 'scorers', 'list', '-x', experiment_id],
+        ['python', '-m', 'mlflow', 'scorers', 'list', '-x', experiment_id],
         capture_output=True,
         text=True
     )
@@ -620,7 +691,7 @@ print(json.dumps(results))
 
     try:
         result = run_command(
-            ["uv", "run", "python", "-c", verification_code],
+            ["python", "-c", verification_code],
             cwd=project_dir,
             check=False,
         )
@@ -693,6 +764,10 @@ def main() -> int:
     default_skill_dir = repo_root / "agent-evaluation"
 
     parser.add_argument(
+        "repo_url",
+        help="Git URL of the repository to clone and test against",
+    )
+    parser.add_argument(
         "extra_prompt",
         nargs="?",
         default="",
@@ -744,6 +819,7 @@ def main() -> int:
     args = parser.parse_args()
 
     config = Config(
+        repo_url=args.repo_url,
         skill_dir=args.skill_dir.resolve(),
         test_runs_dir=args.test_runs_dir.resolve(),
         timeout_seconds=args.timeout_seconds,
