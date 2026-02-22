@@ -17,7 +17,7 @@ def record_feedback(trace_id: str, rating: int):
         trace_id=trace_id,
         name="user_rating",
         value=rating,
-        source=mlflow.entities.feedback.FeedbackSource(
+        source=mlflow.entities.AssessmentSource(
             source_type="HUMAN",
             source_id="web_ui"
         )

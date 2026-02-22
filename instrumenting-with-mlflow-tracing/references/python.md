@@ -24,6 +24,8 @@ mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("my-agent")
 ```
 
+**IMPORTANT**: `mlflow.set_tracking_uri()` is recommended when starting from scratch. The local file store (`./mlruns`) is deprecated. Point to an MLflow tracking server instead (e.g. started via `uv run mlflow server --port 5000` for uv-based projects, or `mlflow server --port 5000` otherwise).
+
 ### Enable Tracing
 
 **For supported frameworks** (LangChain, LangGraph, OpenAI, etc.):
@@ -122,6 +124,9 @@ def chat(message: str, user_id: str, session_id: str) -> str:
     return response
 ```
 
+**IMPORTANT**
+When using mlflow.update_current_trace() API, you must ensure there is an active span. For example, the above code does not work when the `chat` function does not have `@mlflow.trace` decorator, because otherwise there is no active span.
+
 **Query traces by user:**
 
 ```python
@@ -150,6 +155,8 @@ def rag_query(question: str) -> str:
 
     return response.content
 ```
+
+**NOTE:** When combining autolog with session tracking via `mlflow.update_current_trace()`, you MUST add `@mlflow.trace` on the entry point function. Autolog alone does not keep a span active after `invoke()` returns, so `update_current_trace()` will fail without the decorator.
 
 ---
 
