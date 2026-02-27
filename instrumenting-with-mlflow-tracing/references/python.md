@@ -17,11 +17,15 @@
 pip install mlflow>=3.8.0
 ```
 
+**Check if `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` are already set in the environment.** If both are set, skip the configuration below — MLflow will use them automatically.
+
+Only call these if the environment is NOT pre-configured:
+
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("my-agent")
+mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI is set
+mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
 ### Enable Tracing
@@ -156,9 +160,9 @@ def rag_query(question: str) -> str:
 ## Common Issues
 
 **Traces not appearing?**
-1. Verify `mlflow.set_tracking_uri()` points to correct server
+1. Verify tracking URI is correct (`MLFLOW_TRACKING_URI` env var or `mlflow.set_tracking_uri()`)
 2. Ensure autolog is called before framework imports
-3. Check experiment is set with `mlflow.set_experiment()`
+3. Check experiment is configured (`MLFLOW_EXPERIMENT_ID` env var or `mlflow.set_experiment()`)
 
 **Nested spans not connected?**
 - Use `@mlflow.trace` or context managers consistently

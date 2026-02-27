@@ -110,14 +110,25 @@ ls -la src/ app/ agent/ 2>/dev/null
 
 ## Setup Overview
 
-Before evaluation, complete these three setup steps:
+### Pre-check: Use Existing Environment
+
+**Before doing ANY setup, check if `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` are already set:**
+
+```bash
+echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
+echo "MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID"
+```
+
+**If BOTH are already set, skip Steps 1-2 entirely.** The environment is pre-configured. Do NOT run `setup_mlflow.py`, do NOT create a `.env` file, do NOT override these values. Go directly to Step 3 (tracing integration) and the evaluation workflow.
+
+### Setup Steps (only if environment is NOT pre-configured)
 
 1. **Install MLflow** (version >=3.8.0)
 2. **Configure environment** (tracking URI and experiment)
    - **Guide**: Follow `references/setup-guide.md` Steps 1-2
 3. **Integrate tracing** (autolog and @mlflow.trace decorators)
-   - ⚠️ **MANDATORY**: Follow `references/tracing-integration.md` - the authoritative tracing guide
-   - ✓ **VERIFY**: Run `scripts/validate_agent_tracing.py` after implementing
+   - ⚠️ **MANDATORY**: Use the `instrumenting-with-mlflow-tracing` skill for tracing setup
+   - ✓ **VERIFY**: Run `scripts/validate_tracing_runtime.py` after implementing
 
 ⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot.
 
@@ -267,7 +278,7 @@ def wrapper(inputs):  # ❌ WRONG - inputs is NOT a dict
 Detailed guides in `references/` (load as needed):
 
 - **setup-guide.md** - Environment setup (MLflow install, tracking URI configuration)
-- **tracing-integration.md** - Authoritative tracing guide (autolog, decorators, session tracking, verification)
+- **Tracing**: Use the `instrumenting-with-mlflow-tracing` skill (authoritative guide for autolog, decorators, session tracking, verification)
 - **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog
 - **scorers.md** - Built-in vs custom scorers, registration, testing
 - **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)

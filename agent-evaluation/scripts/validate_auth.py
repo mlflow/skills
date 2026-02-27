@@ -218,8 +218,8 @@ def main():
         print("Your authentication is configured correctly.")
         print()
         print("Next steps:")
-        print("  1. Integrate tracing: See references/tracing-integration.md")
-        print("  2. Test runtime tracing: Edit and run scripts/validate_agent_tracing.py")
+        print("  1. Integrate tracing: Use the instrumenting-with-mlflow-tracing skill")
+        print("  2. Test runtime tracing: Run scripts/validate_tracing_runtime.py")
         print()
     else:
         print(f"✗ Found {len(all_issues)} issue(s):")

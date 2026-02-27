@@ -163,7 +163,7 @@ def main():
         print("Your environment is ready for agent evaluation.")
         print()
         print("Next steps:")
-        print("  1. Integrate tracing: See references/tracing-integration.md")
+        print("  1. Integrate tracing: Use the instrumenting-with-mlflow-tracing skill")
         print("  2. Prepare dataset: python scripts/list_datasets.py")
         print()
     else:

@@ -41,6 +41,28 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 
 ---
 
+## Verification
+
+After instrumenting the code, **always verify that tracing is working**.
+
+> **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. Complete verification below first.
+
+
+1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
+2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment:
+
+```python
+import mlflow
+
+traces = mlflow.search_traces(experiment_ids=["<experiment_id>"])
+print(f"Found {len(traces)} trace(s)")
+assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
+```
+
+3. **Report the result** — tell the user how many traces were found and confirm tracing is working
+
+---
+
 ## Feedback Collection
 
 Log user feedback on traces for evaluation, debugging, and fine-tuning. Essential for identifying quality issues in production.
