@@ -1,6 +1,6 @@
 ---
 name: instrumenting-with-mlflow-tracing
-description: Instruments Python and TypeScript code with MLflow Tracing for observability. Triggers on questions about adding tracing, instrumenting agents/LLM apps, getting started with MLflow tracing, or tracing specific frameworks (LangGraph, LangChain, OpenAI, DSPy, CrewAI, AutoGen). Examples - "How do I add tracing?", "How to instrument my agent?", "How to trace my LangChain app?", "Getting started with MLflow tracing", "Trace my TypeScript app"
+description: Instruments Python and TypeScript code with MLflow Tracing for observability. Must be loaded when setting up tracing as part of any workflow including agent evaluation. Triggers on adding tracing, instrumenting agents/LLM apps, getting started with MLflow tracing, tracing specific frameworks (LangGraph, LangChain, OpenAI, DSPy, CrewAI, AutoGen), or when another skill references tracing setup. Examples - "How do I add tracing?", "Instrument my agent", "Trace my LangChain app", "Set up tracing for evaluation"
 ---
 
 # MLflow Tracing Instrumentation Guide

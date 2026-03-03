@@ -1,6 +1,6 @@
 ---
 name: agent-evaluation
-description: Use this when you need to EVALUATE OR IMPROVE or OPTIMIZE an existing LLM agent's output quality - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
+description: Use this when you need to EVALUATE OR IMPROVE or OPTIMIZE an existing LLM agent's output quality - including improving tool selection accuracy, answer quality, reducing costs, or fixing issues where the agent gives wrong/incomplete responses. Evaluates agents systematically using MLflow evaluation with datasets, scorers, and tracing. IMPORTANT - Always also load the instrumenting-with-mlflow-tracing skill before starting any work. Covers end-to-end evaluation workflow or individual components (tracing setup, dataset creation, scorer definition, evaluation execution).
 allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 ---
 

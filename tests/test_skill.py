@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import logging
 import os
 import shutil
 import signal
@@ -35,6 +36,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+import mlflow
+from mlflow import MlflowClient
 
 try:
     import yaml
@@ -51,11 +55,19 @@ EXIT_SETUP_FAILED = 1
 EXIT_EXECUTION_FAILED = 2
 EXIT_VERIFICATION_FAILED = 3
 
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
+log = logging.getLogger(__name__)
+
+
+def log_section(msg: str) -> None:
+    print()
+    log.info("=" * 40)
+    log.info(msg)
+    log.info("=" * 40)
+
 
 @dataclass
 class TestConfig:
-    """Test configuration loaded entirely from YAML."""
-
     name: str
     project_dir: str
     setup_script: str
@@ -68,51 +80,20 @@ class TestConfig:
     tracking_uri: Optional[str] = None
     test_runs_dir: Path = field(default_factory=lambda: Path("/tmp"))
     keep_workdir: bool = True
-    extra_prompt: str = ""
     environment: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class RuntimeState:
-    """Runtime state populated during execution."""
-
     work_dir: Optional[Path] = None
     full_project_dir: Optional[Path] = None
-    experiment_name: Optional[str] = None
     experiment_id: Optional[str] = None
     log_file: Optional[Path] = None
     mlflow_server_pid: Optional[int] = None
     use_external_server: bool = False
-    cc_tracing_experiment_name: Optional[str] = None
     cc_tracing_experiment_id: Optional[str] = None
     repo_root: Optional[Path] = None
     run_start_timestamp_ms: Optional[int] = None
-
-
-class Logger:
-    """Simple logger with colored output."""
-
-    @staticmethod
-    def info(msg: str) -> None:
-        print(f"[INFO] {msg}")
-
-    @staticmethod
-    def error(msg: str) -> None:
-        print(f"[ERROR] {msg}", file=sys.stderr)
-
-    @staticmethod
-    def success(msg: str) -> None:
-        print(f"[SUCCESS] {msg}")
-
-    @staticmethod
-    def section(msg: str) -> None:
-        print()
-        print("=" * 40)
-        print(msg)
-        print("=" * 40)
-
-
-log = Logger()
 
 
 def run_command(
@@ -123,7 +104,6 @@ def run_command(
     timeout: Optional[int] = None,
     env: Optional[dict] = None,
 ) -> subprocess.CompletedProcess:
-    """Run a command and return the result."""
     merged_env = os.environ.copy()
     if env:
         merged_env.update(env)
@@ -140,12 +120,17 @@ def run_command(
 
 
 def command_exists(cmd: str) -> bool:
-    """Check if a command exists in PATH."""
     return shutil.which(cmd) is not None
 
 
+def claude_env() -> dict[str, str]:
+    """Return a copy of os.environ without CLAUDECODE to avoid nested-session conflicts."""
+    env = os.environ.copy()
+    env.pop("CLAUDECODE", None)
+    return env
+
+
 def is_port_available(port: int) -> bool:
-    """Check if a port is available."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.bind(("127.0.0.1", port))
@@ -155,7 +140,6 @@ def is_port_available(port: int) -> bool:
 
 
 def load_config(yaml_path: str) -> TestConfig:
-    """Load test configuration from a YAML file."""
     path = Path(yaml_path)
     if not path.exists():
         log.error(f"Config file not found: {yaml_path}")
@@ -164,21 +148,18 @@ def load_config(yaml_path: str) -> TestConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
 
-    # Convert test_runs_dir to Path if present
     if "test_runs_dir" in data:
         data["test_runs_dir"] = Path(data["test_runs_dir"])
 
-    # YAML null becomes None, which is what we want for tracking_uri
-    # Ensure environment values are all strings
-    if "environment" in data and data["environment"]:
-        data["environment"] = {k: str(v) for k, v in data["environment"].items()}
+    env = data.get("environment")
+    if env:
+        data["environment"] = {k: str(v) for k, v in env.items()}
 
     return TestConfig(**data)
 
 
 def check_prerequisites(config: TestConfig, state: RuntimeState) -> bool:
-    """Check that all prerequisites are met."""
-    log.section("Checking Prerequisites")
+    log_section("Checking Prerequisites")
 
     missing_deps = []
 
@@ -231,13 +212,11 @@ def check_prerequisites(config: TestConfig, state: RuntimeState) -> bool:
             return False
         log.info(f"Port {config.mlflow_port} is available")
 
-    log.success("All prerequisites satisfied")
     return True
 
 
 def start_mlflow_server(config: TestConfig, state: RuntimeState) -> bool:
-    """Start a local MLflow server."""
-    log.section("Starting Local MLflow Server")
+    log_section("Starting Local MLflow Server")
 
     mlflow_data_dir = state.work_dir / "mlflow-data"
     mlflow_data_dir.mkdir(parents=True, exist_ok=True)
@@ -288,7 +267,7 @@ def start_mlflow_server(config: TestConfig, state: RuntimeState) -> bool:
             )
             if result.returncode == 0:
                 break
-        except (subprocess.TimeoutExpired, Exception):
+        except Exception:
             pass
 
         # Check if process died
@@ -309,18 +288,14 @@ def start_mlflow_server(config: TestConfig, state: RuntimeState) -> bool:
 
     log.info(f"MLflow server started (PID: {state.mlflow_server_pid})")
 
-    # Set tracking URI
     tracking_uri = f"http://127.0.0.1:{config.mlflow_port}"
     os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
     log.info(f"MLFLOW_TRACKING_URI set to: {tracking_uri}")
-
-    log.success("MLflow server is ready")
     return True
 
 
 def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
-    """Set up work directory, MLflow server, and experiments."""
-    log.section("Setup Infrastructure")
+    log_section("Setup Infrastructure")
 
     # Create working directory
     config.test_runs_dir.mkdir(exist_ok=True)
@@ -332,10 +307,9 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
 
     # Start local MLflow server or use external one
     if state.use_external_server:
-        log.section("Using External MLflow Server")
+        log_section("Using External MLflow Server")
         os.environ["MLFLOW_TRACKING_URI"] = config.tracking_uri
         log.info(f"MLFLOW_TRACKING_URI set to: {config.tracking_uri}")
-        log.success("External MLflow server configured")
     else:
         # Create project dir early so MLflow server can use it as cwd.
         # The setup script will populate it with actual content.
@@ -364,36 +338,17 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
             )
             return False
 
-        state.experiment_name = f"/Users/{db_user}/{base_experiment_name}"
+        experiment_name = f"/Users/{db_user}/{base_experiment_name}"
         log.info("Using Databricks workspace path for experiment")
     else:
-        state.experiment_name = base_experiment_name
+        experiment_name = base_experiment_name
 
-    log.info(f"Creating evaluation experiment: {state.experiment_name}")
+    log.info(f"Creating evaluation experiment: {experiment_name}")
 
-    # Use full_project_dir as cwd — it exists either from mkdir above or external setup
-    cwd = state.full_project_dir if state.full_project_dir.exists() else state.work_dir
     try:
-        result = run_command(
-            [
-                "python",
-                "-c",
-                f"import mlflow; print(mlflow.create_experiment('{state.experiment_name}'))",
-            ],
-            cwd=cwd,
-        )
-        state.experiment_id = result.stdout.strip()
-
-        if (
-            not state.experiment_id
-            or "Error" in state.experiment_id
-            or "Traceback" in state.experiment_id
-        ):
-            log.error(f"Failed to create evaluation experiment: {state.experiment_id}")
-            return False
-
+        state.experiment_id = str(mlflow.create_experiment(experiment_name))
         log.info(f"Created evaluation experiment with ID: {state.experiment_id}")
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         log.error(f"Failed to create experiment: {e}")
         return False
 
@@ -402,49 +357,30 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
     # Create Claude Code tracing experiment
     cc_base_name = f"claude-code-skill-{timestamp}"
     if state.use_external_server and config.tracking_uri.startswith("databricks://"):
-        user_prefix = "/".join(state.experiment_name.split("/")[:-1])
-        state.cc_tracing_experiment_name = f"{user_prefix}/{cc_base_name}"
+        user_prefix = "/".join(experiment_name.split("/")[:-1])
+        cc_tracing_experiment_name = f"{user_prefix}/{cc_base_name}"
     else:
-        state.cc_tracing_experiment_name = cc_base_name
+        cc_tracing_experiment_name = cc_base_name
 
     log.info(
-        f"Creating Claude Code tracing experiment: {state.cc_tracing_experiment_name}"
+        f"Creating Claude Code tracing experiment: {cc_tracing_experiment_name}"
     )
     try:
-        result = run_command(
-            [
-                "python",
-                "-c",
-                f"import mlflow; print(mlflow.create_experiment('{state.cc_tracing_experiment_name}'))",
-            ],
-            cwd=cwd,
+        state.cc_tracing_experiment_id = str(
+            mlflow.create_experiment(cc_tracing_experiment_name)
         )
-        state.cc_tracing_experiment_id = result.stdout.strip()
-
-        if (
-            not state.cc_tracing_experiment_id
-            or "Error" in state.cc_tracing_experiment_id
-            or "Traceback" in state.cc_tracing_experiment_id
-        ):
-            log.error(
-                f"Failed to create tracing experiment: {state.cc_tracing_experiment_id}"
-            )
-            return False
-
         log.info(
             f"Created tracing experiment with ID: {state.cc_tracing_experiment_id}"
         )
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         log.error(f"Failed to create tracing experiment: {e}")
         return False
 
-    log.success("Infrastructure setup completed")
     return True
 
 
 def run_setup_script(config: TestConfig, state: RuntimeState) -> bool:
-    """Run the setup script with the appropriate environment variables."""
-    log.section("Running Setup Script")
+    log_section("Running Setup Script")
 
     setup_script = state.repo_root / config.setup_script
     log.info(f"Executing: {setup_script}")
@@ -479,13 +415,12 @@ def run_setup_script(config: TestConfig, state: RuntimeState) -> bool:
         )
         return False
 
-    log.success("Setup script completed")
+    log.info("Setup script completed")
     return True
 
 
 def install_skills(config: TestConfig, state: RuntimeState) -> bool:
-    """Copy skills into PROJECT_DIR/.claude/skills/."""
-    log.section("Installing Skills")
+    log_section("Installing Skills")
 
     skills_dir = state.full_project_dir / ".claude" / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
@@ -496,17 +431,14 @@ def install_skills(config: TestConfig, state: RuntimeState) -> bool:
         shutil.copytree(src, dst)
         log.info(f"Installed skill: {skill_name} -> {dst}")
 
-    log.success("All skills installed")
     return True
 
 
 def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
-    """Set up MLflow tracing for Claude Code execution."""
-    log.section("Setting Up Claude Code Tracing")
+    log_section("Setting Up Claude Code Tracing")
 
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "")
 
-    log.info("Configuring MLflow autolog for Claude Code...")
     try:
         cmd = [
             "mlflow",
@@ -519,22 +451,18 @@ def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
             state.cc_tracing_experiment_id,
         ]
         run_command(cmd, cwd=state.full_project_dir)
-        log.info("MLflow autolog claude command completed")
+        log.info("MLflow autolog configured for Claude Code")
     except subprocess.CalledProcessError as e:
         log.error(f"Failed to configure Claude Code tracing: {e}")
         return False
 
-    log.success("Claude Code tracing configured")
     return True
 
 
 def test_claude_headless(config: TestConfig, state: RuntimeState) -> bool:
-    """Test that Claude Code headless mode works."""
-    log.section("Testing Claude Code Headless Mode")
+    log_section("Testing Claude Code Headless Mode")
 
     log.info("Running simple Claude Code test query...")
-    env = os.environ.copy()
-    env.pop("CLAUDECODE", None)
     try:
         result = subprocess.run(
             ["claude", "-p", "Say hello world", "--allowedTools", ""],
@@ -543,7 +471,7 @@ def test_claude_headless(config: TestConfig, state: RuntimeState) -> bool:
             text=True,
             timeout=120,
             stdin=subprocess.DEVNULL,
-            env=env,
+            env=claude_env(),
         )
         output = result.stdout + result.stderr
     except subprocess.TimeoutExpired:
@@ -554,68 +482,39 @@ def test_claude_headless(config: TestConfig, state: RuntimeState) -> bool:
         return False
 
     if not output:
-        log.error("Claude Code headless mode test failed - no output")
+        log.error("Claude Code headless mode produced no output")
         return False
 
-    if "error" in output.lower() and "Error" in output:
-        log.error("Claude Code headless mode test failed")
-        log.error(f"Output: {output}")
+    if "Error" in output:
+        log.error(f"Claude Code headless mode returned an error: {output}")
         return False
 
     log.info(f"Claude Code responded: {output[:100]}...")
-    log.success("Claude Code headless mode is working")
 
     # Verify Claude Code tracing worked
     log.info("Verifying Claude Code tracing captured the test query...")
-    log.info("Waiting for trace to be flushed...")
-    time.sleep(5)
+    mlflow.flush_trace_async_logging()
 
-    try:
-        result = run_command(
-            [
-                "python",
-                "-c",
-                f"""
-import mlflow
-from mlflow import MlflowClient
-client = MlflowClient()
-traces = client.search_traces(experiment_ids=['{state.cc_tracing_experiment_id}'])
-print(f'Found {{len(traces)}} trace(s)')
-if traces:
-    print(f'First trace ID: {{traces[0].info.request_id}}')
-""",
-            ],
-            cwd=state.full_project_dir,
-        )
-        if "Found 0 trace" in result.stdout:
-            log.error("Claude Code tracing verification failed - no traces found")
-            return False
-        log.info(result.stdout.strip())
-        log.success("Claude Code tracing is working")
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed to verify Claude Code tracing: {e}")
+    client = MlflowClient()
+    traces = client.search_traces(experiment_ids=[state.cc_tracing_experiment_id])
+    if not traces:
+        log.error("Claude Code tracing verification failed - no traces found")
         return False
 
+    log.info(f"Found {len(traces)} trace(s), first ID: {traces[0].info.request_id}")
     return True
 
 
 def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
-    """Run Claude Code with the configured prompt."""
-    log.section("Running Claude Code")
+    log_section("Running Claude Code")
 
     state.log_file = state.work_dir / "claude_output.log"
-
-    # Build the prompt
-    full_prompt = config.prompt
-    if config.extra_prompt:
-        full_prompt = f"{config.prompt} {config.extra_prompt}"
-        log.info(f"Extra prompt: {config.extra_prompt}")
 
     # Record start time so verify_judges can filter out pre-existing traces
     state.run_start_timestamp_ms = int(time.time() * 1000)
 
     log.info("Executing Claude Code...")
-    log.info(f"Prompt: {full_prompt}")
+    log.info(f"Prompt: {config.prompt}")
     log.info(f"Timeout: {config.timeout_seconds} seconds")
     log.info(f"Log file: {state.log_file}")
     log.info(
@@ -625,15 +524,13 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
         f"MLFLOW_EXPERIMENT_ID: {os.environ.get('MLFLOW_EXPERIMENT_ID', 'not set')}"
     )
 
-    env = os.environ.copy()
-    env.pop("CLAUDECODE", None)
     try:
         with open(state.log_file, "w") as f:
             result = subprocess.run(
                 [
                     "claude",
                     "-p",
-                    full_prompt,
+                    config.prompt,
                     "--dangerously-skip-permissions",
                     "--allowedTools",
                     config.allowed_tools,
@@ -643,7 +540,7 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
                 stderr=subprocess.STDOUT,
                 timeout=config.timeout_seconds,
                 stdin=subprocess.DEVNULL,
-                env=env,
+                env=claude_env(),
             )
             exit_code = result.returncode
     except subprocess.TimeoutExpired:
@@ -661,13 +558,12 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
         log.error(f"Check log file for details: {state.log_file}")
         return False
 
-    log.success("Claude Code execution completed")
+    log.info("Claude Code execution completed")
     return True
 
 
 def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
-    """Run judges from the configured module on CC traces in a subprocess."""
-    log.section("Verification Phase: Running Judges")
+    log_section("Verification Phase: Running Judges")
 
     log.info("Waiting for traces to flush...")
     time.sleep(10)
@@ -679,7 +575,7 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
     # Run evaluation in a subprocess to avoid in-process hangs with LLM API calls.
     # The subprocess dynamically imports each judges module, calls get_judges(),
     # and runs mlflow.genai.evaluate() on the CC traces.
-    judge_paths_literal = repr(judge_paths)
+    judge_paths_repr = repr(judge_paths)
     verification_code = f"""
 import contextlib
 import importlib.util
@@ -696,7 +592,7 @@ import mlflow.server.jobs.utils  # noqa: F401
 
 # Load judges from all configured modules
 judges = []
-for i, module_path in enumerate({judge_paths_literal}):
+for i, module_path in enumerate({judge_paths_repr}):
     spec = importlib.util.spec_from_file_location(f"judges_{{i}}", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -810,53 +706,37 @@ print(json.dumps(results))
     log.info("Judge Results:")
     print()
 
-    all_pass = True
+    all_passed = True
     for entry in data:
-        scorer_name = entry["scorer"]
-        trace_id = entry["trace_id"]
-        value = entry["value"]
         passed = entry["pass"]
-
-        rationale = entry.get("rationale", "")
         status = "PASS" if passed else "FAIL"
-        print(f"  [{status}] {scorer_name} on trace {trace_id}: {value}")
-        if rationale:
-            print(f"          Rationale: {rationale}")
+        print(f"  [{status}] {entry['scorer']} on trace {entry['trace_id']}: {entry['value']}")
+        if entry.get("rationale"):
+            print(f"          Rationale: {entry['rationale']}")
         if not passed:
-            all_pass = False
+            all_passed = False
 
     print()
 
-    if all_pass:
-        log.success("All judge checks passed")
-        return True
+    if all_passed:
+        log.info("All judge checks passed")
     else:
         log.error("Some judge checks failed")
-        return False
+    return all_passed
 
 
 def cleanup(config: TestConfig, state: RuntimeState) -> None:
-    """Cleanup function called on exit."""
-    log.section("Cleanup")
+    log_section("Cleanup")
 
     # Copy Claude session logs to work directory
     if state.work_dir and state.work_dir.exists() and state.full_project_dir:
-        claude_projects_dir = Path.home() / ".claude" / "projects"
         project_path_encoded = str(state.full_project_dir).replace("/", "-")
-        session_dir = claude_projects_dir / project_path_encoded
+        session_dir = Path.home() / ".claude" / "projects" / project_path_encoded
 
         if session_dir.exists():
-            log.info("Copying Claude session logs...")
             dest_dir = state.work_dir / "claude-sessions"
-            dest_dir.mkdir(exist_ok=True)
             try:
-                for item in session_dir.iterdir():
-                    if item.is_file():
-                        shutil.copy2(item, dest_dir)
-                    else:
-                        shutil.copytree(
-                            item, dest_dir / item.name, dirs_exist_ok=True
-                        )
+                shutil.copytree(session_dir, dest_dir, dirs_exist_ok=True)
                 log.info(f"Claude session logs copied to: {dest_dir}")
             except Exception as e:
                 log.error(f"Failed to copy session logs: {e}")
@@ -898,7 +778,6 @@ def cleanup(config: TestConfig, state: RuntimeState) -> None:
 
 
 def main() -> int:
-    """Main entry point."""
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <config.yaml> [KEY=VALUE ...]", file=sys.stderr)
         return EXIT_SETUP_FAILED
@@ -926,7 +805,7 @@ def main() -> int:
     # Register cleanup handler
     atexit.register(cleanup, config, state)
 
-    log.section(f"Skill Test: {config.name}")
+    log_section(f"Skill Test: {config.name}")
     log.info(f"Starting test at {datetime.now()}")
     log.info(f"Config file: {yaml_path}")
     if config.tracking_uri:
@@ -973,8 +852,8 @@ def main() -> int:
         log.error("Judge verification failed")
         return EXIT_VERIFICATION_FAILED
 
-    log.section("Test Completed Successfully")
-    log.info(f"Experiment: {state.experiment_name} (ID: {state.experiment_id})")
+    log_section("Test Completed Successfully")
+    log.info(f"Evaluation experiment ID: {state.experiment_id}")
     log.info("All registered judges passed on all traces")
 
     return EXIT_SUCCESS

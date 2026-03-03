@@ -1,5 +1,3 @@
-"""Judge: check that the agent ran the instrumented code."""
-
 from __future__ import annotations
 
 from typing import Literal
@@ -8,7 +6,6 @@ from mlflow.genai.judges import make_judge
 
 
 def get_judges() -> list:
-    """Return a judge that checks the agent ran instrumented code."""
     return [
         make_judge(
             name="agent-ran-instrumented-code",
