@@ -222,9 +222,9 @@ mlflow.search_traces(f"attributes.timestamp_ms > {cutoff}")
 
 **Causes**:
 
-1. mlflow.set_trace_tag() not called
-2. Timing issue - set_trace_tag called too late
-3. trace_id is None when setting tag
+1. `mlflow.update_current_trace()` not called
+2. Timing issue — called outside of a trace context
+3. No active trace when setting tag
 
 **Solutions**:
 
@@ -236,19 +236,15 @@ mlflow.search_traces(f"attributes.timestamp_ms > {cutoff}")
        if session_id is None:
            session_id = str(uuid.uuid4())
 
-       # Get trace ID and set tag IMMEDIATELY
-       trace_id = mlflow.get_last_active_trace_id()
-       if trace_id:
-           mlflow.set_trace_tag(trace_id, "session_id", session_id)
+       # Set tag on the current active trace
+       mlflow.update_current_trace(tags={"session_id": session_id})
 
        # Rest of function...
    ```
 
-2. Verify timing - call early in function
+2. Ensure `update_current_trace` is called inside a `@mlflow.trace`-decorated function
 
-3. Check trace_id is not None before calling set_trace_tag
-
-4. Test with validation code from `references/tracing-integration.md`
+3. Refer to the `instrumenting-with-mlflow-tracing` skill for detailed tracing guidance
 
 ### Import Errors When Testing
 
@@ -982,6 +978,6 @@ def my_rag_app(query):
 
 **For detailed guidance on each phase**, see the respective reference files:
 
-- `references/tracing-integration.md` - Tracing setup
+- **Tracing**: Use the `instrumenting-with-mlflow-tracing` skill
 - `references/dataset-preparation.md` - Dataset creation
 - `references/scorers.md` - Scorer design and testing

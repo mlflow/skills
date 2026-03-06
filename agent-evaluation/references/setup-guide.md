@@ -8,6 +8,17 @@ Complete guide for setting up MLflow environment before agent evaluation.
 2. [Step 2: Configure Environment](#step-2-configure-environment)
 3. [Step 3: Integrate MLflow Tracing](#step-3-integrate-mlflow-tracing)
 
+## Pre-check: Use Existing Environment
+
+**Before doing ANY setup, check the current environment:**
+
+```bash
+echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
+echo "MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID"
+```
+
+**If BOTH variables are already set, skip Steps 1-2 entirely.** The environment is pre-configured by the caller. Do NOT run `setup_mlflow.py`, do NOT create a `.env` file, do NOT override these values with local alternatives like `sqlite:///mlflow.db`. Proceed directly to Step 3 (tracing integration).
+
 ## Overview
 
 Before evaluation, complete these setup steps in order.
@@ -153,6 +164,8 @@ export MLFLOW_EXPERIMENT_ID="$EXP_ID"
 ```
 
 #### Step 2.3: Persist Configuration
+
+⚠️ **Skip this step if MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID were already set in the environment before setup.** Creating a `.env` file can override the pre-configured values.
 
 Add to .env file:
 

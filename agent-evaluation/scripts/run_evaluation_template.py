@@ -62,9 +62,9 @@ import mlflow
 from mlflow.genai.datasets import get_dataset
 from mlflow.genai.scorers import list_scorers
 
-# Set environment variables
-os.environ["MLFLOW_TRACKING_URI"] = "{tracking_uri}"
-os.environ["MLFLOW_EXPERIMENT_ID"] = "{experiment_id}"
+# Use existing environment variables if set, otherwise use defaults from generation time
+os.environ.setdefault("MLFLOW_TRACKING_URI", "{tracking_uri}")
+os.environ.setdefault("MLFLOW_EXPERIMENT_ID", "{experiment_id}")
 
 print("=" * 60)
 print("MLflow Agent Evaluation")

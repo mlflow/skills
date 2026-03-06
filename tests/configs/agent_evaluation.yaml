@@ -1,0 +1,29 @@
+name: "agent-evaluation-test"
+project_dir: mlflow-agent               # Subdirectory within work_dir for Claude Code
+
+setup_script: tests/scripts/setup_agent_eval.py
+judges:
+  - tests/judges/dataset_created.py
+  - tests/judges/scorer_registered.py
+  - tests/judges/evaluation_run_created.py
+  - tests/judges/agent_trace_logged.py
+  - tests/judges/tracing_skill_invoked.py
+  - tests/judges/agent_eval_skill_invoked.py
+
+skills:                                  # Copied into PROJECT_DIR/.claude/skills/
+  - agent-evaluation
+  - instrumenting-with-mlflow-tracing
+
+prompt: "Evaluate the output quality of my agent. Do not ask for input."
+timeout_seconds: 900
+allowed_tools: "Bash,Read,Write,Edit,Grep,Glob,WebFetch"
+
+mlflow_port: 32940
+tracking_uri: null                       # null = start local server
+
+test_runs_dir: /tmp
+keep_workdir: true
+
+environment:                             # Passed to setup script alongside system vars
+  REPO_URL: ""
+  OPENAI_API_KEY: ""

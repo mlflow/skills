@@ -305,7 +305,7 @@ Examples:
         print("Next Steps")
         print("=" * 60)
         print("\n1. Fix the issues listed above")
-        print("2. Refer to references/tracing-integration.md for detailed guidance")
+        print("2. Refer to the instrumenting-with-mlflow-tracing skill for detailed guidance")
         print("3. Run this script again to verify fixes")
         print("\nDO NOT proceed with evaluation until all issues are resolved.")
 
