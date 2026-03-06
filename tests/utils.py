@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import socket
 import subprocess
 from pathlib import Path
@@ -42,10 +41,6 @@ def run_command(
         timeout=timeout,
         env=merged_env,
     )
-
-
-def command_exists(cmd: str) -> bool:
-    return shutil.which(cmd) is not None
 
 
 def claude_env() -> dict[str, str]:

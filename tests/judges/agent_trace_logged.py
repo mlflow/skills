@@ -4,6 +4,7 @@ import os
 
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import scorer
 
 
@@ -18,11 +19,11 @@ def get_judges() -> list:
         )
         if traces:
             return Feedback(
-                value="yes",
+                value=CategoricalRating.YES,
                 rationale=f"Found {len(traces)} trace(s) in experiment {eval_exp_id}",
             )
         return Feedback(
-            value="no",
+            value=CategoricalRating.NO,
             rationale=f"No traces found in experiment {eval_exp_id}",
         )
 

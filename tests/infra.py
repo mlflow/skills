@@ -21,7 +21,6 @@ from config import TestConfig, RuntimeState
 from utils import (
     log_section,
     run_command,
-    command_exists,
     claude_env,
     is_port_available,
 )
@@ -29,22 +28,13 @@ from utils import (
 log = logging.getLogger(__name__)
 
 
+def _is_databricks_uri(uri: str) -> bool:
+    """Return True for 'databricks' or 'databricks://<profile>'."""
+    return uri == "databricks" or uri.startswith("databricks://")
+
+
 def check_prerequisites(config: TestConfig, state: RuntimeState) -> bool:
     log_section("Checking Prerequisites")
-
-    missing_deps = []
-
-    if not command_exists("claude"):
-        missing_deps.append("claude (Claude Code CLI)")
-    if not command_exists("git"):
-        missing_deps.append("git")
-    if missing_deps:
-        log.error("Missing required commands:")
-        for dep in missing_deps:
-            log.error(f"  - {dep}")
-        return False
-
-    log.info("All required commands available: claude, git")
 
     # Check skill directories exist
     for skill_name in config.skills:
@@ -192,11 +182,16 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     base_experiment_name = f"{config.name}-{timestamp}"
 
-    if state.use_external_server and config.tracking_uri.startswith("databricks://"):
+    if state.use_external_server and _is_databricks_uri(config.tracking_uri):
         db_profile = config.tracking_uri.replace("databricks://", "")
-        log.info(f"Detecting Databricks workspace user for profile: {db_profile}")
+        cmd = ["databricks", "current-user", "me"]
+        if db_profile:
+            cmd += ["-p", db_profile]
+            log.info(f"Detecting Databricks workspace user for profile: {db_profile}")
+        else:
+            log.info("Detecting Databricks workspace user (default profile)")
         try:
-            result = run_command(["databricks", "current-user", "me", "-p", db_profile])
+            result = run_command(cmd)
             user_data = json.loads(result.stdout)
             db_user = user_data.get("userName", "")
         except Exception:
@@ -204,8 +199,8 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
 
         if not db_user:
             log.error(
-                f"Failed to get Databricks user. "
-                f"Make sure 'databricks auth login -p {db_profile}' has been run."
+                "Failed to get Databricks user. "
+                "Make sure 'databricks auth login' has been run."
             )
             return False
 
@@ -227,7 +222,7 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
 
     # Create Claude Code tracing experiment
     cc_base_name = f"claude-code-skill-{timestamp}"
-    if state.use_external_server and config.tracking_uri.startswith("databricks://"):
+    if state.use_external_server and _is_databricks_uri(config.tracking_uri):
         user_prefix = "/".join(experiment_name.split("/")[:-1])
         cc_tracing_experiment_name = f"{user_prefix}/{cc_base_name}"
     else:
@@ -356,7 +351,7 @@ def test_claude_headless(config: TestConfig, state: RuntimeState) -> bool:
         log.error("Claude Code headless mode produced no output")
         return False
 
-    if "Error" in output:
+    if "error" in output.lower():
         log.error(f"Claude Code headless mode returned an error: {output}")
         return False
 

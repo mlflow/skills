@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from mlflow.entities import Feedback
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import list_scorers, scorer
 
 
@@ -14,9 +15,9 @@ def get_judges() -> list:
         scorers = list_scorers(experiment_id=eval_exp_id)
         if scorers:
             names = [s.name for s in scorers]
-            return Feedback(value="yes", rationale=f"Found scorers: {names}")
+            return Feedback(value=CategoricalRating.YES, rationale=f"Found scorers: {names}")
         return Feedback(
-            value="no",
+            value=CategoricalRating.NO,
             rationale=f"No scorers in experiment {eval_exp_id}",
         )
 
