@@ -17,10 +17,14 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import json
+import logging
 import os
 import sys
 
 import mlflow
+
+logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # Pre-import modules that scorer threads will need. Without this, concurrent
 # lazy imports of litellm/openai from scorer threads deadlock on Python's
@@ -41,8 +45,7 @@ for i, module_path in enumerate(judge_paths):
     spec.loader.exec_module(module)
     judges.extend(module.get_judges())
 
-sys.stderr.write(f"Loaded {len(judges)} judge(s)\n")
-sys.stderr.flush()
+log.info(f"Loaded {len(judges)} judge(s)")
 if not judges:
     print(json.dumps({"error": "No judges returned by get_judges()"}))
     sys.exit(0)
@@ -55,16 +58,14 @@ trace_df = mlflow.search_traces(
     experiment_ids=[cc_experiment_id],
     filter_string=filter_str,
 )
-sys.stderr.write(f"Found {len(trace_df)} trace(s) after run start\n")
-sys.stderr.flush()
+log.info(f"Found {len(trace_df)} trace(s) after run start")
 if trace_df.empty:
-    sys.stderr.write("No CC traces found, checking eval experiment...\n")
+    log.info("No CC traces found, checking eval experiment...")
     trace_df = mlflow.search_traces(
         experiment_ids=[eval_experiment_id],
         filter_string=filter_str,
     )
-    sys.stderr.write(f"Found {len(trace_df)} trace(s) in eval experiment\n")
-    sys.stderr.flush()
+    log.info(f"Found {len(trace_df)} trace(s) in eval experiment")
 if trace_df.empty:
     print(json.dumps({"error": "No traces found after run start"}))
     sys.exit(0)
@@ -72,16 +73,14 @@ if trace_df.empty:
 mlflow.set_experiment(experiment_id=cc_experiment_id)
 
 names = [s.name for s in judges]
-sys.stderr.write(f"Running judges: {names}\n")
-sys.stderr.flush()
+log.info(f"Running judges: {names}")
 with contextlib.redirect_stdout(sys.stderr):
     eval_result = mlflow.genai.evaluate(
         data=trace_df,
         scorers=judges,
     )
 
-sys.stderr.write("Evaluation complete\n")
-sys.stderr.flush()
+log.info("Evaluation complete")
 
 # Collect results. Column format is "{scorer_name}/value".
 results = []
