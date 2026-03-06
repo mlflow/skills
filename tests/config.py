@@ -1,5 +1,3 @@
-"""Data models and config loading for the YAML-driven test runner."""
-
 from __future__ import annotations
 
 import logging
@@ -34,6 +32,7 @@ class TestConfig:
     skills: list[str]
     prompt: str
     timeout_seconds: int = 900
+    verification_timeout: int = 300
     allowed_tools: str = "Bash,Read,Write,Edit,Grep,Glob,WebFetch"
     mlflow_port: int = 5000
     tracking_uri: Optional[str] = None

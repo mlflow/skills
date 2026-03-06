@@ -1,5 +1,3 @@
-"""Generic helpers (no MLflow dependency)."""
-
 from __future__ import annotations
 
 import logging
@@ -44,7 +42,6 @@ def run_command(
 
 
 def claude_env() -> dict[str, str]:
-    """Return a copy of os.environ without CLAUDECODE to avoid nested-session conflicts."""
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
     return env

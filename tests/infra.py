@@ -1,5 +1,3 @@
-"""Test environment setup and teardown."""
-
 from __future__ import annotations
 
 import json
@@ -29,7 +27,6 @@ log = logging.getLogger(__name__)
 
 
 def _is_databricks_uri(uri: str) -> bool:
-    """Return True for 'databricks' or 'databricks://<profile>'."""
     return uri == "databricks" or uri.startswith("databricks://")
 
 

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Setup for agent-evaluation test: clone repo."""
-
 from __future__ import annotations
 
 import os

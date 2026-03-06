@@ -120,103 +120,21 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
         log.info(f"Loading judges from: {p}")
 
     # Run evaluation in a subprocess to avoid in-process hangs with LLM API calls.
-    # The subprocess dynamically imports each judges module, calls get_judges(),
-    # and runs mlflow.genai.evaluate() on the CC traces.
-    judge_paths_repr = repr(judge_paths)
-    verification_code = f"""
-import contextlib
-import importlib.util
-import json
-import sys
-
-import mlflow
-
-# Pre-import modules that scorer threads will need. Without this, concurrent
-# lazy imports of litellm/openai from scorer threads deadlock on Python's
-# import lock (see deadlock-thread-dump-analysis.md).
-import litellm  # noqa: F401
-import mlflow.server.jobs.utils  # noqa: F401
-
-# Load judges from all configured modules
-judges = []
-for i, module_path in enumerate({judge_paths_repr}):
-    spec = importlib.util.spec_from_file_location(f"judges_{{i}}", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    judges.extend(module.get_judges())
-
-sys.stderr.write(f'Loaded {{len(judges)}} judge(s)\\n')
-sys.stderr.flush()
-if not judges:
-    print(json.dumps({{"error": "No judges returned by get_judges()"}}))
-    sys.exit(0)
-
-# Get traces created after the main run started.
-# First check the CC tracing experiment, then fall back to the eval experiment
-# (some skills log traces to the eval experiment rather than CC tracing).
-cc_experiment_id = '{state.cc_tracing_experiment_id}'
-eval_experiment_id = '{state.experiment_id}'
-run_start_ms = {state.run_start_timestamp_ms}
-filter_str = f"trace.timestamp_ms > {{run_start_ms}}"
-trace_df = mlflow.search_traces(
-    experiment_ids=[cc_experiment_id],
-    filter_string=filter_str,
-)
-sys.stderr.write(f'Found {{len(trace_df)}} trace(s) after run start\\n')
-sys.stderr.flush()
-if trace_df.empty:
-    sys.stderr.write('No CC traces found, checking eval experiment...\\n')
-    trace_df = mlflow.search_traces(
-        experiment_ids=[eval_experiment_id],
-        filter_string=filter_str,
-    )
-    sys.stderr.write(f'Found {{len(trace_df)}} trace(s) in eval experiment\\n')
-    sys.stderr.flush()
-if trace_df.empty:
-    print(json.dumps({{"error": "No traces found after run start"}}))
-    sys.exit(0)
-
-mlflow.set_experiment(experiment_id=cc_experiment_id)
-
-names = [s.name for s in judges]
-sys.stderr.write(f'Running judges: {{names}}\\n')
-sys.stderr.flush()
-with contextlib.redirect_stdout(sys.stderr):
-    eval_result = mlflow.genai.evaluate(
-        data=trace_df,
-        scorers=judges,
-    )
-
-sys.stderr.write('Evaluation complete\\n')
-sys.stderr.flush()
-
-# Collect results. Column format is "{{scorer_name}}/value".
-results = []
-result_df = eval_result.result_df
-for _, row in result_df.iterrows():
-    trace_id = row.get("trace_id", "unknown")
-    for judge in judges:
-        val_col = f"{{judge.name}}/value"
-        rat_col = f"{{judge.name}}/rationale"
-        value = row.get(val_col)
-        if value is not None:
-            results.append({{
-                "scorer": judge.name,
-                "trace_id": trace_id,
-                "value": str(value),
-                "rationale": str(row.get(rat_col, "")),
-                "pass": str(value).lower() == "yes",
-            }})
-
-print(json.dumps(results))
-"""
+    run_judges_script = str(Path(__file__).parent / "run_judges.py")
+    env = {
+        "JUDGE_PATHS": json.dumps(judge_paths),
+        "CC_EXPERIMENT_ID": state.cc_tracing_experiment_id,
+        "MLFLOW_EXPERIMENT_ID": state.experiment_id,
+        "RUN_START_MS": str(state.run_start_timestamp_ms),
+    }
 
     try:
         result = run_command(
-            ["python", "-c", verification_code],
+            ["python", run_judges_script],
             cwd=state.full_project_dir,
             check=False,
-            timeout=300,
+            timeout=config.verification_timeout,
+            env=env,
         )
         output = result.stdout.strip()
         stderr_output = result.stderr.strip()
@@ -224,7 +142,7 @@ print(json.dumps(results))
             for line in stderr_output.splitlines():
                 log.info(line)
     except subprocess.TimeoutExpired as e:
-        log.error("Verification timed out after 300 seconds")
+        log.error(f"Verification timed out after {config.verification_timeout} seconds")
         if e.stderr:
             for line in e.stderr.decode(errors="replace").splitlines():
                 log.info(f"  (timeout) {line}")
