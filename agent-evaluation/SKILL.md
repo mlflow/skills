@@ -147,12 +147,21 @@ uv run python scripts/validate_auth.py         # Test authentication before expe
 
 ## Evaluation Workflow
 
-### Step 1: Understand Agent Purpose
+### Step 1: Agent Interview (REQUIRED — do not skip)
 
-1. Invoke agent with sample input
-2. Inspect MLflow trace (especially LLM prompts describing agent purpose)
-3. Print your understanding and ask user for verification
-4. **Wait for confirmation before proceeding**
+Before doing anything else, ask the user these questions. Do NOT proceed until you have answers.
+
+**Required:**
+1. "What does your agent do? Describe its purpose in 1-2 sentences."
+2. "What are the 2-3 most important things it needs to get right?"
+3. "Are there common failure modes you've already noticed?"
+
+**Use answers to:**
+- Derive scorer names and criteria (do not invent them)
+- Write the `agent_description` parameter for `generate_evals_df`
+- Set evaluation priorities
+
+**If running in automated mode:** Read agent purpose from the codebase (SKILL.md, README, or main entry point docstring). Still surface what you found and confirm before proceeding.
 
 ### Step 2: Define Quality Scorers
 
