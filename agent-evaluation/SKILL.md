@@ -369,6 +369,8 @@ Run `mlflow.genai.evaluate()` on these 3 records using the same wrapper and scor
 
 ### Step 4: Run Evaluation
 
+> **Large datasets (50+ questions)?** See `references/throughput-guide.md` for throughput optimization — covers parallelism env vars, async predict functions, and dataset splitting for 200+ question evals.
+
 #### 4a. Estimate Runtime Before Starting
 
 Before launching evaluation, tell the user how long it will take:
@@ -479,5 +481,6 @@ Detailed guides in `references/` (load as needed):
 - **scorers.md** - Built-in vs custom scorers, registration, testing
 - **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)
 - **troubleshooting.md** - Common errors by phase with solutions
+- **throughput-guide.md** - Parallelism env vars, async predict_fn, dataset splitting for 200+ question evals
 
 Scripts are self-documenting - run with `--help` for usage details.
