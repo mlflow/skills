@@ -222,16 +222,108 @@ If needed, create additional scorers using the `make_judge()` API. See `referenc
 3. **Ask user about existing datasets**:
 
    - "I found [N] existing evaluation dataset(s). Do you want to use one of these? (y/n)"
-   - If yes: Ask which dataset to use and record the dataset name
-   - If no: Proceed to step 4
+   - If yes: Ask which dataset to use and record the dataset name — skip to Step 4
+   - If no: Proceed to Phase A below
 
-4. **Create new dataset only if user declined existing ones**:
-   ```bash
-   # Generates dataset creation script from test cases file
-   uv run python scripts/create_dataset_template.py --test-cases-file test_cases.txt
-   uv run python scripts/create_dataset_template.py --help  # See all options
-   ```
-   Generated code uses `mlflow.genai.datasets` APIs - review and execute the script.
+**If creating a new dataset, use the two-phase approach below.**
+
+---
+
+#### Phase A: Sanity Check (5 questions — always run first)
+
+Create a minimal 5-question dataset manually from the Step 1 interview answers. The goal is to confirm the pipeline works end-to-end before investing in large-scale generation.
+
+```python
+import mlflow
+from mlflow.genai.datasets import create_dataset
+
+# Derive 5 representative questions directly from the agent's stated purpose
+# and known failure modes identified in Step 1
+sanity_records = [
+    {"inputs": {"query": "<question 1 from interview>"}, "expected_response": "<expected answer>"},
+    {"inputs": {"query": "<question 2 from interview>"}, "expected_response": "<expected answer>"},
+    # ... 5 total
+]
+
+sanity_dataset = create_dataset(
+    records=sanity_records,
+    name="sanity-check-5q",
+)
+```
+
+Run evaluation on this dataset (see Step 4), then **present results to the user** with this framing:
+
+> "This is a sanity check — 5 questions confirm the pipeline works but aren't statistically meaningful. Proceeding to Phase B to generate a proper evaluation set."
+
+Only proceed to Phase B once Phase A completes without errors.
+
+---
+
+#### Phase B: Proper Evaluation Dataset (100+ questions — run after Phase A passes)
+
+Generate questions from the agent's actual corpus rather than inventing them from scratch. The approach depends on whether the project uses Databricks or OSS MLflow.
+
+**On Databricks** — use `generate_evals_df` to synthesize questions from the agent's document corpus:
+
+```python
+from databricks.agents.evals import generate_evals_df, estimate_synthetic_num_evals
+import mlflow
+
+# agent_description comes from Step 1 interview answers
+agent_description = "<agent purpose from interview>"
+
+# docs_df: a Spark or pandas DataFrame with a "content" column containing
+# the documents/chunks the agent retrieves from (e.g., your Vector Search index)
+evals = generate_evals_df(
+    docs=docs_df,
+    num_evals=100,
+    agent_description=agent_description,
+)
+
+# Merge into MLflow dataset — don't create a separate dataset
+dataset = mlflow.genai.datasets.create_dataset(name="generated-evals-100q")
+dataset.merge_records(evals)
+```
+
+To estimate the right `num_evals` before generating:
+
+```python
+recommended = estimate_synthetic_num_evals(docs_df)
+print(f"Recommended num_evals: {recommended}")
+```
+
+**Dataset size guidance:**
+- **<30 questions**: not statistically meaningful — avoid drawing conclusions
+- **50–100 questions**: adequate for catching regressions, suitable for most agents
+- **200+ questions**: recommended when comparing model variants or scoring multiple dimensions
+
+**On OSS MLflow** — use RAGAS `TestsetGenerator` to generate from your document corpus:
+
+```python
+from ragas.testset import TestsetGenerator
+from ragas.llms import LangchainLLMWrapper
+from ragas.embeddings import LangchainEmbeddingsWrapper
+
+generator = TestsetGenerator(
+    llm=LangchainLLMWrapper(your_llm),
+    embedding_model=LangchainEmbeddingsWrapper(your_embeddings),
+)
+testset = generator.generate_with_langchain_docs(docs, testset_size=100)
+evals_df = testset.to_pandas()
+
+# Convert to MLflow dataset schema and merge
+import mlflow
+records = [
+    {"inputs": {"query": row["user_input"]}, "expected_response": row["reference"]}
+    for _, row in evals_df.iterrows()
+]
+dataset = mlflow.genai.datasets.create_dataset(name="generated-evals-100q")
+dataset.merge_records(records)
+```
+
+**If no document corpus is available** — ask the user to provide 50–100 representative queries from production logs or usage history. These are more realistic than synthetic questions and are preferable when available.
+
+---
 
 **IMPORTANT**: Do not skip dataset discovery. Always run `list_datasets.py` first, even if you plan to create a new dataset. This prevents duplicate work and ensures users are aware of existing evaluation datasets.
 
@@ -240,7 +332,8 @@ If needed, create additional scorers using the `make_judge()` API. See `referenc
 **Checkpoint - verify before proceeding:**
 
 - [ ] Scorers have been registered
-- [ ] Dataset has been created
+- [ ] Phase A sanity check passed (pipeline runs end-to-end)
+- [ ] Phase B dataset created with 50+ questions (or existing dataset selected)
 
 ### Step 4: Run Evaluation
 
