@@ -170,7 +170,7 @@ The coding agent will:
 
 ## Requirements
 
-- **MLflow 3.9+** (Instructions and code examples are tested with MLflow 3.9)
+- **MLflow 3.8+** (Instructions and code examples are tested with MLflow 3.8)
 
 ---
 

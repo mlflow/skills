@@ -223,7 +223,7 @@ If needed, create additional scorers using the `make_judge()` API. See `referenc
 3. **Ask user about existing datasets**:
 
    - "I found [N] existing evaluation dataset(s). Do you want to use one of these? (y/n)"
-   - If yes: Ask which dataset to use and record the dataset name — skip to Step 4
+   - If yes: Ask which dataset to use and record the dataset name — skip to Step 3.5
    - If no: Proceed to Phase A below
 
 **If creating a new dataset, use the two-phase approach below.**
@@ -339,6 +339,8 @@ dataset.merge_records(records)
 ### Step 3.5: Dry Run (REQUIRED before full eval)
 
 Run evaluation on **3 questions** from the dataset before committing to the full run. This catches broken tools, misconfigured scorers, and auth failures early — before they silently corrupt 100-question results.
+
+If you completed Phase A above, the pipeline is already validated — focus the dry run on scorer output only.
 
 ```python
 import mlflow

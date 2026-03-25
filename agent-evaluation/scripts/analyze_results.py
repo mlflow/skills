@@ -141,7 +141,7 @@ def _parse_bool_value(raw: Any) -> bool:
     if isinstance(raw, (int, float)):
         return bool(raw)
     s = str(raw).strip().lower()
-    return s in {"yes", "true", "1", "pass"}
+    return s in {"yes", "true", "1"}
 
 
 # ---------------------------------------------------------------------------

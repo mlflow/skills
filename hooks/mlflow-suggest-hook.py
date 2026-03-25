@@ -5,7 +5,10 @@ import sys
 import re
 
 def main():
-    data = json.load(sys.stdin)
+    try:
+        data = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        sys.exit(0)
     prompt = data.get("prompt", "").lower()
 
     suggestions = []

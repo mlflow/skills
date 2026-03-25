@@ -80,6 +80,8 @@ Check these in order:
 - **Wrong experiment ID** — verify the experiment ID passed to `search_traces()` matches the experiment active when the code ran (`mlflow.get_experiment_by_name(...)` to confirm).
 - **Network/auth issues** — can the process reach the tracking server? Check for connection errors or 401/403 responses in logs.
 
+For automated validation, use `agent-evaluation/scripts/validate_tracing_runtime.py`.
+
 ---
 
 ## Feedback Collection
