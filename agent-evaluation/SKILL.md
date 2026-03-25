@@ -269,9 +269,17 @@ def wrapper(inputs):  # ❌ WRONG - inputs is NOT a dict
 2. Analyze results:
    ```bash
    # Pattern detection, failure analysis, recommendations
+   # Reads the CSV produced by mlflow.genai.evaluate() above
    uv run python scripts/analyze_results.py evaluation_results.csv
    ```
-   Generates `evaluation_report.md` with pass rates and improvement suggestions.
+   Generates `evaluation_report.md` with per-scorer pass rates and improvement suggestions.
+
+   The script reads `{scorer_name}/value` and `{scorer_name}/rationale` columns from the CSV.
+   It also accepts the legacy JSON format from `mlflow traces evaluate` for backward compatibility:
+   ```bash
+   uv run python scripts/analyze_results.py evaluation_results.json  # legacy format
+   uv run python scripts/analyze_results.py evaluation_results.csv --output my_report.md  # custom output
+   ```
 
 ## References
 

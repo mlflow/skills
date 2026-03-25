@@ -1,126 +1,215 @@
 """
 Analyze MLflow evaluation results and generate actionable insights.
 
-This script parses the JSON output from `mlflow traces evaluate` and generates:
-- Pass rate analysis per scorer
-- Failure pattern detection (multi-failure queries)
-- Actionable recommendations
-- Markdown evaluation report (NOT HTML)
+Supports two formats:
+1. CSV output from `mlflow.genai.evaluate()` (primary format)
+   Columns: trace_id, request_id, inputs, outputs, {scorer_name}/value,
+            {scorer_name}/rationale, ...
+2. JSON output from legacy `mlflow traces evaluate` CLI (backward compat)
 
 Usage:
+    # Primary: CSV from mlflow.genai.evaluate()
+    python scripts/analyze_results.py evaluation_results.csv
+
+    # Legacy: JSON from mlflow traces evaluate
     python scripts/analyze_results.py evaluation_results.json
 
-    # Or with custom output file
-    python scripts/analyze_results.py evaluation_results.json --output report.md
+    # With custom output file
+    python scripts/analyze_results.py evaluation_results.csv --output report.md
+    python scripts/analyze_results.py evaluation_results.csv --results-path evaluation_results.csv
 """
 
+import csv
 import json
 import re
 import sys
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 
-def strip_ansi_codes(text: str) -> str:
-    """Remove ANSI escape sequences from text.
+class EvaluationLoadError(Exception):
+    """Raised when an evaluation results file cannot be loaded or parsed."""
 
-    This handles color codes, cursor movement, and other terminal control sequences
-    that may appear in mlflow traces evaluate output.
 
-    Args:
-        text: Text that may contain ANSI escape sequences
+# ---------------------------------------------------------------------------
+# CSV format (mlflow.genai.evaluate output)
+# ---------------------------------------------------------------------------
+
+def load_csv_results(csv_file: str) -> dict[str, list[dict]]:
+    """Load evaluation results from CSV file produced by mlflow.genai.evaluate().
+
+    The CSV has one row per trace. Scorer columns follow the pattern:
+        {scorer_name}/value      — "yes" / "no" (or True/False variants)
+        {scorer_name}/rationale  — free-text explanation
+
+    Additional columns (trace_id, request_id, inputs, outputs, ...) are ignored
+    for scoring purposes but `inputs` is used to extract a display query string.
 
     Returns:
-        Text with all ANSI escape sequences removed
+        Dictionary mapping scorer names to list of result dicts.
+        Each result dict: {query, trace_id, passed, rationale}
     """
-    # Standard ANSI escape sequence pattern
-    # Matches: ESC [ <parameters> <command>
+    try:
+        with open(csv_file, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+    except FileNotFoundError:
+        raise EvaluationLoadError(f"File not found: {csv_file}")
+
+    if not rows:
+        raise EvaluationLoadError(f"CSV file is empty: {csv_file}")
+
+    fieldnames = rows[0].keys()
+
+    # Identify scorer names from columns ending in "/value"
+    scorer_names = []
+    for col in fieldnames:
+        if col.endswith("/value"):
+            scorer_names.append(col[: -len("/value")])
+
+    if not scorer_names:
+        raise EvaluationLoadError(
+            f"No scorer columns found in CSV (expected columns like '{{scorer}}/value')."
+            f" Available columns: {list(fieldnames)}"
+        )
+
+    scorer_results: dict[str, list[dict]] = defaultdict(list)
+
+    for row in rows:
+        trace_id = row.get("trace_id", row.get("request_id", "unknown"))
+
+        # Best-effort: extract a human-readable query from the inputs column
+        query = _extract_query_from_cell(row.get("inputs", ""))
+
+        for scorer_name in scorer_names:
+            value_col = f"{scorer_name}/value"
+            rationale_col = f"{scorer_name}/rationale"
+
+            raw_value = row.get(value_col, "")
+            rationale = row.get(rationale_col, "")
+
+            # Skip rows where the scorer produced no result
+            if raw_value is None or str(raw_value).strip() == "":
+                continue
+
+            passed = _parse_bool_value(raw_value)
+
+            scorer_results[scorer_name].append(
+                {
+                    "query": query,
+                    "trace_id": trace_id,
+                    "passed": passed,
+                    "rationale": rationale,
+                }
+            )
+
+    return scorer_results
+
+
+def _extract_query_from_cell(cell_value: str) -> str:
+    """Extract a human-readable query string from an inputs cell.
+
+    The inputs column may be a JSON string like '{"query": "..."}' or
+    '{"question": "..."}', or a plain string.
+    """
+    if not cell_value:
+        return "unknown"
+    cell_str = str(cell_value).strip()
+    # Try JSON parse
+    try:
+        obj = json.loads(cell_str)
+        if isinstance(obj, dict):
+            return obj.get("query", obj.get("question", cell_str[:120]))
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return cell_str[:120]
+
+
+def _parse_bool_value(raw: Any) -> bool:
+    """Convert a scorer value cell to True (pass) / False (fail).
+
+    Handles:
+    - String "yes" / "no" (MLflow judge output)
+    - String "true" / "false"
+    - Python bool True / False
+    - Numeric 1 / 0
+    """
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    s = str(raw).strip().lower()
+    return s in {"yes", "true", "1", "pass"}
+
+
+# ---------------------------------------------------------------------------
+# JSON format (legacy mlflow traces evaluate CLI output)
+# ---------------------------------------------------------------------------
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
 
 
-def load_evaluation_results(json_file: str) -> list[dict[str, Any]]:
-    """Load evaluation results from JSON file, skipping console output.
+def load_json_results(json_file: str) -> dict[str, list[dict]]:
+    """Load evaluation results from legacy JSON file (mlflow traces evaluate).
 
-    Handles mlflow traces evaluate output which contains:
-    - Lines 1-N: Console output (progress bars, warnings, logging)
-    - Line N+1: Start of JSON array '['
-    """
-    try:
-        with open(json_file) as f:
-            content = f.read()
-
-        # Strip ANSI codes before processing
-        content = strip_ansi_codes(content)
-
-        # Find the start of JSON array (skip console output)
-        json_start = content.find("[")
-        if json_start == -1:
-            print("✗ No JSON array found in file")
-            sys.exit(1)
-
-        json_content = content[json_start:]
-        data = json.loads(json_content)
-
-        if not isinstance(data, list):
-            print(f"✗ Expected JSON array, got {type(data).__name__}")
-            sys.exit(1)
-
-        return data
-
-    except FileNotFoundError:
-        print(f"✗ File not found: {json_file}")
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"✗ Invalid JSON starting at position {json_start}: {e}")
-        print(f"  First 100 chars: {json_content[:100]}")
-        sys.exit(1)
-
-
-def extract_scorer_results(data: list[dict[str, Any]]) -> dict[str, list[dict]]:
-    """Extract scorer results from assessments array structure.
-
-    Parses the actual mlflow traces evaluate structure:
+    Parses the structure:
     [{
         "trace_id": "tr-...",
+        "inputs": {"query": "..."},
         "assessments": [
-            {"name": "scorer", "result": "yes/no/pass/fail", "rationale": "...", "error": null}
+            {"name": "scorer", "result": "yes/no", "rationale": "...", "error": null}
         ]
     }]
 
     Returns:
-        Dictionary mapping scorer names to list of result dictionaries.
-        Each result dict contains: {query, trace_id, passed, rationale}
+        Dictionary mapping scorer names to list of result dicts.
     """
-    scorer_results = defaultdict(list)
+    try:
+        with open(json_file) as f:
+            content = f.read()
+    except FileNotFoundError:
+        raise EvaluationLoadError(f"File not found: {json_file}")
+
+    content = strip_ansi_codes(content)
+
+    json_start = content.find("[")
+    if json_start == -1:
+        raise EvaluationLoadError("No JSON array found in file")
+
+    json_content = content[json_start:]
+    try:
+        data = json.loads(json_content)
+    except json.JSONDecodeError as e:
+        raise EvaluationLoadError(
+            f"Invalid JSON: {e}. First 100 chars after '[': {json_content[:100]}"
+        )
+
+    if not isinstance(data, list):
+        raise EvaluationLoadError(f"Expected JSON array, got {type(data).__name__}")
+
+    scorer_results: dict[str, list[dict]] = defaultdict(list)
 
     for trace_result in data:
         trace_id = trace_result.get("trace_id", "unknown")
-
-        # Extract query from inputs if available
         inputs = trace_result.get("inputs", {})
         query = inputs.get("query", inputs.get("question", "unknown"))
 
-        # Parse assessments array
-        assessments = trace_result.get("assessments", [])
-
-        for assessment in assessments:
+        for assessment in trace_result.get("assessments", []):
             scorer_name = assessment.get("name", "unknown")
             result = assessment.get("result", "fail")
-            result_str = result.lower() if result else "fail"
             rationale = assessment.get("rationale", "")
             error = assessment.get("error")
 
-            # Map string results to boolean
-            # "yes" / "pass" → True
-            # "no" / "fail" → False
-            passed = result_str in ["yes", "pass"]
-
-            # Skip if there was an error
             if error:
                 print(f"  ⚠ Warning: Scorer {scorer_name} had error for trace {trace_id}: {error}")
                 continue
+
+            passed = _parse_bool_value(result)
 
             scorer_results[scorer_name].append(
                 {"query": query, "trace_id": trace_id, "passed": passed, "rationale": rationale}
@@ -129,11 +218,44 @@ def extract_scorer_results(data: list[dict[str, Any]]) -> dict[str, list[dict]]:
     return scorer_results
 
 
+# ---------------------------------------------------------------------------
+# Format detection
+# ---------------------------------------------------------------------------
+
+def load_evaluation_results(input_file: str) -> dict[str, list[dict]]:
+    """Detect file format and load results accordingly.
+
+    Detection logic:
+    - `.csv` extension → CSV format (mlflow.genai.evaluate)
+    - `.json` extension → legacy JSON format
+    - Unknown extension → try CSV first, fall back to JSON
+    """
+    suffix = Path(input_file).suffix.lower()
+    if suffix == ".csv":
+        return load_csv_results(input_file)
+    elif suffix == ".json":
+        return load_json_results(input_file)
+    else:
+        # Try CSV first (preferred modern format); if it fails, try JSON.
+        # If both fail, raise the original CSV error so the message is meaningful.
+        try:
+            return load_csv_results(input_file)
+        except EvaluationLoadError as csv_err:
+            try:
+                return load_json_results(input_file)
+            except EvaluationLoadError:
+                raise csv_err
+
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+
 def calculate_pass_rates(scorer_results: dict[str, list[dict]]) -> dict[str, dict]:
     """Calculate pass rates for each scorer.
 
     Returns:
-        Dictionary mapping scorer names to {pass_rate, passed, total, grade}
+        Dictionary mapping scorer names to {pass_rate, passed, total, grade, emoji}
     """
     pass_rates = {}
 
@@ -142,22 +264,16 @@ def calculate_pass_rates(scorer_results: dict[str, list[dict]]) -> dict[str, dic
         passed = sum(1 for r in results if r["passed"])
         pass_rate = (passed / total * 100) if total > 0 else 0
 
-        # Assign grade
         if pass_rate >= 90:
-            grade = "A"
-            emoji = "✓✓"
+            grade, emoji = "A", "✓✓"
         elif pass_rate >= 80:
-            grade = "B"
-            emoji = "✓"
+            grade, emoji = "B", "✓"
         elif pass_rate >= 70:
-            grade = "C"
-            emoji = "⚠"
+            grade, emoji = "C", "⚠"
         elif pass_rate >= 60:
-            grade = "D"
-            emoji = "⚠⚠"
+            grade, emoji = "D", "⚠⚠"
         else:
-            grade = "F"
-            emoji = "✗"
+            grade, emoji = "F", "✗"
 
         pass_rates[scorer_name] = {
             "pass_rate": pass_rate,
@@ -174,12 +290,10 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
     """Detect patterns in failed queries.
 
     Returns:
-        List of pattern dictionaries with {name, queries, scorers, description}
+        List of pattern dicts: {name, queries, priority, description}
     """
     patterns = []
-
-    # Collect all failures
-    failures_by_query = defaultdict(list)
+    failures_by_query: dict[str, list[dict]] = defaultdict(list)
 
     for scorer_name, results in scorer_results.items():
         for result in results:
@@ -192,19 +306,18 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
                     }
                 )
 
-    # Pattern: Multi-failure queries (queries failing 3+ scorers)
-    multi_failures = []
-    for query, failures in failures_by_query.items():
-        if len(failures) >= 3:
-            multi_failures.append(
-                {"query": query, "scorers": [f["scorer"] for f in failures], "count": len(failures)}
-            )
+    # Multi-failure queries: failing 3+ scorers
+    multi_failures = [
+        {"query": q, "scorers": [f["scorer"] for f in failures], "count": len(failures)}
+        for q, failures in failures_by_query.items()
+        if len(failures) >= 3
+    ]
 
     if multi_failures:
         patterns.append(
             {
                 "name": "Multi-Failure Queries",
-                "description": "Queries failing 3 or more scorers - need comprehensive fixes",
+                "description": "Queries failing 3 or more scorers — need comprehensive fixes",
                 "queries": multi_failures,
                 "priority": "CRITICAL",
             }
@@ -213,15 +326,12 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
     return patterns
 
 
-def generate_recommendations(pass_rates: dict[str, dict], patterns: list[dict]) -> list[dict]:
-    """Generate actionable recommendations based on analysis.
-
-    Returns:
-        List of recommendation dictionaries with {title, issue, impact, effort, priority}
-    """
+def generate_recommendations(
+    pass_rates: dict[str, dict], patterns: list[dict]
+) -> list[dict]:
+    """Generate actionable recommendations based on analysis."""
     recommendations = []
 
-    # Recommendations from low-performing scorers
     for scorer_name, metrics in pass_rates.items():
         if metrics["pass_rate"] < 80:
             recommendations.append(
@@ -234,7 +344,6 @@ def generate_recommendations(pass_rates: dict[str, dict], patterns: list[dict]) 
                 }
             )
 
-    # Recommendations from patterns
     for pattern in patterns:
         if pattern["priority"] == "CRITICAL":
             recommendations.append(
@@ -257,12 +366,15 @@ def generate_recommendations(pass_rates: dict[str, dict], patterns: list[dict]) 
                 }
             )
 
-    # Sort by priority
     priority_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     recommendations.sort(key=lambda x: priority_order.get(x["priority"], 99))
 
     return recommendations
 
+
+# ---------------------------------------------------------------------------
+# Report generation
+# ---------------------------------------------------------------------------
 
 def generate_report(
     scorer_results: dict[str, list[dict]],
@@ -272,11 +384,10 @@ def generate_report(
     output_file: str,
 ) -> None:
     """Generate markdown evaluation report."""
-
-    total_queries = len(next(iter(scorer_results.values()))) if scorer_results else 0
+    total_queries = max(len(v) for v in scorer_results.values()) if scorer_results else 0
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    report_lines = [
+    lines = [
         "# Agent Evaluation Results Analysis",
         "",
         f"**Generated**: {timestamp}",
@@ -287,28 +398,24 @@ def generate_report(
         "",
     ]
 
-    # Pass rates table
     for scorer_name, metrics in pass_rates.items():
-        emoji = metrics["emoji"]
-        report_lines.append(
-            f"  {scorer_name:30} {metrics['pass_rate']:5.1f}% ({metrics['passed']}/{metrics['total']}) {emoji}"
+        lines.append(
+            f"  {scorer_name:30} {metrics['pass_rate']:5.1f}%"
+            f" ({metrics['passed']}/{metrics['total']}) {metrics['emoji']}"
         )
 
-    report_lines.extend(["", ""])
+    lines.extend(["", ""])
 
-    # Average pass rate
     avg_pass_rate = (
         sum(m["pass_rate"] for m in pass_rates.values()) / len(pass_rates) if pass_rates else 0
     )
-    report_lines.append(f"**Average Pass Rate**: {avg_pass_rate:.1f}%")
-    report_lines.extend(["", ""])
+    lines.append(f"**Average Pass Rate**: {avg_pass_rate:.1f}%")
+    lines.extend(["", ""])
 
-    # Failure patterns
     if patterns:
-        report_lines.extend(["## Failure Patterns Detected", ""])
-
+        lines.extend(["## Failure Patterns Detected", ""])
         for i, pattern in enumerate(patterns, 1):
-            report_lines.extend(
+            lines.extend(
                 [
                     f"### {i}. {pattern['name']} [{pattern['priority']}]",
                     "",
@@ -318,26 +425,22 @@ def generate_report(
                     "",
                 ]
             )
-
-            for query_info in pattern["queries"][:5]:  # Show first 5
-                report_lines.append(
-                    f'- **Query**: "{query_info["query"][:100]}{"..." if len(query_info["query"]) > 100 else ""}"'
+            for query_info in pattern["queries"][:5]:
+                q = query_info["query"]
+                lines.append(
+                    f'- **Query**: "{q[:100]}{"..." if len(q) > 100 else ""}"'
                 )
-                report_lines.append(f"  - Failed scorers: {', '.join(query_info['scorers'])}")
-                report_lines.append("")
-
+                lines.append(f"  - Failed scorers: {', '.join(query_info['scorers'])}")
+                lines.append("")
             if len(pattern["queries"]) > 5:
-                report_lines.append(f"  _(+{len(pattern['queries']) - 5} more queries)_")
-                report_lines.append("")
+                lines.append(f"  _(+{len(pattern['queries']) - 5} more queries)_")
+                lines.append("")
+            lines.append("")
 
-            report_lines.append("")
-
-    # Recommendations
     if recommendations:
-        report_lines.extend(["## Recommendations", ""])
-
+        lines.extend(["## Recommendations", ""])
         for i, rec in enumerate(recommendations, 1):
-            report_lines.extend(
+            lines.extend(
                 [
                     f"### {i}. {rec['title']} [{rec['priority']}]",
                     "",
@@ -348,8 +451,7 @@ def generate_report(
                 ]
             )
 
-    # Next steps
-    report_lines.extend(
+    lines.extend(
         [
             "## Next Steps",
             "",
@@ -366,14 +468,17 @@ def generate_report(
         ]
     )
 
-    # Write report
     with open(output_file, "w") as f:
-        f.write("\n".join(report_lines))
+        f.write("\n".join(lines))
 
     print(f"\n✓ Report saved to: {output_file}")
 
 
-def main():
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def main() -> None:
     """Main analysis workflow."""
     print("=" * 60)
     print("MLflow Evaluation Results Analysis")
@@ -381,36 +486,54 @@ def main():
     print()
 
     # Parse arguments
-    if len(sys.argv) < 2:
+    # Supports both positional and --results-path for the input file
+    args = sys.argv[1:]
+    if not args:
         print(
-            "Usage: python scripts/analyze_results.py <evaluation_results.json> [--output report.md]"
+            "Usage: python scripts/analyze_results.py <evaluation_results.csv> [--output report.md]"
         )
+        print("       python scripts/analyze_results.py --results-path evaluation_results.csv")
         sys.exit(1)
 
-    json_file = sys.argv[1]
+    input_file = None
     output_file = "evaluation_report.md"
 
-    if "--output" in sys.argv:
-        idx = sys.argv.index("--output")
-        if idx + 1 < len(sys.argv):
-            output_file = sys.argv[idx + 1]
+    i = 0
+    while i < len(args):
+        if args[i] == "--output" and i + 1 < len(args):
+            output_file = args[i + 1]
+            i += 2
+        elif args[i] == "--results-path" and i + 1 < len(args):
+            input_file = args[i + 1]
+            i += 2
+        elif not args[i].startswith("--"):
+            input_file = args[i]
+            i += 1
+        else:
+            i += 1
 
-    # Load results
-    print(f"Loading evaluation results from: {json_file}")
-    data = load_evaluation_results(json_file)
-    print("✓ Results loaded")
-    print()
-
-    # Extract scorer results
-    print("Extracting scorer results...")
-    scorer_results = extract_scorer_results(data)
-
-    if not scorer_results:
-        print("✗ No scorer results found in JSON")
-        print("  Check that the JSON file contains evaluation results")
+    if input_file is None:
+        print("✗ No input file specified")
         sys.exit(1)
 
-    print(f"✓ Found {len(scorer_results)} scorer(s)")
+    # Detect format and load
+    suffix = Path(input_file).suffix.lower()
+    fmt = "CSV (mlflow.genai.evaluate)" if suffix == ".csv" else (
+        "JSON (legacy mlflow traces evaluate)" if suffix == ".json" else "auto-detect"
+    )
+    print(f"Loading evaluation results from: {input_file}")
+    print(f"Format: {fmt}")
+    try:
+        scorer_results = load_evaluation_results(input_file)
+    except EvaluationLoadError as e:
+        print(f"✗ {e}")
+        sys.exit(1)
+
+    if not scorer_results:
+        print("✗ No scorer results found")
+        sys.exit(1)
+
+    print(f"✓ Loaded results for {len(scorer_results)} scorer(s)")
     print()
 
     # Calculate pass rates
@@ -419,9 +542,9 @@ def main():
 
     print("\nOverall Pass Rates:")
     for scorer_name, metrics in pass_rates.items():
-        emoji = metrics["emoji"]
         print(
-            f"  {scorer_name:30} {metrics['pass_rate']:5.1f}% ({metrics['passed']}/{metrics['total']}) {emoji}"
+            f"  {scorer_name:30} {metrics['pass_rate']:5.1f}%"
+            f" ({metrics['passed']}/{metrics['total']}) {metrics['emoji']}"
         )
     print()
 
