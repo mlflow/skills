@@ -160,6 +160,7 @@ Apache License 2.0 — see [LICENSE](LICENSE) for details.
 ## Links
 
 - 📖 [Read MLflow Documentation](https://mlflow.org/docs/latest/)
+- 📖 [Read MLflow Skills Blog](https://mlflow.org/blog/evaluating-skills-mlflow))
 - ⭐️ [Star MLflow on GitHub](https://github.com/mlflow/mlflow)
 
 ---
