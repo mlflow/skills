@@ -77,6 +77,43 @@ git submodule add https://github.com/mlflow/mlflow-skills.git .skills/mlflow
 
 ---
 
+## Auto-Suggestion Hook (Optional)
+
+The `hooks/` directory contains a `UserPromptSubmit` hook that automatically detects MLflow-related patterns in your prompts and surfaces the right skill before the agent responds — no need to remember which skill does what.
+
+### Install the Hook
+
+**Step 1:** Copy the hook somewhere permanent:
+
+```bash
+cp hooks/mlflow-suggest-hook.py ~/.claude/hooks/mlflow-suggest-hook.py
+```
+
+**Step 2:** Add it to your Claude Code settings (`~/.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python3 ~/.claude/hooks/mlflow-suggest-hook.py"
+      }
+    ]
+  }
+}
+```
+
+**Step 3:** Start a new session. When you ask something like *"Add tracing to my app"*, you'll see:
+
+```
+💡 Use the `instrumenting-with-mlflow-tracing` skill to add MLflow tracing.
+```
+
+See [`hooks/README.md`](hooks/README.md) for the full keyword-to-skill mapping and troubleshooting.
+
+---
+
 ## Quick Examples
 
 ### Instrument Your App with Tracing
