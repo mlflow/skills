@@ -337,23 +337,43 @@ dataset.merge_records(records)
 
 ### Step 4: Run Evaluation
 
-1. Generate and run evaluation script:
+#### 4a. Estimate Runtime Before Starting
 
-   ```bash
-   # Generate evaluation script (specify module and entry point)
-   uv run python scripts/run_evaluation_template.py \
-     --module mlflow_agent.agent \
-     --entry-point run_agent
+Before launching evaluation, tell the user how long it will take:
 
-   # Review the generated script, then execute it
-   uv run python run_agent_evaluation.py
+1. **Count the dataset questions:**
+   ```python
+   import mlflow
+   dataset = mlflow.genai.datasets.get_dataset(name="<your-dataset-name>")
+   print(f"Dataset size: {len(dataset.df)} questions")
    ```
 
-   The generated script creates a wrapper function that:
-   - Accepts keyword arguments matching the dataset's input keys
-   - Provides any additional arguments the agent needs (like `llm_provider`)
-   - Runs `mlflow.genai.evaluate(data=df, predict_fn=wrapper, scorers=registered_scorers)`
-   - Saves results to `evaluation_results.csv`
+2. **Calculate the estimate** — each question runs the agent once and the judge scorer once:
+   - Opus-class judge models (e.g. `claude-opus-4`): ~45–90s per question
+   - Sonnet-class judge models (e.g. `claude-sonnet-4`): ~20–45s per question
+   - Multiple scorers per question add time proportionally
+
+   ```
+   Estimated time = N questions × 30–60s per question ÷ parallelism factor (typically 4–8x)
+   ```
+
+3. **Tell the user before starting:**
+   > "This dataset has N questions. At ~30–60s per question with typical parallelism, evaluation will take approximately **X–Y minutes**. I'll run it as a background task so you can continue working — I'll summarize the results when it's done."
+
+#### 4b. Generate the Evaluation Script
+
+```bash
+# Generate evaluation script (specify module and entry point)
+uv run python scripts/run_evaluation_template.py \
+  --module mlflow_agent.agent \
+  --entry-point run_agent
+```
+
+The generated script creates a wrapper function that:
+- Accepts keyword arguments matching the dataset's input keys
+- Provides any additional arguments the agent needs (like `llm_provider`)
+- Runs `mlflow.genai.evaluate(data=df, predict_fn=wrapper, scorers=registered_scorers)`
+- Saves results to `evaluation_results.csv`
 
 ⚠️ **CRITICAL: wrapper Signature Must Match Dataset Input Keys**
 
@@ -370,20 +390,52 @@ def wrapper(inputs):  # ❌ WRONG - inputs is NOT a dict
     return agent(inputs["query"])
 ```
 
-2. Analyze results:
-   ```bash
-   # Pattern detection, failure analysis, recommendations
-   # Reads the CSV produced by mlflow.genai.evaluate() above
-   uv run python scripts/analyze_results.py evaluation_results.csv
-   ```
-   Generates `evaluation_report.md` with per-scorer pass rates and improvement suggestions.
+#### 4c. Launch as a Background Sub-Agent
 
-   The script reads `{scorer_name}/value` and `{scorer_name}/rationale` columns from the CSV.
-   It also accepts the legacy JSON format from `mlflow traces evaluate` for backward compatibility:
-   ```bash
-   uv run python scripts/analyze_results.py evaluation_results.json  # legacy format
-   uv run python scripts/analyze_results.py evaluation_results.csv --output my_report.md  # custom output
-   ```
+Run the evaluation as a background sub-agent so the main session stays available. Use the Agent tool with `run_in_background: true`:
+
+**Sub-agent instructions (pass these verbatim):**
+```
+Run the agent evaluation and write results to scratchpad.
+
+Steps:
+1. cd <project-directory>
+2. Run: uv run python run_agent_evaluation.py
+3. When complete, write a summary to scratchpad/eval-results.md with:
+   - Exit status (success or error message)
+   - Path to results file (evaluation_results.csv)
+   - Wall-clock time taken
+4. Return only: "Evaluation complete. Results written to scratchpad/eval-results.md"
+```
+
+**In the main session, poll for completion** by checking for the scratchpad file rather than blocking:
+
+```python
+# Poll every 30s using Glob
+# Glob("scratchpad/eval-results.md")
+# When the file appears, read it and proceed to analysis
+```
+
+Do NOT use TaskOutput to wait for the background agent — that dumps the full transcript (~10–20k tokens) into the main context.
+
+#### 4d. Analyze Results (after evaluation completes)
+
+Once `scratchpad/eval-results.md` appears, run analysis:
+
+```bash
+# Pattern detection, failure analysis, recommendations
+# Reads the CSV produced by mlflow.genai.evaluate() above
+uv run python scripts/analyze_results.py evaluation_results.csv
+```
+
+Generates `evaluation_report.md` with per-scorer pass rates and improvement suggestions.
+
+The script reads `{scorer_name}/value` and `{scorer_name}/rationale` columns from the CSV.
+It also accepts the legacy JSON format from `mlflow traces evaluate` for backward compatibility:
+```bash
+uv run python scripts/analyze_results.py evaluation_results.json  # legacy format
+uv run python scripts/analyze_results.py evaluation_results.csv --output my_report.md  # custom output
+```
 
 ## References
 
