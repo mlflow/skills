@@ -35,11 +35,12 @@ If you're tempted to create `evaluation/eval_dataset.py` or similar custom files
 
 **Setup (prerequisite)**: Install MLflow 3.8+, configure environment, integrate tracing
 
-**Evaluation workflow in 4 steps** (each uses MLflow APIs):
+**Evaluation workflow in 5 steps** (each uses MLflow APIs):
 
 1. **Understand**: Run agent, inspect traces, understand purpose
 2. **Scorers**: Select and register scorers for quality criteria
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
+3.5. **Dry Run**: Run 3 questions first — catch broken tools and misconfigured scorers before full eval
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
 ## Command Conventions
@@ -334,6 +335,35 @@ dataset.merge_records(records)
 - [ ] Scorers have been registered
 - [ ] Phase A sanity check passed (pipeline runs end-to-end)
 - [ ] Phase B dataset created with 50+ questions (or existing dataset selected)
+
+### Step 3.5: Dry Run (REQUIRED before full eval)
+
+Run evaluation on **3 questions** from the dataset before committing to the full run. This catches broken tools, misconfigured scorers, and auth failures early — before they silently corrupt 100-question results.
+
+```python
+import mlflow
+
+dataset = mlflow.genai.datasets.get_dataset(name="<your-dataset-name>")
+dry_run_records = dataset.df.head(3)
+```
+
+Run `mlflow.genai.evaluate()` on these 3 records using the same wrapper and scorers as the full eval.
+
+**For each response, check:**
+
+1. **Tool calls** — Did the agent call any tools? If it called zero tools on questions that require retrieval, tools are likely broken (403s, rate limits, missing credentials).
+2. **Response quality** — Are responses empty or generic ("I don't know", "I can't help with that")? Empty responses score as irrelevant and will skew the full eval.
+3. **Scorer output** — Did all 3 scores come back as `0` or `None`? If so, the scorer is misconfigured (check return values — `"pass"`/`"fail"` are silently cast to `None`; use `"yes"`/`"no"` instead).
+
+**Decision gate:**
+
+- **If dry run shows tool failures or empty responses:** Stop. Fix the underlying issue (auth, tool config, retrieval) before proceeding. Do not run the full eval on broken infrastructure.
+- **If all 3 scorer outputs are 0 or None:** Stop. Debug scorer return values and re-register before proceeding.
+- **If dry run passes:** Report to the user: *"Dry run passed (3/3 responses non-empty, tools called, scores non-zero). Proceeding to full eval."* Then continue to Step 4.
+
+> **Why this matters:** Tool failures (403s from docs scraping, GitHub API rate limits) produce empty agent responses that score as 0. Running a 100-question eval only to discover all tools were failing wastes time and produces misleading results. The dry run catches this in under a minute.
+
+---
 
 ### Step 4: Run Evaluation
 
