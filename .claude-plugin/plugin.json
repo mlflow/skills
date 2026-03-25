@@ -1,0 +1,24 @@
+{
+  "name": "mlflow",
+  "displayName": "MLflow Skills",
+  "description": "Skills for tracing, evaluating, and improving AI agents with MLflow. Supports the full agent improvement loop: instrument → trace → evaluate → iterate → validate.",
+  "version": "1.0.0",
+  "author": "MLflow Team",
+  "homepage": "https://github.com/mlflow/skills",
+  "skills": [
+    "mlflow-agent",
+    "agent-evaluation",
+    "instrumenting-with-mlflow-tracing",
+    "analyze-mlflow-trace",
+    "analyze-mlflow-chat-session",
+    "retrieving-mlflow-traces",
+    "querying-mlflow-metrics",
+    "mlflow-onboarding",
+    "searching-mlflow-docs"
+  ],
+  "hooks": [
+    "hooks/mlflow-suggest-hook.py"
+  ],
+  "categories": ["observability", "evaluation", "ai-agents"],
+  "minClaudeCodeVersion": "2.0.0"
+}
