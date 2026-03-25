@@ -171,6 +171,8 @@ See `references/scorers.md` for the built-in scorers. Select any that are useful
 
 If needed, create additional scorers using the `make_judge()` API. See `references/scorers.md` on how to create custom scorers and `references/scorers-constraints.md` for best practices.
 
+> ⚠️ **CRITICAL — Scorer Return Values:** Scorers MUST instruct the LLM judge to return `"yes"` or `"no"` (or booleans/numerics). Return values of `"pass"` or `"fail"` are **silently cast to `None`** by `_cast_assessment_value_to_float` and **excluded from `results.metrics`** with no error or warning — results simply disappear. See `references/scorers-constraints.md` Constraint 2 for the full list of safe vs. broken return values.
+
 4. **REQUIRED: Register new scorers before evaluation** using Python API:
    
    ```python

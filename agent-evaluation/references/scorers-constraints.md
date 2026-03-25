@@ -64,23 +64,30 @@ Use `{{inputs}}`/`{{outputs}}` when evaluating:
 - ✅ Response relevance
 - ✅ Answer correctness
 
-## Constraint 2: Prefer "yes"/"no" Return Values for Better UI integration
+## Constraint 2: Scorers MUST Return "yes"/"no" — "pass"/"fail" Silently Drops Results
 
-⚠️ **Use "yes"/"no" NOT "pass"/"fail"**
+🚨 **CRITICAL: "pass"/"fail" return values cause SILENT DATA LOSS — use "yes"/"no" instead**
 
-**Return values that are nicely integrated with the UI:**
+### Return Values (CRITICAL)
 
-- "yes" = criteria met
-- "no" = criteria not met
+**These work correctly:**
 
-**Return values that can still work but are not shown nicely in the UI:**
+- `"yes"` / `"no"` — ✅ Required. Correctly cast to numeric scores and included in `results.metrics`.
+- `True` / `False` (boolean) — ✅ Works. Cast to 1.0 / 0.0.
+- Numeric values (e.g., `0.0`–`1.0`) — ✅ Works. Used as-is.
 
-- "pass"/"fail"
-- "true"/"false"
-- "passed"/"failed"
-- "1"/"0"
+**These cause silent data loss:**
 
-**Example - Good integration:**
+- `"pass"` / `"fail"` — ❌ BROKEN. `_cast_assessment_value_to_float` maps these to `None`, which **excludes the scorer entirely from `results.metrics`**. No error is raised — results simply disappear.
+- `"true"` / `"false"` (strings) — ❌ BROKEN. Same silent-drop behavior.
+- `"passed"` / `"failed"` — ❌ BROKEN. Same silent-drop behavior.
+- `"1"` / `"0"` (strings) — ⚠️ Unreliable. Do not use.
+
+### Why "pass"/"fail" Silently Drops Results
+
+MLflow's internal `_cast_assessment_value_to_float` function only recognizes `"yes"` and `"no"` as valid string return values. Any unrecognized string (including `"pass"` and `"fail"`) is cast to `None`. A `None` assessment value is then **excluded from aggregate metrics** — the scorer appears to run but its scores are never counted. No error or warning is emitted.
+
+**Example - Correct (results appear in metrics):**
 
 ```bash
 uv run mlflow scorers register-llm-judge \
@@ -88,17 +95,17 @@ uv run mlflow scorers register-llm-judge \
   -i "Evaluate if {{ outputs }} is high quality. Return 'yes' if high quality, 'no' if not."
 ```
 
-**Example - Still works but less nice integration:**
+**Example - BROKEN (results silently dropped from metrics):**
 
 ```bash
 uv run mlflow scorers register-llm-judge \
   -n "QualityCheck" \
-  -i "Evaluate if {{ outputs }} is high quality. Return 'pass' if good, 'fail' if bad."  # ❌ Wrong!
+  -i "Evaluate if {{ outputs }} is high quality. Return 'pass' if good, 'fail' if bad."  # ❌ Silent data loss!
 ```
 
 **Why "yes"/"no"?**
 
-MLflow's built-in judges use the binary yes/no format and the UI is optimized for this use case. 
+MLflow's built-in judges use the binary yes/no format. The internal casting logic is built around this convention — only `"yes"` and `"no"` are guaranteed to produce numeric scores that appear in `results.metrics`.
 
 ## Constraint 3: Instructions Must Include Template Variable
 
@@ -152,8 +159,8 @@ uv run mlflow scorers register-llm-judge \
 
 2. **Using "pass"/"fail" instead of "yes"/"no"**
 
-   - Result: Scorer may not work correctly with evaluation
-   - Fix: Always use "yes"/"no" format
+   - Result: `_cast_assessment_value_to_float` maps "pass"/"fail" to `None` → scorer is **silently excluded from `results.metrics`**. No error is raised.
+   - Fix: Always use `"yes"`/`"no"` (strings), booleans, or numeric values
 
 3. **Missing template variables**
 
