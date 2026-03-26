@@ -130,7 +130,7 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
 
     try:
         result = run_command(
-            ["python", run_judges_script],
+            [sys.executable, run_judges_script],
             cwd=state.full_project_dir,
             check=False,
             timeout=config.verification_timeout,

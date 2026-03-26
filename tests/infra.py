@@ -93,7 +93,7 @@ def start_mlflow_server(config: TestConfig, state: RuntimeState) -> bool:
     with open(log_file, "w") as f:
         process = subprocess.Popen(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "mlflow",
                 "server",
@@ -262,7 +262,7 @@ def run_setup_script(config: TestConfig, state: RuntimeState) -> bool:
 
     try:
         run_command(
-            ["python", str(setup_script)],
+            [sys.executable, str(setup_script)],
             cwd=state.work_dir,
             env=env,
         )
@@ -304,6 +304,8 @@ def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
 
     try:
         cmd = [
+            sys.executable,
+            "-m",
             "mlflow",
             "autolog",
             "claude",
@@ -315,6 +317,30 @@ def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
         ]
         run_command(cmd, cwd=state.full_project_dir)
         log.info("MLflow autolog configured for Claude Code")
+
+        # Patch installed stop-hook to use the current Python interpreter.
+        # mlflow writes either "mlflow autolog claude stop-hook" or
+        # 'python -c "from mlflow.claude_code.hooks import ..."' to
+        # settings.json. The bare "mlflow" / "python" commands may point to a
+        # different Python (e.g., system Python 3.9 vs test Python 3.10+),
+        # or "python" may not exist at all on macOS. Replace with full path.
+        settings_path = state.full_project_dir / ".claude" / "settings.json"
+        if settings_path.exists():
+            import json as _json
+            with open(settings_path) as f:
+                settings_str = f.read()
+            patched = settings_str
+            # Old format: "mlflow autolog ..."
+            patched = patched.replace(
+                '"mlflow autolog', f'"{sys.executable} -m mlflow autolog'
+            )
+            # New format: 'python -c "..."'
+            patched = patched.replace('"python -c ', f'"{sys.executable} -c ')
+            if patched != settings_str:
+                with open(settings_path, "w") as f:
+                    f.write(patched)
+                log.info(f"Patched stop-hook to use {sys.executable}")
+
     except subprocess.CalledProcessError as e:
         log.error(f"Failed to configure Claude Code tracing: {e}")
         return False
