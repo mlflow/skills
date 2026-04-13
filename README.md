@@ -58,7 +58,7 @@ npx skills add mlflow/skills
 ### Direct Installation from Source
 
 ```bash
-git clone https://github.com/mlflow/mlflow-skills.git
+git clone https://github.com/mlflow/skills.git
 cp -r mlflow-skills/* ~/.claude/skills/
 ```
 
@@ -70,9 +70,9 @@ Add skills to your project for team sharing:
 
 ```bash
 cd your-project
-git clone https://github.com/mlflow/mlflow-skills.git .skills/mlflow
+git clone https://github.com/mlflow/skills.git .skills/mlflow
 # Or as a submodule:
-git submodule add https://github.com/mlflow/mlflow-skills.git .skills/mlflow
+git submodule add https://github.com/mlflow/skills.git .skills/mlflow
 ```
 
 ---
