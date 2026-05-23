@@ -21,7 +21,7 @@ Before recommending tutorials or integration steps, determine which use case the
 Search the user's project for imports and usage patterns that indicate the use case:
 
 **GenAI indicators** (any of these suggest GenAI):
-- Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
+- Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `google.genai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
 - Imports from MLflow GenAI modules: `mlflow.genai`, `mlflow.tracing`, `mlflow.openai`, `mlflow.langchain`
 - Usage of chat completions, embeddings, or agent frameworks
 - Prompt templates or prompt engineering code
@@ -136,6 +136,7 @@ mock_chat("What is MLflow?")
    # Pick the one that matches the user's LLM provider:
    mlflow.openai.autolog()       # OpenAI SDK
    mlflow.anthropic.autolog()    # Anthropic SDK
+   mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
    mlflow.langchain.autolog()    # LangChain / LangGraph
    mlflow.litellm.autolog()      # LiteLLM
    ```

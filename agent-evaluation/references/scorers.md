@@ -88,6 +88,7 @@ MLflow uses the format `<provider>:/<model-name>`. Examples:
 | `databricks:/<endpoint>` | Databricks serving endpoint |
 | `openai:/<model>` | OpenAI (e.g., `openai:/gpt-4`) |
 | `anthropic:/<model>` | Anthropic |
+| `gemini:/<model>` | Google Gemini (e.g., `gemini:/gemini-2.5-flash`) |
 
 #### Reusing the Agent's LLM
 

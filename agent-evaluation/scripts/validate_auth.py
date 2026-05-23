@@ -171,6 +171,9 @@ def check_llm_provider():
     if os.getenv("ANTHROPIC_API_KEY"):
         providers_found.append("Anthropic")
 
+    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+        providers_found.append("Gemini")
+
     if os.getenv("DATABRICKS_TOKEN") or os.getenv("DATABRICKS_HOST"):
         providers_found.append("Databricks")
 
