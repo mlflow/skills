@@ -62,6 +62,7 @@ import mlflow
 mlflow.langchain.autolog()    # LangChain, LangGraph
 mlflow.openai.autolog()       # OpenAI SDK
 mlflow.anthropic.autolog()    # Anthropic SDK
+mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
 mlflow.litellm.autolog()      # LiteLLM
 mlflow.dspy.autolog()         # DSPy
 mlflow.autogen.autolog()      # AutoGen

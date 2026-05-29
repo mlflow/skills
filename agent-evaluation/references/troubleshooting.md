@@ -575,6 +575,7 @@ def predict_fn(messages):
    ```bash
    export OPENAI_API_KEY="sk-..."
    export ANTHROPIC_API_KEY="sk-ant-..."
+   export GEMINI_API_KEY="..."       # Google Gemini (also accepted: GOOGLE_API_KEY)
    ```
 
 2. Check provider configuration in agent code
