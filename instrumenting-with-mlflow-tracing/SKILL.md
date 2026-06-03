@@ -49,11 +49,12 @@ After instrumenting the code, **always verify that tracing is working**.
 
 
 1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
-2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment:
+2. **Confirm traces are logged** — traces export on a background queue, so flush it first, then use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment:
 
 ```python
 import mlflow
 
+mlflow.flush_trace_async_logging()
 traces = mlflow.search_traces(experiment_ids=["<experiment_id>"])
 print(f"Found {len(traces)} trace(s)")
 assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
@@ -75,6 +76,7 @@ for span in spans:
 
 Check these in order:
 
+- **Verification ran before traces were exported** — trace logging is asynchronous by default, so an in-process `search_traces()` right after the run can return zero before the background queue flushes (up to a few seconds later). Call `mlflow.flush_trace_async_logging()` before searching, as shown above.
 - **Tracking URI not set** — is `mlflow.set_tracking_uri(...)` called before the agent run? Without this, traces go to a local `./mlruns` directory instead of the configured server.
 - **Autolog warnings** — did `mlflow.autolog()` or framework-specific `mlflow.<framework>.autolog()` raise any warnings during setup? Check stderr for patching failures.
 - **Wrong experiment ID** — verify the experiment ID passed to `search_traces()` matches the experiment active when the code ran (`mlflow.get_experiment_by_name(...)` to confirm).
