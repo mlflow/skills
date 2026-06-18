@@ -1,6 +1,6 @@
 ---
 name: fix-agent-issue
-description: Drives a disciplined explore → plan → implement → verify loop for changing an AI agent's behavior with confidence — whether fixing a reported failure OR introducing a new requirement, business rule, or policy. Grounds the diagnosis in MLflow traces, captures the user's verbal feedback as MLflow assessment(s) on the trace, codifies the desired behavior as a regression test suite via `mlflow.genai.evaluate` assertions (pytest tests marked `@mlflow.test`, including paired guard tests when a new rule could over-fire), then iterates the agent (not the test) until green. Explicitly resists local optima like system-prompt patches when the real fix is upstream (missing tool, missing retrieval source, missing capability). Use whenever the user wants to fix OR change how an agent behaves — e.g. "fix this issue in my agent", "this answer is wrong, fix it", "the agent is hallucinating", "improve my agent based on this trace", "make the agent do X instead of Y", "I want the agent to recommend/prioritize/promote/lead with X", "new business rule: the agent should X", "make the agent push/always/never X", "change the agent's default behavior" — or shares a trace they want addressed.
+description: Drives a disciplined explore → plan → implement → verify loop for changing an AI agent's behavior with confidence — whether fixing a reported failure or introducing a new requirement, business rule, or policy. Grounds the diagnosis in MLflow traces, codifies the desired behavior as a regression test suite (`mlflow.genai.evaluate` assertions in `@mlflow.test` pytest tests), and iterates the agent — not the test — until green, resisting quick system-prompt patches when the real fix is upstream (missing tool, retrieval source, or capability). Use whenever the user wants to fix or change how an agent behaves — e.g. "fix this issue in my agent", "this answer is wrong", "the agent is hallucinating", "improve my agent based on this trace", "make the agent do X instead of Y", "I want the agent to lead with/prioritize/recommend X", "new business rule: the agent should X", "always/never do X", "change the agent's default behavior" — or shares a trace they want addressed.
 ---
 
 # Fix Agent Issue
@@ -13,23 +13,10 @@ The user wants to change an AI agent's behavior — either because something is 
 
 If the user pushes for a quick fix, push back once: "Let me write a test first so we know the fix actually works." Most of the value of this skill is the discipline.
 
-## Trigger phrases
+Two kinds of request trigger this skill, and both get the same test-first discipline:
 
-**Fixing a failure:**
-- "fix this issue in my agent"
-- "improve my agent based on this trace"
-- "the agent is hallucinating, fix it"
-- "this answer is wrong, the agent should X"
-- "make the agent do X instead of Y"
-- "my agent keeps doing X — fix it"
-- Any time the user shares a specific bad trace and asks for an improvement
-
-**Introducing a new behavior / business rule / policy** (also triggers — these are behavior changes, not bugs, and need the same test-first discipline):
-- "I want the agent to recommend / prioritize / promote / lead with X"
-- "new business rule: the agent should X"
-- "make the agent push X" / "always do X" / "never do X"
-- "change the agent's default to X"
-- Any new requirement from a stakeholder that changes how the agent should respond
+- **Fixing a failure** — the user shares a bad trace or describes a failure mode ("the agent is hallucinating," "this answer is wrong," "my agent keeps doing X — fix it").
+- **Introducing a new behavior / business rule / policy** — a new requirement that changes how the agent should respond ("lead with X," "new business rule: the agent should X," "always/never do X," "change the default"). Not a bug, but still a behavior change that can silently break other behaviors.
 
 ## Phase 1: EXPLORE — understand what the trace shows
 
@@ -109,13 +96,14 @@ Skip this only when the change is genuinely global and unconditional (a pure for
 
 Write each case as a normal pytest test marked `@mlflow.test`, running the scorers with `mlflow.genai.evaluate(data=[...], predict_fn=..., scorers=[...])` and asserting on the result with `assert result.passed, result.reason` — a mix of deterministic and judge-based scorers. (`@mlflow.test` is **not** a no-op — it requires the MLflow pytest plugin and raises at test time if the plugin isn't enabled. Enable it once with `pytest_plugins = ["mlflow.pytest.plugin"]` in your root `conftest.py`, or run pytest with `-p mlflow.pytest.plugin`; the plugin sets up an MLflow run for the marked test and enables tracing so each case's traces are grouped under one regression-test run. `evaluate` runs the scorers and returns an `EvaluationResult` whose `result.passed`/`result.reason` give a single pass/fail plus the failing reasons.) Save tests in a stable file named for the **module or behavior under test**, following the project's existing test-layout convention — **not one file per issue or scenario**. Before creating a new file, check whether a suite already covers that module/area and add your assertions there; only start a new file when that area genuinely isn't covered yet.
 
-**Use the project's pinned LLM judge: `openai:/databricks-gpt-5-5`.** Set `JUDGE = "openai:/databricks-gpt-5-5"` and proceed — do **not** ask the user to choose. This judge is pre-configured for this project and routes through the project's `OPENAI_BASE_URL` gateway. Skip judge setup entirely if all your scorers are deterministic.
+**Pick the judge model from the project, not from memory.** Set a single `JUDGE` constant and reuse it for every `Guidelines` scorer. Resolve it in this order: (1) a model the project has already pinned for evaluation — check for an `MLFLOW_JUDGE_MODEL` (or similar) env var, a config file, or the judge used by existing scorers/tests; (2) otherwise ask the user which model to use, in `provider:/model` form (e.g. `openai:/gpt-4o`, `anthropic:/claude-sonnet-4-6`, or a gateway route like `openai:/<your-gateway-model>`). Don't invent or hardcode a model id the project can't resolve. Skip judge setup entirely if all your scorers are deterministic.
 
 ```python
+import os
 import mlflow
 from mlflow.genai.scorers import RegexMatch, Guidelines, Safety, scorer
 
-JUDGE = "openai:/databricks-gpt-5-5"  # project's pinned judge (via OPENAI_BASE_URL gateway)
+JUDGE = os.environ.get("MLFLOW_JUDGE_MODEL", "openai:/gpt-4o")  # use the project's pinned judge
 
 # There is no built-in "excludes" scorer — write a small custom @scorer for must-NOT-contain checks.
 @scorer
@@ -188,7 +176,7 @@ Rules:
 #### Scorer-choice rules
 
 - **Deterministic first.** `RegexMatch` (substring / format / URL patterns / code blocks — use `case_insensitive=True` for plain "contains" checks) and small custom `@scorer` functions (e.g. a must-NOT-contain check, or `Equivalence`/`Correctness` against a ground truth) for surface concerns. They cost zero LLM calls and are reproducible. (There is no `Contains`/`Excludes`/`Matches`/`Equals` scorer — `RegexMatch` plus a custom `@scorer` cover those cases.)
-- **Use the pinned judge model.** Instantiate every `Guidelines` scorer with `model="openai:/databricks-gpt-5-5"` (the project's pre-configured judge). Don't ask the user.
+- **Use one judge model everywhere.** Instantiate every `Guidelines` scorer with `model=JUDGE`, the single constant resolved above — never a different or hardcoded model per scorer.
 - **`Guidelines` only when semantic.** "Leads with the UI path", "asks ONE clarifying question first", "primary recommendation is X not Y" — these need an LLM judge. Guidelines need both inputs and outputs, so make sure each `data` row carries an `inputs` field (and either an `outputs` field or a `predict_fn` that produces it) — `evaluate` passes both to the judge.
 - **Pick scorers from the intent, not from the fix.** Choose scorers by the *shape of the failure the user reported*, never by how you happened to fix it. A clean structural/deterministic fix (filtering data, adding a tool, a config change) tempts you toward deterministic-only tests — "the hole is closed, a substring check is enough." Resist it. Deterministic scorers verify the *specific instance* you observed and silently pass the moment wording, inputs, or data shift; when the complaint is about a *class* of behavior (anything semantic — intent, tone, disclosure, reasoning), you need an LLM-judge for that class regardless of how strong the fix is. The test encodes the intent permanently; the fix is only today's implementation of it.
 - **Assert at the layer you fixed — then keep the judge on top.** Put the load-bearing assertion *where the fix lives*: a tool / retrieval / data fix earns a deterministic custom `@scorer` over the trace's tool spans (the scorer receives the `trace`; use `trace.search_spans("<tool>")` → assert it refused, errored, or never returned the forbidden content) or a direct call to the tool — proof the capability is gone *by construction*, independent of what the model happens to say. That structural assertion does **not** replace the semantic judge: keep both — the structural check proves the hole is closed at the fix layer, the judge catches paraphrased or drifted failures it can't see.
@@ -220,10 +208,10 @@ These are the local optima the loop is designed to avoid:
 - **Per-question if-then patches.** "If user asks about prompts, mention the Prompt Registry" is brittle. The agent should *find* the Prompt Registry by fetching docs, not because we encoded it as a special case.
 - **Tightening the test to pass.** If your test fails, fix the agent. Don't loosen the rubric. (Exception: the test was genuinely overspecified — but that's a PLAN-phase mistake worth admitting.)
 - **Touching the prompt as a first move.** The prompt is the easiest thing to edit, so it's the most overused. Diagnose the actual layer first.
-- **Letting the fix dictate the test.** A strong fix at one layer is not a license to drop coverage the intent requires. "The fix feels complete, so I can skip the semantic judge / the paired case" is how brittle suites are born — encode the user's full intent regardless of how neatly the current fix closes the specific instance.
-- **Re-declaring tracing in the test.** If a trace only appears because the test file itself calls `autolog()` (or sets up span decorators), the test is exercising instrumentation production doesn't share, and your trace-based verification is a lie. Trigger the *real* enablement by invoking the agent's production path; if it doesn't fire, move the enablement into the shared agent code — never copy it into the test. (See *Exercise the real instrumented code path* in PLAN.)
+- **Letting the fix dictate the test** (see *Scorer-choice rules* → "Pick scorers from the intent, not from the fix"). A strong fix is not a license to drop the semantic judge or the paired case.
+- **Re-declaring tracing in the test** (see *Exercise the real instrumented code path*). A trace that only appears because the test file calls `autolog()` verifies instrumentation prod doesn't share.
 
-The memory rule `feedback_no_hardcoded_fix_for_class_of_failures.md` exists for exactly this. Apply it ruthlessly.
+The rule to apply ruthlessly: **never hardcode a fix for one instance of a class of failures.** If the complaint is about a *kind* of behavior, fix the capability that produces the whole class — not the single example the user happened to show you.
 
 ## Phase 3: IMPLEMENT — smallest change at the diagnosed layer
 
@@ -267,10 +255,11 @@ python -c "import pytest" 2>/dev/null || uv pip install pytest
 ### Run the full assertion suite
 
 ```bash
-MLFLOW_TRACKING_URI=<server> pytest dev/test_<agent>_assertions.py -p mlflow.pytest.plugin -v
+# point at the test file you wrote — wherever the project's layout puts it
+MLFLOW_TRACKING_URI=<server> pytest <path/to/test_file.py> -p mlflow.pytest.plugin -v
 ```
 
-For tests that need a judge model, set the judge env var (e.g. `JUDGE_MODEL=...` or `OPENAI_API_KEY=...`) before running.
+For tests that need a judge model, set the relevant env vars before running — the judge model (e.g. the `MLFLOW_JUDGE_MODEL` you resolved in PLAN) and whatever credentials it requires (`OPENAI_API_KEY`, gateway base URL, etc.).
 
 ### Read the failure if any test still fails
 
@@ -308,6 +297,6 @@ If you've iterated 3+ times on the same test without converging, that's a signal
 ## Related skills
 
 - `analyzing-mlflow-trace` — use for the EXPLORE phase trace anatomy.
-- `analyze-mlflow-chat-session` — when the issue spans a multi-turn conversation.
+- `analyzing-mlflow-session` — when the issue spans a multi-turn conversation.
 - `instrumenting-with-mlflow-tracing` — if the agent isn't traced yet, run this first; you can't EXPLORE without traces.
 - `agent-evaluation` — for dataset-scale eval workflows alongside individual assertion tests.
