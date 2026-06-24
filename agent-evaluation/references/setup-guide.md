@@ -37,6 +37,13 @@ If not installed or version too old:
 uv pip install mlflow>=3.8.0
 ```
 
+**SageMaker Managed MLflow:** also install the auth plugin (it registers the `arn://` tracking
+scheme; without it an ARN tracking URI fails with `UnsupportedModelRegistryStoreURIException`):
+
+```bash
+uv pip install sagemaker-mlflow
+```
+
 ## Step 2: Configure Environment
 
 ### Quick Setup (Recommended - 90% of cases)
@@ -108,6 +115,12 @@ Choose your tracking server type:
 ```bash
 # For Databricks
 export MLFLOW_TRACKING_URI="databricks"
+
+# For SageMaker Managed MLflow (requires `pip install sagemaker-mlflow` from Step 1)
+# Use the resource ARN as the tracking URI (Aloy tracking-server or Mercury mlflow-app):
+export MLFLOW_TRACKING_URI="arn:aws:sagemaker:<region>:<account>:mlflow-tracking-server/<name>"
+# or: arn:aws:sagemaker:<region>:<account>:mlflow-app/<id>
+export AWS_DEFAULT_REGION="<region>"   # AWS creds resolved via the default chain (SigV4)
 
 # For local server (start server first: mlflow server --host 127.0.0.1 --port 5000 &)
 export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"

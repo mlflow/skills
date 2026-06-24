@@ -48,6 +48,26 @@ def check_mlflow_installed() -> bool:
         return False
 
 
+def ensure_backend_plugin(tracking_uri: str) -> None:
+    """Ensure the backend plugin for the chosen tracking URI is installed.
+
+    SageMaker Managed MLflow uses an ARN tracking URI
+    (arn:aws:sagemaker:<region>:<acct>:mlflow-app/<id> or .../mlflow-tracking-server/<name>),
+    which only works when the `sagemaker-mlflow` plugin is installed (it registers the
+    `arn` tracking scheme). Without it, set_tracking_uri(<arn>) raises
+    UnsupportedModelRegistryStoreURIException.
+    """
+    if tracking_uri.startswith("arn:aws:sagemaker:"):
+        try:
+            import sagemaker_mlflow  # noqa: F401
+
+            print("✓ sagemaker-mlflow plugin installed (SageMaker Managed MLflow)")
+        except ImportError:
+            print("✗ SageMaker Managed MLflow detected but sagemaker-mlflow is not installed")
+            print("  Install with: pip install sagemaker-mlflow")
+            sys.exit(1)
+
+
 def detect_databricks_profiles() -> list[str]:
     """Detect available and valid Databricks profiles.
 
@@ -279,6 +299,9 @@ def main():
 
     # Configure tracking URI (auto-detects if not provided)
     tracking_uri = configure_tracking_uri(args.tracking_uri)
+
+    # Ensure backend plugin (e.g. sagemaker-mlflow for SageMaker ARN URIs) is installed
+    ensure_backend_plugin(tracking_uri)
 
     # Configure experiment ID (auto-detects if not provided)
     experiment_id = configure_experiment_id(
