@@ -16,7 +16,9 @@
     "./retrieving-mlflow-traces",
     "./querying-mlflow-metrics",
     "./mlflow-onboarding",
-    "./searching-mlflow-docs"
+    "./searching-mlflow-docs",
+    "./fix-agent-issue",
+    "./sagemaker-mlflow"
   ],
   "hooks": "./hooks/hooks.json",
   "categories": ["observability", "evaluation", "ai-agents"],
