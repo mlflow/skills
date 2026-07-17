@@ -118,3 +118,7 @@ See `references/advanced-patterns.md` for:
 See `references/distributed-tracing.md` for:
 - Propagating trace context across services
 - Client/server header APIs
+
+### Databricks (Unity Catalog storage)
+
+See `references/databricks.md` for storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix).

@@ -90,7 +90,7 @@ An optional identifier provided by the calling system (e.g., a web server reques
 
 Where this trace is stored. Can be:
 - **MlflowExperimentLocation**: Stored in an MLflow experiment, identified by `experiment_id`. This is the most common case for development and OSS deployments.
-- **UCSchemaLocation**: Stored in a Databricks Unity Catalog schema, identified by `catalog_name` and `schema_name`. Used in production Databricks deployments for governed trace storage.
+- **UnityCatalog**: Stored in Databricks Unity Catalog Delta tables, identified by `catalog_name`, `schema_name`, and `table_prefix` (the prefix on the `<table_prefix>_otel_*` tables holding the trace data). A single schema can hold multiple trace locations, one per `table_prefix`. Used in production Databricks deployments for governed trace storage.
 
 The location determines which tracking server or catalog to query when fetching the trace's full data.
 
