@@ -99,7 +99,7 @@ with mlflow.start_span(name=f"process_{item_id}") as span:
     span.set_outputs({"result": result})  # Must set manually
 ```
 
-### Capture full content, not a size count
+### Span content: record full data, not a count
 
 **Always record the actual retrieved content in span inputs and outputs, never a bare count or size summary.** A span that records `{"matches": 20}` instead of the actual documents is useless for debugging.
 
@@ -110,6 +110,7 @@ MLflow's trace store accepts large string attributes. Single attributes over 500
 span.set_outputs({"matches": len(docs)})
 
 # Right: record the content so the trace is debuggable
+# docs is the actual list of retrieved records, e.g. [{"text": ..., "id": ...}]
 span.set_outputs({"documents": docs})
 ```
 
