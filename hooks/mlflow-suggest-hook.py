@@ -28,6 +28,9 @@ def main():
     if any(k in prompt for k in ["search traces", "find traces", "filter traces", "get trace"]):
         suggestions.append("💡 Use the `retrieving-mlflow-traces` skill to search/filter traces.")
 
+    if any(k in prompt for k in ["tag trace", "annotate trace", "label trace", "feedback on trace", "rate trace", "thumbs up", "thumbs down"]):
+        suggestions.append("💡 Use the `annotate-mlflow-trace` skill to tag and add feedback to traces.")
+
     if any(k in prompt for k in ["metrics", "token usage", "latency", "cost", "usage trend"]):
         suggestions.append("💡 Use the `querying-mlflow-metrics` skill to fetch aggregated metrics.")
 

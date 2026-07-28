@@ -14,6 +14,7 @@
     "./analyze-mlflow-trace",
     "./analyze-mlflow-chat-session",
     "./retrieving-mlflow-traces",
+    "./annotate-mlflow-trace",
     "./querying-mlflow-metrics",
     "./mlflow-onboarding",
     "./searching-mlflow-docs",
