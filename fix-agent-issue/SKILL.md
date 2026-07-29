@@ -1,6 +1,19 @@
 ---
 name: fix-agent-issue
-description: Drives a disciplined explore → plan → implement → verify loop for changing an AI agent's behavior with confidence — whether fixing a reported failure or introducing a new requirement, business rule, or policy. Grounds the diagnosis in MLflow traces, codifies the desired behavior as a regression test suite (`mlflow.genai.evaluate` assertions in `@mlflow.test` pytest tests), and iterates the agent — not the test — until green, resisting quick system-prompt patches when the real fix is upstream (missing tool, retrieval source, or capability). Use whenever the user wants to fix or change how an agent behaves — e.g. "fix this issue in my agent", "this answer is wrong", "the agent is hallucinating", "improve my agent based on this trace", "make the agent do X instead of Y", "I want the agent to lead with/prioritize/recommend X", "new business rule: the agent should X", "always/never do X", "change the agent's default behavior" — or shares a trace they want addressed.
+description: >-
+  Drives a disciplined explore → plan → implement → verify loop for changing an
+  AI agent's behavior with confidence — whether fixing a reported failure or
+  introducing a new requirement, business rule, or policy. Grounds the diagnosis
+  in MLflow traces, codifies the desired behavior as a regression test suite
+  (`mlflow.genai.evaluate` assertions in `@mlflow.test` pytest tests), and iterates
+  the agent — not the test — until green, resisting quick system-prompt patches
+  when the real fix is upstream (missing tool, retrieval source, or capability).
+  Use whenever the user wants to fix or change how an agent behaves — e.g. "fix
+  this issue in my agent", "this answer is wrong", "the agent is hallucinating",
+  "improve my agent based on this trace", "make the agent do X instead of Y", "I
+  want the agent to lead with/prioritize/recommend X", "new business rule: the
+  agent should X", "always/never do X", "change the agent's default behavior" — or
+  shares a trace they want addressed.
 ---
 
 # Fix Agent Issue
