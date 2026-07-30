@@ -49,7 +49,7 @@ After instrumenting the code, **always verify that tracing is working**.
 
 
 1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
-2. **Confirm traces are logged** — traces export on a background queue, so flush it first, then use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment:
+2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment. If the trace is not found, try `mlflow.flush_trace_async_logging()` to flush the background queue.
 
 ```python
 import mlflow
