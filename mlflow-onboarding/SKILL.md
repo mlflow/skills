@@ -164,6 +164,32 @@ mock_chat("What is MLflow?")
 
 **Where to add it:** Find the application's entry point or initialization module and add the autologging call there. Search for the main LLM client instantiation (e.g., `openai.OpenAI()`, `ChatOpenAI()`) to find the right location.
 
+4. **Prompt Registry** (Unity Catalog only) — To register and load versioned prompts, the workspace must have the Prompt Registry preview enabled (account admin → Previews → "Prompt Registry").
+
+   ```python
+   import mlflow
+
+   # Register a prompt under a UC catalog.schema
+   prompt_version = mlflow.genai.register_prompt(
+       name="catalog.schema.my_prompt",
+       template="Answer the user's question: {{question}}",
+   )
+   # register_prompt logs a workspace UI link on success and auto-links
+   # the active experiment's Prompts tab to catalog.schema.
+
+   # Use the URI to load this prompt version in subsequent code
+   print(prompt_version.uri)  # prompts:/catalog.schema.my_prompt/1
+   ```
+
+   If the experiment's Prompts tab is empty after registering, the active experiment was not auto-linked (older mlflow versions do not set this tag automatically). Set it manually:
+
+   ```python
+   mlflow.set_experiment_tag(
+       "mlflow.promptRegistryLocation",
+       "catalog.schema",  # two-part: catalog.schema (no prompt name)
+   )
+   ```
+
 ### Traditional ML Integration
 
 The core integration for ML is **experiment tracking** — capturing parameters, metrics, and models from training runs.
