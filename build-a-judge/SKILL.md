@@ -41,11 +41,11 @@ North star:
 
 ## Source of truth: introspect, don't memorize
 
-MLflow's scorer surface changes. Before recommending scorers, read the installed surface (use
-`uv run python` in a uv-managed repo, plain `python` otherwise):
+MLflow's scorer surface changes. Before recommending scorers, read the installed surface. Drop the
+`uv run` prefix if the project is not uv-managed:
 
 ```bash
-python -c "
+uv run python -c "
 from mlflow.genai.scorers import get_all_scorers
 import mlflow.genai.scorers as s
 for sc in get_all_scorers():
