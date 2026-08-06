@@ -166,6 +166,13 @@ Before doing anything else, ask the user these questions. Do NOT proceed until y
 
 ### Step 2: Define Quality Scorers
 
+> 💡 **If the user does not yet know what to measure, use the `build-a-judge` skill for this step.**
+> Deciding *which* criteria matter — and whether each is cheapest as a code check, a built-in, or an
+> LLM judge — is the hardest part of evaluation and has its own workflow. `build-a-judge` returns a
+> confirmed suite of 3-5 atomic criteria with an implementation chosen per criterion; come back here
+> to register them and run the evaluation. Skip it when the criteria are already clear, or when
+> scorers are already registered in the experiment.
+
 1. **Check registered scorers in your experiment:**
    ```bash
    uv run mlflow scorers list -x $MLFLOW_EXPERIMENT_ID
