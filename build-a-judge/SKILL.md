@@ -196,13 +196,26 @@ on them, but do not act as though the catalog is empty:
 | `Retrieval{Groundedness,Relevance,Sufficiency}` | inputs, trace | **RETRIEVER spans only** — see Phase 2 |
 | `UserFrustration`, `ConversationCompleteness`, `KnowledgeRetention`, `ConversationalSafety`, `ConversationalRoleAdherence` | none (session-level) | multi-turn outcome and conversation quality |
 
-A hand-written judge is unversioned, unaligned, and untested; a built-in is maintained upstream.
-Prefer `Guidelines` over a bespoke `make_judge` for policy-adherence phrasing.
+**A built-in is a better starting point than a blank prompt — not a substitute for your standard.**
+Built-ins are LLM judges too: they carry MLflow's generic `instructions` for a generic notion of
+relevance or safety. Prefer them because the scaffolding and data contract are already tested, not
+because "built-in" implies correct for your product. Anywhere your bar differs from the industry
+default, say so and expect to align or replace.
 
-**"My domain is too specific" is not a reason to skip built-ins.** `Guidelines` takes *your* policy
-text, so domain specificity is an argument *for* it. Session-level built-ins
-(`UserFrustration`, `ConversationCompleteness`) measure conversation quality independent of domain.
-Even in a specialised suite, expect at least one built-in unless you can name why each was unusable.
+Two consequences worth stating to the user:
+
+- **`Guidelines` is the exception that always applies.** It takes *your* policy text, so there is no
+  imported standard — domain specificity is an argument *for* it, not against.
+- **Alignment cuts across the built-in/bespoke line.** `align(traces=...)` is on `Judge`, so
+  single-turn built-ins (`RelevanceToQuery`, `Safety`, `Correctness`, `PIIDetection`) can be aligned
+  to your labels just like `make_judge`. Session-level built-ins (`UserFrustration`,
+  `ConversationCompleteness`, `KnowledgeRetention`) **raise `NotImplementedError` on `align()`** —
+  they are permanently stuck on MLflow's definition. Use them for a cheap first signal, and flag
+  that they cannot be tuned; if the criterion is important and contested, hand-write it so it can be
+  aligned.
+
+Skipping built-ins is legitimate when your standard genuinely differs. Skipping them without
+looking is not.
 
 Default routes:
 
@@ -289,25 +302,35 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
   Always add: "Once traces and human labels come in, align this judge and validate agreement before
   relying on it for monitoring."
 
-### Phase 8: Validate before scaling
+### Phase 8: Name the validation plan, then hand off
+
+Decide *how the suite will be judged* — then stop. Running the evaluation is `agent-evaluation`'s
+job, and this skill must not duplicate it.
 
 **Lead with labels the user already has.** Before proposing anyone hand-label a fresh dataset, ask
 what past failures are already recorded — support tickets, complaints, incident reports,
 thumbs-down feedback, refunds, escalations. Backtesting against real known-bad cases beats synthetic
 labels and costs nothing to produce. Propose hand-labeling only if no such history exists.
 
-Then: run v1 on 5-20 examples, inspect disagreements manually, fix code checks or judge wording,
-keep only stable checks, and schedule production monitoring once the suite is useful. Be cautious
-aligning subjective axes like tone or style — alignment can overfit.
+For each LLM judge, state the alignment plan: which labels it will be aligned against, and that its
+first version is a draft. Be cautious aligning subjective axes like tone or style — alignment can
+overfit. Note where alignment is impossible: session-level built-ins raise `NotImplementedError`.
 
-Close with the suite, parked v2 ideas, trace-only upgrades, the first command to run, and the
-alignment reminder for every LLM judge.
+Close with the confirmed suite, the implementation, parked v2 ideas, trace-only upgrades, and the
+validation plan.
 
-**Then hand off.** This skill designs the suite; it does not own the evaluation pipeline. Point the
-user at the `agent-evaluation` skill to register the scorers, build or discover a dataset, dry-run,
-execute, and analyze results. Registration matters: unregistered inline scorers will not appear in
-`mlflow scorers list` and are not reusable. For tracing gaps surfaced in Phase 2 — missing spans, a
-lookup instrumented as `TOOL` rather than `RETRIEVER` — point at `instrumenting-with-mlflow-tracing`.
+**Then hand off — do not run the evaluation yourself.**
+
+- `agent-evaluation` — registering scorers, dataset discovery/creation, dry run, full evaluation,
+  results analysis, and iteration. Registration matters: unregistered inline scorers do not appear in
+  `mlflow scorers list` and are not reusable.
+- `instrumenting-with-mlflow-tracing` — tracing gaps surfaced in Phase 2, such as a lookup
+  instrumented as `TOOL` when a criterion needs `RETRIEVER`.
+
+> **Scope boundary.** This skill decides *what to measure and how to implement it*.
+> `agent-evaluation` decides *how to run it and what the results mean*. If you find yourself
+> preparing a dataset, registering scorers, or interpreting eval output, you have left this skill's
+> scope — hand off instead.
 
 ## Anti-patterns
 
