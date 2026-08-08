@@ -28,6 +28,9 @@ mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI 
 mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
+> **On Databricks: opt into UC trace storage**  
+> Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`references/databricks.md`](references/databricks.md) for the one-liner.
+
 ### Enable Tracing
 
 **For supported frameworks** (LangChain, LangGraph, OpenAI, etc.):
@@ -58,16 +61,25 @@ Zero-code instrumentation for supported libraries. See the [Integrations page](h
 ```python
 import mlflow
 
-# Enable before importing/using the library
-mlflow.langchain.autolog()    # LangChain, LangGraph
-mlflow.openai.autolog()       # OpenAI SDK
-mlflow.anthropic.autolog()    # Anthropic SDK
-mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
-mlflow.litellm.autolog()      # LiteLLM
-mlflow.dspy.autolog()         # DSPy
-mlflow.autogen.autolog()      # AutoGen
-mlflow.crewai.autolog()       # CrewAI
+# Enable each autolog independently. One missing package will not disable another.
+for flavor, fn in [
+    ("langchain", mlflow.langchain.autolog),  # LangChain and LangGraph, needs only langchain-core
+    ("openai", mlflow.openai.autolog),
+    ("anthropic", mlflow.anthropic.autolog),
+    ("gemini", mlflow.gemini.autolog),  # Google Gemini (google-genai SDK)
+    ("litellm", mlflow.litellm.autolog),
+    ("dspy", mlflow.dspy.autolog),
+    ("autogen", mlflow.autogen.autolog),
+    ("crewai", mlflow.crewai.autolog),
+]:
+    try:
+        fn()
+    except Exception as e:
+        import warnings
+        warnings.warn(f"mlflow.{flavor}.autolog() failed: {e}. Tracing for {flavor} disabled.")
 ```
+
+> **LangGraph note:** LangGraph is traced via `mlflow.langchain.autolog()` (there is no `mlflow.langgraph.autolog()`). It requires only `langchain-core`, not the full `langchain` package. Without the full `langchain` package installed, the version-compatibility check raises `ModuleNotFoundError: No module named 'langchain'`. The try/except above prevents that error from disabling other autolog calls.
 
 ### Method 2: Decorator (Recommended for Custom Code)
 
@@ -172,6 +184,32 @@ def rag_query(question: str) -> str:
 
     return response.content
 ```
+
+### Adding descriptions to LangGraph node spans
+
+When `mlflow.langchain.autolog()` traces a LangGraph graph, each node becomes a span named after the node function. The span shows inputs and outputs but nothing that explains what the node does. To make the trace readable without opening each node's code, write the node's docstring into the span's `description` attribute:
+
+```python
+import mlflow
+
+def web_research(state: dict) -> dict:
+    """Search the web for information relevant to the query."""
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attribute("description", web_research.__doc__)
+    # node logic here
+    return state
+
+def enrich_findings(state: dict) -> dict:
+    """Cross-reference web results with the internal knowledge base."""
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attribute("description", enrich_findings.__doc__)
+    # node logic here
+    return state
+```
+
+The `description` attribute appears in the span's Attributes tab in the MLflow trace viewer. Any string key works. `"description"` is a readable convention.
 
 ---
 
