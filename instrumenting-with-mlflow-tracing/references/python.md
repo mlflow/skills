@@ -112,6 +112,12 @@ with mlflow.start_span(name=f"process_{item_id}") as span:
     span.set_outputs({"result": result})  # Must set manually
 ```
 
+> **Warning:** A `start_span` context manager that never calls `span.set_inputs(...)`
+> and `span.set_outputs(...)` produces a span with a name and a duration but no I/O. In
+> the trace UI it looks identical to a span that legitimately has none, so a reviewer
+> cannot tell instrumentation succeeded. Always set inputs and outputs on a manual span,
+> or use the `@mlflow.trace` decorator, which captures both automatically.
+
 ### Span content: record full data, not a count
 
 **Always record the actual retrieved content in span inputs and outputs, never a bare count or size summary.** A span that records `{"matches": 20}` instead of the actual documents is useless for debugging.
