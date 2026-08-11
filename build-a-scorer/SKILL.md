@@ -1,10 +1,10 @@
 ---
-name: build-a-judge
+name: build-a-scorer
 description: Help the user go from zero to a shipped MLflow evaluation prototype by understanding their app, generalizing a small set of atomic quality criteria, and implementing each criterion with the cheapest reliable scorer. Use when the user wants help choosing, creating, or iterating MLflow judges/scorers for an agent, RAG app, LLM app, or GenAI workflow.
 allowed-tools: Read, Write, Bash, Grep, Glob
 ---
 
-# build-a-judge
+# build-a-scorer
 
 Help the user get from **zero to shipped evaluation prototype**. Not 100% correctness on the first
 pass — a stable, understandable scorer suite they can run, inspect, and iterate on.
@@ -126,13 +126,27 @@ calls, and whether the task is single-turn or session-level.
 `RetrievalSufficiency` require `RETRIEVER` spans and **hard-raise** otherwise. A `web_search` or DB
 lookup instrumented as `TOOL` does not qualify.
 
-For "grounded in tool output", **prefer a code scorer that extracts the tool output from the trace
-and passes just that to a judge, over handing the whole trace to `make_judge` with `{{ trace }}`.**
-A `{{ trace }}` judge re-reads the entire trace on every row: more tokens, more cost, and more
-nondeterminism, because the model has to locate the relevant span itself before judging it. Pulling
-the span in code is deterministic and free; only the comparison needs a model. Reach for
-`{{ trace }}` when the criterion is genuinely about the shape of the whole trace — tool sequencing,
-retry behaviour — rather than about one span's contents.
+For "grounded in tool output", **prefer a code scorer that extracts the relevant span and passes only
+that to a judge, over handing the whole trace to `make_judge` with `{{ trace }}`:**
+
+```python
+# Preferred — code finds the evidence, the model only compares it.
+@scorer
+def grounded_in_lookup(trace, outputs) -> bool:
+    spans = trace.search_spans(span_type=SpanType.TOOL)   # deterministic, free
+    if not spans:
+        return True                                        # criterion does not apply
+    return my_judge(claim=outputs, source=spans[0].outputs)  # model sees ~200 tokens
+```
+
+`{{ trace }}` serializes every span into the prompt, so the model must *locate* the right span before
+judging it. That costs more (a full trace can be 50x the two strings you actually need) and makes span
+selection itself nondeterministic — with two lookups in one trace it may compare against the wrong
+one, and may choose differently on a rerun. Extracting in Python fixes the selection and leaves the
+model only the semantic part.
+
+Reach for `{{ trace }}` when the criterion is genuinely *about* the whole trace — tool sequencing,
+retry behaviour, did-it-loop — where there is no single span to extract.
 
 If traces do not exist, use `inputs` + optional `outputs`/`expectations` with
 `mlflow.genai.evaluate(data=..., predict_fn=..., scorers=[...])`, and mark trace-only upgrades as

@@ -38,14 +38,14 @@ If you're tempted to create `evaluation/eval_dataset.py` or similar custom files
 **Evaluation workflow in 5 steps** (each uses MLflow APIs):
 
 1. **Understand**: Run agent, inspect traces, understand purpose
-2. **Scorers**: Register the agreed scorer suite (use `build-a-judge` first if it does not exist yet)
+2. **Scorers**: Register the agreed scorer suite (use `build-a-scorer` first if it does not exist yet)
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
 3.5. **Dry Run**: Run 3 questions first — catch broken tools and misconfigured scorers before full eval
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
 **Scope boundary:** this skill owns *running* evaluation — registration, datasets, execution, and
 analysis. Designing the scorer suite (which criteria, and code check vs. built-in vs. LLM judge) is
-the `build-a-judge` skill's job. The seam is a confirmed suite of criteria with an implementation
+the `build-a-scorer` skill's job. The seam is a confirmed suite of criteria with an implementation
 chosen for each.
 
 ## Command Conventions
@@ -166,20 +166,20 @@ Before doing anything else, ask the user these questions. Do NOT proceed until y
 - Write the `agent_description` parameter for `generate_evals_df`
 - Set evaluation priorities
 - Decide whether the quality criteria are already clear (continue to Step 2) or still need to be
-  worked out with the user (use the `build-a-judge` skill — see Step 2)
+  worked out with the user (use the `build-a-scorer` skill — see Step 2)
 
 **If running in automated mode:** Read agent purpose from the codebase (SKILL.md, README, or main entry point docstring). Still surface what you found and confirm before proceeding.
 
 **Scope note:** these three questions establish *what the agent is*. They are not enough to design a
 scorer suite. If the answers to (2) and (3) are vague — "good answers", "it should be accurate" — do
-not invent scorer names from them; that is what `build-a-judge` is for.
+not invent scorer names from them; that is what `build-a-scorer` is for.
 
 ### Step 2: Register Quality Scorers
 
 This step **registers and runs** scorers. Designing them — which criteria matter, and whether each is
-cheapest as a code check, a built-in, or an LLM judge — belongs to the `build-a-judge` skill.
+cheapest as a code check, a built-in, or an LLM judge — belongs to the `build-a-scorer` skill.
 
-> 💡 **If the user does not already have a scorer suite, use the `build-a-judge` skill first.**
+> 💡 **If the user does not already have a scorer suite, use the `build-a-scorer` skill first.**
 > It returns a confirmed set of 3-5 atomic criteria, each with an implementation chosen per criterion
 > (code check, built-in, or `make_judge`) and an output type that survives aggregation. Come back here
 > to register and run them.
@@ -202,7 +202,7 @@ See `references/scorers.md` for the built-in scorers. Add any that the suite cal
 
 Implement the remaining criteria with `make_judge()` (LLM judges) or `@scorer` (deterministic code checks). See `references/scorers.md` for the APIs and `references/scorers-constraints.md` for constraints that silently break results.
 
-If you are inventing criteria at this point rather than implementing agreed ones, stop and use `build-a-judge` — a scorer whose criterion the user has not confirmed will not survive validation.
+If you are inventing criteria at this point rather than implementing agreed ones, stop and use `build-a-scorer` — a scorer whose criterion the user has not confirmed will not survive validation.
 
 > ⚠️ **CRITICAL — Scorer Return Values:** Scorers MUST instruct the LLM judge to return `"yes"` or `"no"` (or booleans/numerics). Return values of `"pass"` or `"fail"` are **silently cast to `None`** by `_cast_assessment_value_to_float` and **excluded from `results.metrics`** with no error or warning — results simply disappear. See `references/scorers-constraints.md` Constraint 2 for the full list of safe vs. broken return values.
 
