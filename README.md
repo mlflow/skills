@@ -36,6 +36,7 @@ Building production-ready AI agents is hard. You need observability to understan
 | Skill | Description |
 |-------|-------------|
 | **agent-evaluation** | End-to-end agent evaluation workflow — dataset creation, scorer selection, evaluation execution, and results analysis. |
+| **build-a-scorer** | Designs a small, cheap-to-run scorer suite from scratch — elicits quality criteria with you, routes each to code checks, built-in scorers, or LLM judges, then ships the implementation. |
 | **querying-mlflow-metrics** | Fetches aggregated metrics (token usage, latency, error rates) with time-series analysis and dimensional breakdowns. |
 
 ### Helping New Users

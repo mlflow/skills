@@ -10,6 +10,7 @@
   "skills": [
     "./mlflow-agent",
     "./agent-evaluation",
+    "./build-a-scorer",
     "./instrumenting-with-mlflow-tracing",
     "./analyze-mlflow-trace",
     "./analyze-mlflow-chat-session",
