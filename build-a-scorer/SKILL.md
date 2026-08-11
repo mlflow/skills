@@ -126,24 +126,17 @@ calls, and whether the task is single-turn or session-level.
 `RetrievalSufficiency` require `RETRIEVER` spans and **hard-raise** otherwise. A `web_search` or DB
 lookup instrumented as `TOOL` does not qualify.
 
-For "grounded in tool output", **prefer a code scorer that extracts the relevant span and passes only
-that to a judge, over handing the whole trace to `make_judge` with `{{ trace }}`:**
+For "grounded in tool output", **prefer a code scorer that wraps a judge over a judge that takes
+`{{ trace }}`.** A `@scorer` function receives the `trace`, so it can call
+`trace.search_spans(span_type=SpanType.TOOL)` to pull out the one span holding the evidence, then pass
+just that span's output and the agent's claim to a `make_judge` judge whose instructions take two
+short strings. Code locates the evidence; the model only does the semantic comparison.
 
-```python
-# Preferred — code finds the evidence, the model only compares it.
-@scorer
-def grounded_in_lookup(trace, outputs) -> bool:
-    spans = trace.search_spans(span_type=SpanType.TOOL)   # deterministic, free
-    if not spans:
-        return True                                        # criterion does not apply
-    return my_judge(claim=outputs, source=spans[0].outputs)  # model sees ~200 tokens
-```
-
-`{{ trace }}` serializes every span into the prompt, so the model must *locate* the right span before
-judging it. That costs more (a full trace can be 50x the two strings you actually need) and makes span
-selection itself nondeterministic — with two lookups in one trace it may compare against the wrong
-one, and may choose differently on a rerun. Extracting in Python fixes the selection and leaves the
-model only the semantic part.
+`{{ trace }}` instead serializes every span into the prompt and makes the model locate the right span
+before judging it. That costs more — an order of magnitude or two versus the two strings actually
+needed — and makes span *selection* a model judgement: with two lookups in one trace it may compare
+against the wrong one, and may choose differently on a rerun. Extracting in Python fixes the
+selection.
 
 Reach for `{{ trace }}` when the criterion is genuinely *about* the whole trace — tool sequencing,
 retry behaviour, did-it-loop — where there is no single span to extract.
