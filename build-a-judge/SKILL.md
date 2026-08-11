@@ -124,8 +124,15 @@ calls, and whether the task is single-turn or session-level.
 
 **The RETRIEVER-vs-TOOL trap:** `RetrievalGroundedness`, `RetrievalRelevance`, and
 `RetrievalSufficiency` require `RETRIEVER` spans and **hard-raise** otherwise. A `web_search` or DB
-lookup instrumented as `TOOL` does not qualify. For "grounded in tool output", use a trace-based
-`make_judge` with `{{ trace }}` or a code scorer over tool outputs.
+lookup instrumented as `TOOL` does not qualify.
+
+For "grounded in tool output", **prefer a code scorer that extracts the tool output from the trace
+and passes just that to a judge, over handing the whole trace to `make_judge` with `{{ trace }}`.**
+A `{{ trace }}` judge re-reads the entire trace on every row: more tokens, more cost, and more
+nondeterminism, because the model has to locate the relevant span itself before judging it. Pulling
+the span in code is deterministic and free; only the comparison needs a model. Reach for
+`{{ trace }}` when the criterion is genuinely about the shape of the whole trace — tool sequencing,
+retry behaviour — rather than about one span's contents.
 
 If traces do not exist, use `inputs` + optional `outputs`/`expectations` with
 `mlflow.genai.evaluate(data=..., predict_fn=..., scorers=[...])`, and mark trace-only upgrades as
@@ -298,9 +305,20 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
   mark as a future upgrade.
 - LLM judges: give the actual `instructions` string tailored to their domain, with template
   variables (`{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, `{{ trace }}`,
-  `{{ conversation }}`), a `bool` or `"yes"`/`"no"` output, model choice, and cost at their stated volume.
+  `{{ conversation }}`), a `bool` or `"yes"`/`"no"` output, and cost at their stated volume.
   Always add: "Once traces and human labels come in, align this judge and validate agreement before
   relying on it for monitoring."
+
+**Judge model selection.** Leave `model=None` unless the user has a reason to override it — MLflow
+picks the managed judge on a Databricks tracking URI, or `openai:/gpt-4.1-mini` otherwise. State the
+default you are relying on so the user can see it, and quote cost at their stated volume.
+
+- Start on a mid-tier model and only downgrade after checking agreement on a labelled sample. A
+  cheaper judge that disagrees with humans is more expensive than no judge.
+- Do not downgrade a judge guarding a red-line criterion (safety, legal, compliance) to save cents —
+  volume is usually low, because the code prefilter gates it.
+- `agent-evaluation/references/scorers.md` → "Model Selection for Scorers" is authoritative for
+  `model=` URIs, defaults, and API-key setup. Point there rather than restating it.
 
 ### Phase 8: Name the validation plan, then hand off
 
