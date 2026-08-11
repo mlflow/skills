@@ -126,20 +126,12 @@ calls, and whether the task is single-turn or session-level.
 `RetrievalSufficiency` require `RETRIEVER` spans and **hard-raise** otherwise. A `web_search` or DB
 lookup instrumented as `TOOL` does not qualify.
 
-For "grounded in tool output", **prefer a code scorer that wraps a judge over a judge that takes
-`{{ trace }}`.** A `@scorer` function receives the `trace`, so it can call
-`trace.search_spans(span_type=SpanType.TOOL)` to pull out the one span holding the evidence, then pass
-just that span's output and the agent's claim to a `make_judge` judge whose instructions take two
-short strings. Code locates the evidence; the model only does the semantic comparison.
-
-`{{ trace }}` instead serializes every span into the prompt and makes the model locate the right span
-before judging it. That costs more — an order of magnitude or two versus the two strings actually
-needed — and makes span *selection* a model judgement: with two lookups in one trace it may compare
-against the wrong one, and may choose differently on a rerun. Extracting in Python fixes the
-selection.
-
-Reach for `{{ trace }}` when the criterion is genuinely *about* the whole trace — tool sequencing,
-retry behaviour, did-it-loop — where there is no single span to extract.
+For "grounded in tool output", **wrap a judge in a code scorer instead of passing `{{ trace }}`.** A
+`@scorer` gets the `trace`, so use `trace.search_spans()` to pull the evidence span and pass only it
+plus the claim to the judge. `{{ trace }}` serializes every span and makes the model find the right
+one — costlier, and span selection becomes nondeterministic when there are several. Use `{{ trace }}`
+only when the criterion is about the whole trace (tool sequencing, retries), with no single span to
+extract.
 
 If traces do not exist, use `inputs` + optional `outputs`/`expectations` with
 `mlflow.genai.evaluate(data=..., predict_fn=..., scorers=[...])`, and mark trace-only upgrades as
@@ -211,22 +203,13 @@ on them, but do not act as though the catalog is empty:
 | `UserFrustration`, `ConversationCompleteness`, `KnowledgeRetention`, `ConversationalSafety`, `ConversationalRoleAdherence` | none (session-level) | multi-turn outcome and conversation quality |
 
 **A built-in is a better starting point than a blank prompt — not a substitute for your standard.**
-Built-ins are LLM judges too: they carry MLflow's generic `instructions` for a generic notion of
-relevance or safety. Prefer them because the scaffolding and data contract are already tested, not
-because "built-in" implies correct for your product. Anywhere your bar differs from the industry
-default, say so and expect to align or replace.
-
-Two consequences worth stating to the user:
-
-- **`Guidelines` is the exception that always applies.** It takes *your* policy text, so there is no
-  imported standard — domain specificity is an argument *for* it, not against.
-- **Alignment cuts across the built-in/bespoke line.** `align(traces=...)` is on `Judge`, so
-  single-turn built-ins (`RelevanceToQuery`, `Safety`, `Correctness`, `PIIDetection`) can be aligned
-  to your labels just like `make_judge`. Session-level built-ins (`UserFrustration`,
-  `ConversationCompleteness`, `KnowledgeRetention`) **raise `NotImplementedError` on `align()`** —
-  they are permanently stuck on MLflow's definition. Use them for a cheap first signal, and flag
-  that they cannot be tuned; if the criterion is important and contested, hand-write it so it can be
-  aligned.
+Built-ins are LLM judges carrying MLflow's generic instructions, so "built-in" does not imply correct
+for your product; prefer them because the scaffolding and data contract are already tested. Two
+consequences: `Guidelines` always applies, since it takes *your* policy text. And alignment cuts
+across the built-in/bespoke line — `align()` is on `Judge`, so single-turn built-ins can be aligned to
+your labels like `make_judge`, but session-level ones (`UserFrustration`, `ConversationCompleteness`,
+`KnowledgeRetention`) **raise `NotImplementedError`** and are stuck on MLflow's definition. Hand-write
+a criterion that is important and contested, so it can be aligned.
 
 Skipping built-ins is legitimate when your standard genuinely differs. Skipping them without
 looking is not.
@@ -316,35 +299,12 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
   Always add: "Once traces and human labels come in, align this judge and validate agreement before
   relying on it for monitoring."
 
-**Judge model selection — start mid-tier, then move in whichever direction the data says.**
-
-Set `model=` explicitly on every judge. Do not silently accept the default: with no `model`, MLflow
-uses the managed judge on a Databricks tracking URI but `openai:/gpt-4.1-mini` otherwise — a *small*
-model, and a weaker starting point than you want for a judge you are about to trust.
-
-| Provider | Start here (mid-tier) | Scale up if disagreement is high | Scale down only after measuring agreement |
-|---|---|---|---|
-| Anthropic | `anthropic:/claude-sonnet-4-6` | `anthropic:/claude-opus-4-8` | `anthropic:/claude-haiku-4-5` |
-| OpenAI | `openai:/gpt-4.1` | current frontier model | `openai:/gpt-4.1-mini` |
-| Databricks | `databricks` (managed judge) | `databricks:/<endpoint>` on a stronger model | — |
-
-Mid-tier first because both errors cost, asymmetrically: a judge too weak to track your criterion
-produces disagreement you will debug as if it were an app bug, while a frontier judge on a check a
-mid-tier model handles fine merely costs more. Starting in the middle means the first alignment run
-tells you which way to move.
-
-- **Move up** when a judge disagrees with human labels on cases you consider clear-cut. Change the
-  model before rewriting instructions — a weak judge and a vague criterion look identical in the
-  metrics.
-- **Move down** only after measuring agreement on a labelled sample, and re-measure after the swap.
-  A cheaper judge that disagrees with humans costs more than the one it replaced.
-- **Never downgrade a red-line judge** (safety, legal, compliance) to save cents. Its volume is
-  already low because a code prefilter gates it, so the saving is rounding error against the risk.
-- Quote cost at the user's stated volume, and say which model the number assumes.
-
-`agent-evaluation/references/scorers.md` → "Model Selection for Scorers" is authoritative for URI
-formats, defaults, API keys, and reusing the agent's own LLM. Verify current model names against the
-provider before pasting them into code.
+**Judge model.** Set `model=` explicitly — the default is `openai:/gpt-4.1-mini` off Databricks, too
+small to trust. Start mid-tier (`anthropic:/claude-sonnet-4-6`, `openai:/gpt-4.1`, or `databricks`),
+then move up if the judge disagrees with human labels on clear-cut cases, and down only after
+measuring agreement on a labelled sample. Never downgrade a red-line judge (safety, legal) to save
+cents — a code prefilter already keeps its volume low. Verify model names against the provider;
+`agent-evaluation/references/scorers.md` is authoritative for URI formats and keys.
 
 ### Phase 8: Name the validation plan, then hand off
 
