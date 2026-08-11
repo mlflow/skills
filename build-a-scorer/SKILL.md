@@ -299,12 +299,11 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
   Always add: "Once traces and human labels come in, align this judge and validate agreement before
   relying on it for monitoring."
 
-**Judge model.** Set `model=` explicitly — the default is `openai:/gpt-4.1-mini` off Databricks, too
-small to trust. Start mid-tier (`anthropic:/claude-sonnet-4-6`, `openai:/gpt-4.1`, or `databricks`),
-then move up if the judge disagrees with human labels on clear-cut cases, and down only after
-measuring agreement on a labelled sample. Never downgrade a red-line judge (safety, legal) to save
-cents — a code prefilter already keeps its volume low. Verify model names against the provider;
-`agent-evaluation/references/scorers.md` is authoritative for URI formats and keys.
+**Judge model.** Set `model=` explicitly and start mid-tier — `anthropic:/claude-sonnet-4-6`,
+`openai:/gpt-4.1`, or the equivalent tier on your provider. Scale up if the judge disagrees with
+human labels on clear-cut cases; scale down only after measuring agreement on a labelled sample.
+Never downgrade a red-line judge (safety, legal) to save cents — a code prefilter already keeps its
+volume low. `agent-evaluation/references/scorers.md` is authoritative for URI formats and keys.
 
 ### Phase 8: Name the validation plan, then hand off
 
