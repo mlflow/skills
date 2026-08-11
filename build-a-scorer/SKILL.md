@@ -323,16 +323,35 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
   Always add: "Once traces and human labels come in, align this judge and validate agreement before
   relying on it for monitoring."
 
-**Judge model selection.** Leave `model=None` unless the user has a reason to override it — MLflow
-picks the managed judge on a Databricks tracking URI, or `openai:/gpt-4.1-mini` otherwise. State the
-default you are relying on so the user can see it, and quote cost at their stated volume.
+**Judge model selection — start mid-tier, then move in whichever direction the data says.**
 
-- Start on a mid-tier model and only downgrade after checking agreement on a labelled sample. A
-  cheaper judge that disagrees with humans is more expensive than no judge.
-- Do not downgrade a judge guarding a red-line criterion (safety, legal, compliance) to save cents —
-  volume is usually low, because the code prefilter gates it.
-- `agent-evaluation/references/scorers.md` → "Model Selection for Scorers" is authoritative for
-  `model=` URIs, defaults, and API-key setup. Point there rather than restating it.
+Set `model=` explicitly on every judge. Do not silently accept the default: with no `model`, MLflow
+uses the managed judge on a Databricks tracking URI but `openai:/gpt-4.1-mini` otherwise — a *small*
+model, and a weaker starting point than you want for a judge you are about to trust.
+
+| Provider | Start here (mid-tier) | Scale up if disagreement is high | Scale down only after measuring agreement |
+|---|---|---|---|
+| Anthropic | `anthropic:/claude-sonnet-4-6` | `anthropic:/claude-opus-4-8` | `anthropic:/claude-haiku-4-5` |
+| OpenAI | `openai:/gpt-4.1` | current frontier model | `openai:/gpt-4.1-mini` |
+| Databricks | `databricks` (managed judge) | `databricks:/<endpoint>` on a stronger model | — |
+
+Mid-tier first because both errors cost, asymmetrically: a judge too weak to track your criterion
+produces disagreement you will debug as if it were an app bug, while a frontier judge on a check a
+mid-tier model handles fine merely costs more. Starting in the middle means the first alignment run
+tells you which way to move.
+
+- **Move up** when a judge disagrees with human labels on cases you consider clear-cut. Change the
+  model before rewriting instructions — a weak judge and a vague criterion look identical in the
+  metrics.
+- **Move down** only after measuring agreement on a labelled sample, and re-measure after the swap.
+  A cheaper judge that disagrees with humans costs more than the one it replaced.
+- **Never downgrade a red-line judge** (safety, legal, compliance) to save cents. Its volume is
+  already low because a code prefilter gates it, so the saving is rounding error against the risk.
+- Quote cost at the user's stated volume, and say which model the number assumes.
+
+`agent-evaluation/references/scorers.md` → "Model Selection for Scorers" is authoritative for URI
+formats, defaults, API keys, and reusing the agent's own LLM. Verify current model names against the
+provider before pasting them into code.
 
 ### Phase 8: Name the validation plan, then hand off
 
