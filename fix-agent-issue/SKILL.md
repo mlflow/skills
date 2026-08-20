@@ -13,7 +13,10 @@ description: >-
   "improve my agent based on this trace", "make the agent do X instead of Y", "I
   want the agent to lead with/prioritize/recommend X", "new business rule: the
   agent should X", "always/never do X", "change the agent's default behavior" — or
-  shares a trace they want addressed.
+  when you are debugging an agent's behavior mid-loop and reaching for source code
+  and output files — "debug this agent", "figure out why the agent did X", "the
+  agent's output is wrong", "why did the agent produce this" — where the trace is
+  the evidence to read first — or shares a trace they want addressed.
 ---
 
 # Fix Agent Issue
