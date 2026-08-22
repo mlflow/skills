@@ -124,3 +124,11 @@ See `references/distributed-tracing.md` for:
 ### Databricks (Unity Catalog storage)
 
 See `references/databricks.md` for storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix).
+
+---
+
+## Next: debug from the traces you just captured
+
+Tracing is now in place. When you move on to debug or improve the agent's behavior, read the spans first. Do not fall back to reading source code and output files alone. The trace shows what each step actually received, produced, and decided, which is the evidence source that pins down where behavior went wrong.
+
+Load the `fix-agent-issue` skill for this. It grounds the diagnosis in the trace, what the agent did, what it should have done, and why, before any code change, and codifies the fix as a regression test so it sticks. Reach for it as soon as you start asking why the agent produced a given output, not only when someone explicitly reports a bug.
