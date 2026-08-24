@@ -61,25 +61,11 @@ Zero-code instrumentation for supported libraries. See the [Integrations page](h
 ```python
 import mlflow
 
-# Enable each autolog independently. One missing package will not disable another.
-for flavor, fn in [
-    ("langchain", mlflow.langchain.autolog),  # LangChain and LangGraph, needs only langchain-core
-    ("openai", mlflow.openai.autolog),
-    ("anthropic", mlflow.anthropic.autolog),
-    ("gemini", mlflow.gemini.autolog),  # Google Gemini (google-genai SDK)
-    ("litellm", mlflow.litellm.autolog),
-    ("dspy", mlflow.dspy.autolog),
-    ("autogen", mlflow.autogen.autolog),
-    ("crewai", mlflow.crewai.autolog),
-]:
-    try:
-        fn()
-    except Exception as e:
-        import warnings
-        warnings.warn(f"mlflow.{flavor}.autolog() failed: {e}. Tracing for {flavor} disabled.")
+# Choose the autolog integration for the framework already used by this app.
+mlflow.langchain.autolog()  # LangChain and LangGraph
 ```
 
-> **LangGraph note:** LangGraph is traced via `mlflow.langchain.autolog()` (there is no `mlflow.langgraph.autolog()`). It requires only `langchain-core`, not the full `langchain` package. Without the full `langchain` package installed, the version-compatibility check raises `ModuleNotFoundError: No module named 'langchain'`. The try/except above prevents that error from disabling other autolog calls.
+For a different framework, use its matching integration instead—for example, `mlflow.openai.autolog()` for the OpenAI SDK. Do not enable every integration speculatively. LangGraph is traced through `mlflow.langchain.autolog()`; there is no `mlflow.langgraph.autolog()`.
 
 ### Method 2: Decorator (Recommended for Custom Code)
 
