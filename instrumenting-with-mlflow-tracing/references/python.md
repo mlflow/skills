@@ -89,7 +89,9 @@ def search_database(sql: str) -> dict:
 
 **Caution: the decorator auto-captures raw function arguments AND return value.** `span.set_inputs()` inside the body correctly overrides the auto-captured inputs. `span.set_outputs()` inside the body does not: the decorator calls `span.set_outputs(return_value)` after the function exits, so the return value always wins.
 
-Two patterns work correctly when both the input and output are large objects.
+**First check whether you need to do anything.** MLflow already derives readable trace-list previews for OpenAI chat-shaped payloads: a top-level `messages` list, `choices[0].message`, or a Responses-API `input` list. When the root span's input or output matches one of those, the preview shows the last user or assistant message text and needs no help. Do not set previews manually in that case.
+
+The patterns below are for a root span whose input or output is **not** chat-shaped, such as an agent state dict (`{"customer": ..., "note_text": ..., "output_path": ...}`). There are no messages to extract, so the preview falls back to the serialized object truncated to the max length, which cuts mid-JSON.
 
 **Option 1: Set compact trace-list previews with `update_current_trace`.** The `request_preview` and `response_preview` fields control what the Trace list UI shows. The root span still stores the full return value, but the list view shows your compact strings.
 
