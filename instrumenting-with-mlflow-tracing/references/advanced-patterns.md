@@ -56,13 +56,17 @@ def process_items(items: list) -> list:
             return result
 
     with ThreadPoolExecutor(max_workers=4) as executor:
-        # Copy context to each thread
-        ctx = contextvars.copy_context()
-        futures = [executor.submit(ctx.run, process_one, item) for item in items]
-        results = [f.result() for f in futures]
+        futures = []
+        for item in items:
+            # Copy once per submission: a Context cannot run concurrently.
+            ctx = contextvars.copy_context()
+            futures.append(executor.submit(ctx.run, process_one, item))
+        results = [future.result() for future in futures]
 
     return results
 ```
+
+Create a fresh context for each submitted task. Reusing one `Context` concurrently raises `RuntimeError: cannot enter context ... is already entered`.
 
 **Using `run_in_executor` with asyncio**:
 

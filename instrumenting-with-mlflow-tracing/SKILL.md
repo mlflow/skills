@@ -37,6 +37,12 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 - Logging or metric emission
 - Pure utility functions (math, sorting, filtering)
 
+### Decide the trace boundary before adding a decorator
+
+Before adding a manual `@mlflow.trace`, classify the operation. Do not decorate per-item validation, parsing, formatting, or utility helpers because they call an external service. Keep high-cardinality details on the existing workflow span. Return aggregate counts and a bounded failure list in that span's output.
+
+With framework autologging enabled, inspect one trace before adding manual decorators. Add manual spans only for high-value operations that autologging misses. For `ThreadPoolExecutor` work, leave utilities untraced. Propagate context only for a child operation worth inspecting.
+
 **Rule of thumb**: Trace operations that are important for debugging and identifying issues in your application.
 
 ---
@@ -70,7 +76,9 @@ for span in spans:
     print(f"  - {span.name} ({span.span_type})")
 ```
 
-4. **Report the result** — tell the user how many traces and spans were found and confirm tracing is working
+4. **Verify the expected trace topology** — state how many application root traces this test run should create, normally one. Inspect every trace returned for the run. A standalone worker or helper trace is a failed verification.
+
+5. **Report the result** — report trace count, topology, and expected span coverage.
 
 ### If no traces appear
 
