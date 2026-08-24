@@ -9,6 +9,7 @@ For other shapes, such as an agent state dict, the default preview is a serializ
 Use `span.set_inputs()` when you want compact stored inputs. Use `update_current_trace()` when only the trace list needs a readable request or response preview; the decorated function can still return the full state.
 
 ```python
+import mlflow
 from mlflow.entities import SpanType
 
 @mlflow.trace(span_type=SpanType.AGENT)
@@ -28,20 +29,21 @@ def run_agent(graph, customer: str, date: str) -> dict:
 
 ## Store compact inputs and outputs on the root span
 
-Use a manual root span only when the function must return the full state but the root span itself should store a compact output. A decorated function can set compact inputs, but its return value becomes the span output after the function exits.
+Keep the decorator when the function must return full state but the root span should store compact inputs or outputs. Explicit `span.set_inputs()` and `span.set_outputs()` values take precedence over the decorator's automatic capture.
 
 ```python
 from mlflow.entities import SpanType
 
+@mlflow.trace(span_type=SpanType.AGENT)
 def run_agent(graph, customer: str, date: str) -> dict:
-    with mlflow.start_span(name="run_agent", span_type=SpanType.AGENT) as span:
-        span.set_inputs({"customer": customer, "date": date})
-        state = graph.invoke({"customer": customer, "date": date})
-        span.set_outputs(
-            {
-                "output_path": state.get("output_path", ""),
-                "preview": state.get("note_text") or "",
-            }
-        )
-        return state
+    span = mlflow.get_current_active_span()
+    span.set_inputs({"customer": customer, "date": date})
+    state = graph.invoke({"customer": customer, "date": date})
+    span.set_outputs(
+        {
+            "output_path": state.get("output_path", ""),
+            "preview": state.get("note_text") or "",
+        }
+    )
+    return state
 ```

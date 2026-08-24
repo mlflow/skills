@@ -87,7 +87,7 @@ def search_database(sql: str) -> dict:
 
 **Span types**: `LLM`, `CHAIN`, `TOOL`, `AGENT`, `RETRIEVER`, `EMBEDDING`, `RERANKER`, `PARSER`, `UNKNOWN`
 
-**Caution: the decorator auto-captures raw function arguments AND return value.** `span.set_inputs()` inside the body correctly overrides the auto-captured inputs. The decorator sets outputs from the function's return value after the function exits, so an in-body `span.set_outputs()` does not override them.
+**Caution: the decorator auto-captures raw function arguments and return value.** Set `span.set_inputs()` or `span.set_outputs()` inside the body when the span should store a more useful, compact value; explicit values take precedence over the decorator's automatic capture.
 
 For non-chat-shaped root inputs or outputs that need a custom trace-list preview or compact stored values, see [Root span previews and compact values](root-span-previews.md).
 
