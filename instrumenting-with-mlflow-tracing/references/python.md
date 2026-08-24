@@ -87,53 +87,9 @@ def search_database(sql: str) -> dict:
 
 **Span types**: `LLM`, `CHAIN`, `TOOL`, `AGENT`, `RETRIEVER`, `EMBEDDING`, `RERANKER`, `PARSER`, `UNKNOWN`
 
-**Caution: the decorator auto-captures raw function arguments AND return value.** `span.set_inputs()` inside the body correctly overrides the auto-captured inputs. `span.set_outputs()` inside the body does not: the decorator calls `span.set_outputs(return_value)` after the function exits, so the return value always wins.
+**Caution: the decorator auto-captures raw function arguments AND return value.** `span.set_inputs()` inside the body correctly overrides the auto-captured inputs. The decorator sets outputs from the function's return value after the function exits, so an in-body `span.set_outputs()` does not override them.
 
-**First check whether you need to do anything.** MLflow already derives readable trace-list previews for OpenAI chat-shaped payloads: a top-level `messages` list, `choices[0].message`, or a Responses-API `input` list. When the root span's input or output matches one of those, the preview shows the last user or assistant message text and needs no help. Do not set previews manually in that case.
-
-The patterns below are for a root span whose input or output is **not** chat-shaped, such as an agent state dict (`{"customer": ..., "note_text": ..., "output_path": ...}`). There are no messages to extract, so the preview falls back to the serialized object truncated to the max length, which cuts mid-JSON.
-
-**Option 1: Set compact trace-list previews with `update_current_trace`.** The `request_preview` and `response_preview` fields control what the Trace list UI shows. The root span still stores the full return value, but the list view shows your compact strings.
-
-```python
-from mlflow.entities import SpanType
-
-@mlflow.trace(span_type=SpanType.AGENT)
-def run_agent(graph, customer: str, date: str) -> dict:
-    span = mlflow.get_current_active_span()
-    span.set_inputs({"customer": customer, "date": date})  # overrides inputs correctly
-
-    state = graph.invoke({"customer": customer, "date": date})
-
-    output_path = state.get("output_path", "")
-    preview = (state.get("note_text") or "")[:200]
-    mlflow.update_current_trace(
-        request_preview=f"customer={customer}, date={date}",
-        response_preview=f"output_path={output_path}, preview={preview}",
-    )
-
-    return state
-```
-
-**Option 2: Use a manual span (Method 3) as the entry point.** This gives full control over both the stored inputs and outputs on the root span.
-
-```python
-from mlflow.entities import SpanType
-
-def run_agent(graph, customer: str, date: str) -> dict:
-    with mlflow.start_span(name="run_agent", span_type=SpanType.AGENT) as span:
-        span.set_inputs({"customer": customer, "date": date})
-
-        state = graph.invoke({"customer": customer, "date": date})
-
-        output_path = state.get("output_path", "")
-        preview = (state.get("note_text") or "")[:200]
-        span.set_outputs({"output_path": output_path, "preview": preview})
-
-        return state
-```
-
-Use Option 1 when you want to keep the decorator and only need the list view to be readable. Use Option 2 when you need the root span itself to store compact values.
+For non-chat-shaped root inputs or outputs that need a custom trace-list preview or compact stored values, see [Root span previews and compact values](root-span-previews.md).
 
 ### Method 3: Manual Spans (When Decorator Not Possible)
 
