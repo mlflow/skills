@@ -87,7 +87,11 @@ def search_database(sql: str) -> dict:
 
 **Span types**: `LLM`, `CHAIN`, `TOOL`, `AGENT`, `RETRIEVER`, `EMBEDDING`, `RERANKER`, `PARSER`, `UNKNOWN`
 
-**Caution: the decorator auto-captures raw function arguments.** If the input is a compiled LangGraph graph or the output is a full state dict, the root span shows an unreadable blob. Override with compact values inside the function body:
+**Caution: the decorator auto-captures raw function arguments AND return value.** `span.set_inputs()` inside the body correctly overrides the auto-captured inputs. `span.set_outputs()` inside the body does not: the decorator calls `span.set_outputs(return_value)` after the function exits, so the return value always wins.
+
+Two patterns work correctly when both the input and output are large objects.
+
+**Option 1: Set compact trace-list previews with `update_current_trace`.** The `request_preview` and `response_preview` fields control what the Trace list UI shows. The root span still stores the full return value, but the list view shows your compact strings.
 
 ```python
 from mlflow.entities import SpanType
@@ -95,18 +99,39 @@ from mlflow.entities import SpanType
 @mlflow.trace(span_type=SpanType.AGENT)
 def run_agent(graph, customer: str, date: str) -> dict:
     span = mlflow.get_current_active_span()
-    span.set_inputs({"customer": customer, "date": date})
+    span.set_inputs({"customer": customer, "date": date})  # overrides inputs correctly
 
     state = graph.invoke({"customer": customer, "date": date})
 
     output_path = state.get("output_path", "")
-    preview = state.get("note_text", "")[:200]
-    span.set_outputs({"output_path": output_path, "preview": preview})
+    preview = (state.get("note_text") or "")[:200]
+    mlflow.update_current_trace(
+        request_preview=f"customer={customer}, date={date}",
+        response_preview=f"output_path={output_path}, preview={preview}",
+    )
 
     return state
 ```
 
-Use this pattern whenever the raw arguments or return value do not show what went in and what came out. Call `mlflow.get_current_active_span()` inside the decorated function to get the root span. Then call `span.set_inputs()` and `span.set_outputs()` to replace the auto-captured values.
+**Option 2: Use a manual span (Method 3) as the entry point.** This gives full control over both the stored inputs and outputs on the root span.
+
+```python
+from mlflow.entities import SpanType
+
+def run_agent(graph, customer: str, date: str) -> dict:
+    with mlflow.start_span(name="run_agent", span_type=SpanType.AGENT) as span:
+        span.set_inputs({"customer": customer, "date": date})
+
+        state = graph.invoke({"customer": customer, "date": date})
+
+        output_path = state.get("output_path", "")
+        preview = (state.get("note_text") or "")[:200]
+        span.set_outputs({"output_path": output_path, "preview": preview})
+
+        return state
+```
+
+Use Option 1 when you want to keep the decorator and only need the list view to be readable. Use Option 2 when you need the root span itself to store compact values.
 
 ### Method 3: Manual Spans (When Decorator Not Possible)
 
