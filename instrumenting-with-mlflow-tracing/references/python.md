@@ -28,7 +28,7 @@ mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI 
 mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
-> **On Databricks: opt into UC trace storage**  
+> **On Databricks: opt into UC trace storage**<br>
 > Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`references/databricks.md`](references/databricks.md) for the one-liner.
 
 ### Enable Tracing
