@@ -74,7 +74,7 @@ mlflow.flush_trace_async_logging()
 traces = mlflow.search_traces(
     experiment_ids=["<experiment_id>"],
     run_id=run.info.run_id,
-    filter_string=f"trace.timestamp_ms > {run_start_ms}",
+    filter_string=f"trace.timestamp_ms >= {run_start_ms}",
     return_type="list",
 )
 print(f"Found {len(traces)} trace(s)")

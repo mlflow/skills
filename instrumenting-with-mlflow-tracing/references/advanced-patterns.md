@@ -55,27 +55,25 @@ def process_items(items: list) -> dict:
             # Copy once per submission: a Context cannot run concurrently.
             ctx = contextvars.copy_context()
             futures.append(executor.submit(ctx.run, process_one, item))
-        results, failure_types = [], []
+        succeeded_count, redacted_failures = 0, []
         for future in futures:
             try:
-                results.append(future.result())
+                future.result()
+                succeeded_count += 1
             except Exception as exc:
-                failure_types.append(type(exc).__name__)
+                redacted_failures.append({"error_type": type(exc).__name__})
 
     return {
-        "results": results,
-        "summary": {
-            "processed_count": len(items),
-            "succeeded_count": len(results),
-            "failed_count": len(failure_types),
-            "failures": failure_types[:10],
-        },
+        "processed_count": len(items),
+        "succeeded_count": succeeded_count,
+        "failed_count": len(redacted_failures),
+        "failures": redacted_failures[:10],
     }
 ```
 
 Create a fresh context for each submitted task. Reusing one `Context` concurrently raises `RuntimeError: cannot enter context ... is already entered`.
 
-`process_one` deliberately creates no per-item span. When worker outcomes include validation, return aggregate counts and a bounded, redacted failure list in `parallel_processing`'s output, as shown. Do not create a span or call `set_inputs`/`set_outputs` for each item.
+`process_one` deliberately creates no per-item span. `parallel_processing` returns only aggregate counts and a bounded, redacted failure list; it does not return worker results or raw item values in the traced output. Do not create a span or call `set_inputs`/`set_outputs` for each item.
 
 **Using `run_in_executor` with asyncio**:
 
