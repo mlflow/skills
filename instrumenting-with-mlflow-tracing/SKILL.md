@@ -39,7 +39,7 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 
 ### Decide the trace boundary before adding a decorator
 
-Before adding a manual `@mlflow.trace`, classify the operation. Do not decorate per-item validation, parsing, formatting, or utility helpers because they call an external service. Keep high-cardinality details on the existing workflow span. Return aggregate counts and a bounded failure list in that span's output.
+Before adding a manual `@mlflow.trace`, classify the operation. Do not decorate per-item validation, parsing, formatting, or utility helpers solely because they call an external service. Trace an external service call when it is a high-value operation worth diagnosing; otherwise, keep high-cardinality details on the existing workflow span. Return aggregate counts and a bounded failure list in that span's output.
 
 With framework autologging enabled, inspect one trace before adding manual decorators. Add manual spans only for high-value operations that autologging misses. For `ThreadPoolExecutor` work, leave utilities untraced. Propagate context only for a child operation worth inspecting.
 
@@ -54,26 +54,52 @@ After instrumenting the code, **always verify that tracing is working**.
 > **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. Complete verification below first.
 
 
-1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
-2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment. If the trace is not found, try `mlflow.flush_trace_async_logging()` to flush the background queue.
+1. **Run the instrumented invocation in a new MLflow run** — execute the application or agent so that at least one traced operation fires. Record the run ID and the timestamp immediately before the invocation.
+2. **Confirm invocation-scoped traces and topology** — search only the traces from this invocation, not the whole experiment. If the trace is not found, try `mlflow.flush_trace_async_logging()` to flush the background queue.
+3. **Verify spans were captured** — confirm every invocation-scoped trace contains the expected spans and topology, not just an empty shell.
 
 ```python
+import time
 import mlflow
 
+expected_root_trace_count = 1
+expected_root_span_name = "<root_operation>"
+expected_span_names = {"<root_operation>", "<high_value_child_operation>"}
+
+run_start_ms = int(time.time() * 1000)
+with mlflow.start_run() as run:
+    run_instrumented_application()
+
 mlflow.flush_trace_async_logging()
-traces = mlflow.search_traces(experiment_ids=["<experiment_id>"])
+traces = mlflow.search_traces(
+    experiment_ids=["<experiment_id>"],
+    run_id=run.info.run_id,
+    filter_string=f"trace.timestamp_ms > {run_start_ms}",
+    return_type="list",
+)
 print(f"Found {len(traces)} trace(s)")
-assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
-```
+assert len(traces) == expected_root_trace_count, (
+    f"Expected {expected_root_trace_count} root trace(s), found {len(traces)}"
+)
 
-3. **Verify spans were captured** — confirm the trace contains the expected spans, not just an empty shell:
-
-```python
-trace = traces.iloc[0]
-spans = mlflow.get_trace(trace.trace_id).data.spans
-print(f"Trace has {len(spans)} span(s)")
-for span in spans:
-    print(f"  - {span.name} ({span.span_type})")
+for trace in traces:
+    spans = trace.data.spans
+    root_spans = [span for span in spans if span.parent_id is None]
+    assert len(root_spans) == 1, (
+        f"Trace {trace.info.trace_id} has {len(root_spans)} root spans"
+    )
+    assert root_spans[0].name == expected_root_span_name, (
+        f"Trace {trace.info.trace_id} has unexpected root {root_spans[0].name!r}; "
+        "a worker or helper must not become a standalone trace"
+    )
+    span_names = {span.name for span in spans}
+    assert expected_span_names <= span_names, (
+        f"Trace {trace.info.trace_id} is missing expected spans: "
+        f"{expected_span_names - span_names}"
+    )
+    print(f"Trace {trace.info.trace_id} has {len(spans)} span(s)")
+    for span in spans:
+        print(f"  - {span.name} ({span.span_type})")
 ```
 
 4. **Verify the expected trace topology** — state how many application root traces this test run should create, normally one. Inspect every trace returned for the run. A standalone worker or helper trace is a failed verification.
