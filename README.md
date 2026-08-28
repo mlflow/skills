@@ -50,6 +50,49 @@ Building production-ready AI agents is hard. You need observability to understan
 
 ## Installation
 
+### Quick install (curl)
+
+The fastest way to add every MLflow skill — no Node, git, or uv required, just
+`curl` and a shell:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mlflow/skills/main/install.sh | sh
+```
+
+The installer auto-detects your coding agent and copies the skills into the
+right directory (e.g. `~/.claude/skills/` for Claude Code). Prefer to read
+before you run? Download it first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mlflow/skills/main/install.sh -o install.sh
+less install.sh          # inspect
+sh install.sh
+```
+
+**Options** (flags or environment variables):
+
+| Flag | Env var | Purpose |
+|------|---------|---------|
+| `--agent <name>` | `MLFLOW_SKILLS_AGENT` | Target `claude`, `codex`, `cursor`, `gemini`, or `opencode` explicitly |
+| `--dir <path>` | `MLFLOW_SKILLS_DIR` | Install into an exact directory |
+| `--project` | `MLFLOW_SKILLS_SCOPE=project` | Install into `./.<agent>/skills` in the current project |
+| `--ref <ref>` | `MLFLOW_SKILLS_REF` | Install a specific branch or tag (default: `main`) |
+| `--list` | | List the skills that would be installed, then exit |
+
+Example — install for Codex, into the project instead of your home directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mlflow/skills/main/install.sh | sh -s -- --agent codex --project
+```
+
+The installer also prints the steps to enable the optional
+[auto-suggest hook](#auto-suggestion-hook-optional): it only needs to edit
+`settings.json`, so it prints the change rather than making it — a coding agent
+running the installer can apply it directly, or you can copy-paste it.
+
+> Restart your coding agent (or start a new session) after installing so it
+> picks up the new skills.
+
 ### Using `skills` installer
 
 ```bash
