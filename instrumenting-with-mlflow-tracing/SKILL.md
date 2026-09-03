@@ -16,6 +16,17 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 
 ---
 
+## Databricks: verify auth before the first run
+
+When the target is a Databricks workspace, confirm auth and the target workspace before running instrumented code. An expired token, or a default profile pointed at the wrong workspace, drops traces silently at export with no error raised.
+
+```bash
+databricks auth token --profile <name>   # fails if the token is expired. Re-run: databricks auth login --profile <name>
+python -c "import mlflow; print(mlflow.get_tracking_uri())"   # confirm it targets the intended workspace
+```
+
+---
+
 ## What to Trace
 
 **Trace these operations** (high debugging/observability value):
@@ -55,7 +66,7 @@ After instrumenting the code, **always verify that tracing is working**.
 import mlflow
 
 mlflow.flush_trace_async_logging()
-traces = mlflow.search_traces(experiment_ids=["<experiment_id>"])
+traces = mlflow.search_traces(locations=["<experiment_id>"])
 print(f"Found {len(traces)} trace(s)")
 assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
 ```

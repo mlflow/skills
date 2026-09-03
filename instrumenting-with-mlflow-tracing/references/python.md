@@ -28,6 +28,11 @@ mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI 
 mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
+> **On Databricks: the experiment name must be an absolute workspace path.**
+> `mlflow.set_experiment("my-agent")` is rejected or lands in the wrong place. Use
+> `mlflow.set_experiment("/Users/<your-email>/my-agent")` or, to attach to an existing
+> experiment, look up its numeric ID in the UI and pass `set_experiment(experiment_id="<id>")`.
+
 ### Enable Tracing
 
 **For supported frameworks** (LangChain, LangGraph, OpenAI, etc.):
