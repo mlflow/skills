@@ -28,6 +28,9 @@ mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI 
 mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
+> **On Databricks: opt into UC trace storage**<br>
+> Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`references/databricks.md`](references/databricks.md) for the one-liner.
+
 ### Enable Tracing
 
 **For supported frameworks** (LangChain, LangGraph, OpenAI, etc.):
@@ -58,16 +61,11 @@ Zero-code instrumentation for supported libraries. See the [Integrations page](h
 ```python
 import mlflow
 
-# Enable before importing/using the library
-mlflow.langchain.autolog()    # LangChain, LangGraph
-mlflow.openai.autolog()       # OpenAI SDK
-mlflow.anthropic.autolog()    # Anthropic SDK
-mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
-mlflow.litellm.autolog()      # LiteLLM
-mlflow.dspy.autolog()         # DSPy
-mlflow.autogen.autolog()      # AutoGen
-mlflow.crewai.autolog()       # CrewAI
+# Choose the autolog integration for the framework already used by this app.
+mlflow.langchain.autolog()  # LangChain and LangGraph
 ```
+
+For a different framework, use its matching integration instead—for example, `mlflow.openai.autolog()` for the OpenAI SDK. Do not enable every integration speculatively. LangGraph is traced through `mlflow.langchain.autolog()`; there is no `mlflow.langgraph.autolog()`.
 
 ### Method 2: Decorator (Recommended for Custom Code)
 
@@ -103,6 +101,12 @@ with mlflow.start_span(name=f"process_{item_id}") as span:
     result = process(query)
     span.set_outputs({"result": result})  # Must set manually
 ```
+
+> **Warning:** A `start_span` context manager that never calls `span.set_inputs(...)`
+> and `span.set_outputs(...)` produces a span with a name and a duration but no I/O. In
+> the trace UI it looks identical to a span that legitimately has none, so a reviewer
+> cannot tell instrumentation succeeded. Always set inputs and outputs on a manual span,
+> or use the `@mlflow.trace` decorator, which captures both automatically.
 
 ### Span content: record full data, not a count
 
@@ -176,6 +180,32 @@ def rag_query(question: str) -> str:
 
     return response.content
 ```
+
+### Adding descriptions to LangGraph node spans
+
+When `mlflow.langchain.autolog()` traces a LangGraph graph, each node becomes a span named after the node function. The span shows inputs and outputs but nothing that explains what the node does. To make the trace readable without opening each node's code, write the node's docstring into the span's `description` attribute:
+
+```python
+import mlflow
+
+def web_research(state: dict) -> dict:
+    """Search the web for information relevant to the query."""
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attribute("description", web_research.__doc__)
+    # node logic here
+    return state
+
+def enrich_findings(state: dict) -> dict:
+    """Cross-reference web results with the internal knowledge base."""
+    span = mlflow.get_current_active_span()
+    if span:
+        span.set_attribute("description", enrich_findings.__doc__)
+    # node logic here
+    return state
+```
+
+The `description` attribute appears in the span's Attributes tab in the MLflow trace viewer. Any string key works. `"description"` is a readable convention.
 
 ---
 
