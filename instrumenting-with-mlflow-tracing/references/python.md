@@ -69,6 +69,8 @@ mlflow.autogen.autolog()      # AutoGen
 mlflow.crewai.autolog()       # CrewAI
 ```
 
+**Start with one autolog call. Do not decorate framework operations to recreate automatic spans.** `mlflow.langchain.autolog()` captures LangGraph graph execution, nodes, tools, and model calls on its own. Adding `@mlflow.trace` to those same nodes, tools, or model calls produces duplicate spans. Add a manual span only for app-specific work that the framework does not capture, such as a retrieval step you wrote or an outer application boundary (see "Combining AutoLogging with Custom Tracing" below).
+
 ### Method 2: Decorator (Recommended for Custom Code)
 
 **Prefer decorator over manual spans** - it auto-captures function name, inputs, and outputs.
@@ -155,6 +157,8 @@ traces = mlflow.search_traces(
 ---
 
 ## Combining AutoLogging with Custom Tracing
+
+The `@mlflow.trace` decorator here marks a deliberate application boundary that wraps a custom retrieval step and the autologged LLM call under one root span. It does not re-decorate the framework's own nodes or model calls, which autolog already captures.
 
 ```python
 import mlflow
