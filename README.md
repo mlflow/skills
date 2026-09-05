@@ -30,6 +30,7 @@ Building production-ready AI agents is hard. You need observability to understan
 | **analyze-mlflow-trace** | Debugs issues by examining spans, assessments, and correlating with your codebase. |
 | **analyze-mlflow-chat-session** | Debugs multi-turn chat conversations by reconstructing session history and finding where things went wrong. |
 | **retrieving-mlflow-traces** | Powerful trace search and filtering by status, session, user, time range, or custom metadata. |
+| **annotate-mlflow-trace** | Tags and logs human feedback on the current session's trace inline, so coding sessions can be labeled for later evaluation. |
 
 ### Evaluation & Metrics
 
