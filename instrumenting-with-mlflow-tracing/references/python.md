@@ -65,7 +65,9 @@ import mlflow
 mlflow.langchain.autolog()  # LangChain and LangGraph
 ```
 
-For a different framework, use its matching integration instead—for example, `mlflow.openai.autolog()` for the OpenAI SDK. Do not enable every integration speculatively. LangGraph is traced through `mlflow.langchain.autolog()`; there is no `mlflow.langgraph.autolog()`.
+For a different framework, use its matching integration instead (for example, `mlflow.openai.autolog()` for the OpenAI SDK). Do not enable every integration speculatively. LangGraph is traced through `mlflow.langchain.autolog()`. There is no `mlflow.langgraph.autolog()`.
+
+**Start with one autolog call. Do not decorate framework operations to recreate automatic spans.** `mlflow.langchain.autolog()` captures LangGraph graph execution, nodes, tools, and model calls on its own. Adding `@mlflow.trace` to those same nodes, tools, or model calls produces duplicate spans. Add a manual span only for app-specific work that the framework does not capture, such as a retrieval step you wrote or an outer application boundary (see "Combining AutoLogging with Custom Tracing" below).
 
 ### Method 2: Decorator (Recommended for Custom Code)
 
@@ -163,6 +165,8 @@ traces = mlflow.search_traces(
 ---
 
 ## Combining AutoLogging with Custom Tracing
+
+The `@mlflow.trace` decorator here marks a deliberate application boundary that wraps a custom retrieval step and the autologged LLM call under one root span. It does not re-decorate the framework's own nodes or model calls, which autolog already captures.
 
 ```python
 import mlflow
