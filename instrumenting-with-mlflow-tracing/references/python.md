@@ -28,6 +28,11 @@ mlflow.set_tracking_uri("http://localhost:5000")  # skip if MLFLOW_TRACKING_URI 
 mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID is set
 ```
 
+> **On Databricks: the experiment name must be an absolute workspace path.**
+> `mlflow.set_experiment("my-agent")` is rejected or lands in the wrong place. Use
+> `mlflow.set_experiment("/Users/<your-email>/my-agent")` or, to attach to an existing
+> experiment, look up its numeric ID in the UI and pass `set_experiment(experiment_id="<id>")`.
+>
 > **On Databricks: opt into UC trace storage**<br>
 > Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`references/databricks.md`](references/databricks.md) for the one-liner.
 
