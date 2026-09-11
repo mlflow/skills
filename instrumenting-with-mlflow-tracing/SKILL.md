@@ -16,14 +16,20 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 
 ---
 
-## Databricks: verify auth before the first run
+## Databricks: verify auth and use Unity Catalog trace storage by default
 
-When the target is a Databricks workspace, confirm auth and the target workspace before running instrumented code. An expired token, or a default profile pointed at the wrong workspace, drops traces silently at export with no error raised.
+When the target is Databricks, **read `references/databricks.md` before editing code** and configure a `UnityCatalog` trace location. Calling only `mlflow.set_tracking_uri("databricks")` and `mlflow.set_experiment(...)` without a trace location uses legacy workspace experiment storage; that does not satisfy a request to send traces to Databricks.
+
+Use existing project or environment configuration for the catalog, schema, optional table prefix, and SQL warehouse when available. If the required values cannot be discovered, ask the user for them before implementing tracing. Do not silently fall back to legacy workspace trace storage. Use legacy storage only when the user explicitly requests it.
+
+Verify auth and the target workspace before the first run. An expired token, or a default profile pointed at the wrong workspace, drops traces silently at export with no error raised.
 
 ```bash
-databricks auth token --profile <name>   # fails if the token is expired. Re-run: databricks auth login --profile <name>
-python -c "import mlflow; print(mlflow.get_tracking_uri())"   # confirm it targets the intended workspace
+databricks current-user me --profile <name>   # fails if auth is expired, without printing a token
+python -c "import mlflow; print(mlflow.get_tracking_uri())"   # confirm databricks or databricks://<name>
 ```
+
+If auth is expired, run `databricks auth login --profile <name>`. Never print or persist the output of `databricks auth token` in an agent transcript.
 
 ---
 
@@ -134,7 +140,7 @@ See `references/distributed-tracing.md` for:
 
 ### Databricks (Unity Catalog storage)
 
-See `references/databricks.md` for storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix).
+See `references/databricks.md` for the required Databricks default: storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix).
 
 ---
 
