@@ -4,21 +4,27 @@ On Databricks, store traces in **Unity Catalog Delta tables** by default for gov
 
 Do not treat `mlflow.set_tracking_uri("databricks")` as sufficient Databricks setup. Without a `UnityCatalog` trace location, traces use legacy workspace experiment storage. Only use that legacy destination when the user explicitly requests it.
 
-Before editing code, look for existing values in application config, environment examples, deployment manifests, or Databricks Asset Bundles. The required values are:
+This API requires MLflow 3.11.1 or newer. Before editing code, inspect the installed version and look for existing values in application config, environment examples, deployment manifests, or Databricks Asset Bundles.
+
+Required values:
 
 - Catalog name
 - Schema name
-- Table prefix
 - SQL warehouse ID
 
-If they are not available, ask the user for them. Do not invent a production destination or silently omit the UC trace location.
+Optional value for Python:
+
+- Table prefix. Omit it to let MLflow use the experiment ID, which avoids naming collisions.
+
+If required values are not available, ask the user for them. Do not invent a production destination or silently omit the UC trace location.
 
 ```python
 import os
 import mlflow
 from mlflow.entities.trace_location import UnityCatalog
 
-mlflow.set_tracking_uri("databricks")
+# Use "databricks" for DEFAULT auth, or "databricks://<profile>" for a named profile.
+mlflow.set_tracking_uri("databricks://<DATABRICKS_PROFILE>")
 os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = "<SQL_WAREHOUSE_ID>"
 
 mlflow.set_experiment(
@@ -26,17 +32,44 @@ mlflow.set_experiment(
     trace_location=UnityCatalog(
         catalog_name="<UC_CATALOG_NAME>",
         schema_name="<UC_SCHEMA_NAME>",
-        table_prefix="<UC_TABLE_PREFIX>",
     ),
 )
 ```
 
+Add `table_prefix="<UC_TABLE_PREFIX>"` only when the user wants a stable custom prefix. Otherwise MLflow uses the experiment ID.
+
+## TypeScript
+
+Before implementing UC tracing in TypeScript, inspect the installed `mlflow-tracing` typings for an `init()` option named `traceLocation`. Published versions without that option cannot write to a UC trace location. Do not configure only `trackingUri` and `experimentId` and claim that traces use UC; that is legacy experiment storage. Explain the limitation and ask whether the user wants to upgrade when a supporting version is available or use Python instrumentation.
+
+When `traceLocation` is supported, the location must already be provisioned. Provision and link it once with the Python API above, then configure TypeScript with the exact resulting table prefix:
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.init({
+  trackingUri: "databricks://<DATABRICKS_PROFILE>",
+  experimentId: "<EXPERIMENT_ID>",
+  traceLocation: {
+    catalogName: "<UC_CATALOG_NAME>",
+    schemaName: "<UC_SCHEMA_NAME>",
+    tablePrefix: "<UC_TABLE_PREFIX>",
+  },
+});
+```
+
+Unlike Python, TypeScript cannot provision the location or default its table prefix. All three `traceLocation` fields are required.
+
 **`table_prefix`** is the prefix applied to every table storing trace data. MLflow creates four Delta tables from it: `<table_prefix>_otel_spans`, `<table_prefix>_otel_logs`, `<table_prefix>_otel_metrics`, and `<table_prefix>_otel_annotations`.
 
 **Notes**:
+- Requires `mlflow>=3.11.1`. Upgrade first if `UnityCatalog` or the `trace_location` argument is unavailable.
 - Experiment names on Databricks must be absolute workspace paths (`/Users/<email>/name` or `/Shared/name`). A bare name is rejected. To attach to an existing experiment, use `mlflow.set_experiment(experiment_id="<numeric-id>")`.
 - Requires a SQL warehouse (`MLFLOW_TRACING_SQL_WAREHOUSE_ID`) to provision and query the tables.
+- Confirm the principal has `USE CATALOG`, `USE SCHEMA`, and `CREATE TABLE` on the destination plus permission to use the SQL warehouse before provisioning.
 - A UC trace location is permanent — once bound, an experiment cannot be reassigned to a different UC location.
+- Before reusing an existing experiment, inspect `experiment.trace_location`. Bind it when it is unbound and reuse it when it matches the requested UC destination. If it points elsewhere, explain the conflict and use a new experiment name or ask the user which destination to keep; do not catch the error and continue with legacy storage.
+- Binding an existing experiment changes the destination for new traces; it does not migrate traces already stored in the legacy experiment backend.
 - To create the experiment explicitly, use `mlflow.create_experiment(name=..., trace_location=UnityCatalog(...))`, then `mlflow.set_experiment(experiment_id=...)`.
 
 ## Verification
