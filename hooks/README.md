@@ -15,6 +15,7 @@ A `UserPromptSubmit` hook that detects MLflow-related patterns in your prompts a
 | trace id, debug trace, why did, what went wrong, analyze trace | `analyze-mlflow-trace` |
 | session, conversation, chat history, multi-turn | `analyze-mlflow-chat-session` |
 | search traces, find traces, filter traces, get trace | `retrieving-mlflow-traces` |
+| tag trace, annotate trace, label trace, feedback on trace, rate trace, thumbs up, thumbs down | `annotate-mlflow-trace` |
 | metrics, token usage, latency, cost, usage trend | `querying-mlflow-metrics` |
 | get started, set up mlflow, onboard, quickstart | `mlflow-onboarding` |
 | mlflow docs, mlflow api, how to use mlflow | `searching-mlflow-docs` |
