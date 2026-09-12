@@ -22,6 +22,7 @@ import os
 import sys
 
 import mlflow
+import pandas as pd
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -91,7 +92,9 @@ for _, row in result_df.iterrows():
         val_col = f"{judge.name}/value"
         rat_col = f"{judge.name}/rationale"
         value = row.get(val_col)
-        if value is not None:
+        # Scorers may return None for traces outside their scope. Pandas stores
+        # those empty assessments as NaN in the evaluation result.
+        if value is not None and not pd.isna(value):
             results.append({
                 "scorer": judge.name,
                 "trace_id": trace_id,
