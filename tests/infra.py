@@ -309,6 +309,7 @@ def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
             "mlflow",
             "autolog",
             "claude",
+            "--directory",
             str(state.full_project_dir),
             "-u",
             tracking_uri,

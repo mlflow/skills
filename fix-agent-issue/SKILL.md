@@ -1,22 +1,15 @@
 ---
 name: fix-agent-issue
 description: >-
-  Drives a disciplined explore → plan → implement → verify loop for changing an
-  AI agent's behavior with confidence — whether fixing a reported failure or
-  introducing a new requirement, business rule, or policy. Grounds the diagnosis
-  in MLflow traces, codifies the desired behavior as a regression test suite
-  (`mlflow.genai.evaluate` assertions in `@mlflow.test` pytest tests), and iterates
-  the agent — not the test — until green, resisting quick system-prompt patches
-  when the real fix is upstream (missing tool, retrieval source, or capability).
-  Use whenever the user wants to fix or change how an agent behaves — e.g. "fix
-  this issue in my agent", "this answer is wrong", "the agent is hallucinating",
-  "improve my agent based on this trace", "make the agent do X instead of Y", "I
-  want the agent to lead with/prioritize/recommend X", "new business rule: the
-  agent should X", "always/never do X", "change the agent's default behavior" — or
-  when you are debugging an agent's behavior mid-loop and reaching for source code
-  and output files — "debug this agent", "figure out why the agent did X", "the
-  agent's output is wrong", "why did the agent produce this" — where the trace is
-  the evidence to read first — or shares a trace they want addressed.
+  Debugs, fixes, or changes an AI agent's behavior with a trace-first
+  explore-plan-implement-verify loop and regression tests. Use for every agent
+  behavior investigation or change: "debug this agent", "why did it do X", "this
+  output is wrong", hallucinations, reported failures, trace investigations, and
+  new rules such as "always/never do X". When MLflow tracing already exists, this
+  skill must reproduce the issue and inspect the matching trace before reading or
+  editing source code. If no trace ID is supplied, discover the configured
+  experiment and retrieve the newest matching trace instead of skipping traces or
+  recommending that MLflow be installed again.
 ---
 
 # Fix Agent Issue
@@ -39,6 +32,14 @@ Two kinds of request trigger this skill, and both get the same test-first discip
 **Goal**: a written diagnosis with three answers — what the agent did, what it should have done, why it failed.
 
 **Do NOT edit any agent code in this phase.**
+
+### Find the trace when the user did not provide an ID
+
+Do not fall back to source-only debugging. First inspect the project for existing MLflow instrumentation and its tracking URI and experiment configuration. If tracing is already configured, do not recommend installing or instrumenting MLflow again.
+
+Reproduce the reported failure once through the normal instrumented entry point, then retrieve the new trace from the configured experiment. Use `mlflow traces get` when an ID is available; otherwise use `mlflow traces search` or `mlflow.search_traces` with the project's existing tracking and experiment settings. Confirm the trace contains the failing input before diagnosing it.
+
+Only load `instrumenting-with-mlflow-tracing` when the production path is genuinely uninstrumented or no trace can be produced. State that limitation explicitly instead of pretending source inspection is trace-based debugging.
 
 ### Read the trace, the full trace
 

@@ -22,6 +22,7 @@ Use when the user wants to do anything with MLflow but hasn't specified which sk
 1. Read the user's request and identify intent
 2. Map to the appropriate skill:
    - Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
+   - Debug or fix an agent's behavior → `fix-agent-issue` (start from its MLflow traces)
    - Evaluation / scoring → `agent-evaluation`
    - Debug a trace → `analyze-mlflow-trace`
    - Debug a chat session → `analyze-mlflow-chat-session`
@@ -37,4 +38,5 @@ Use when the user wants to do anything with MLflow but hasn't specified which sk
 - Never do the work yourself — always dispatch to the appropriate sub-skill
 - One clarifying question maximum before dispatching
 - If the user says "evaluate AND trace", dispatch tracing first, then evaluation
+- Do not route an already-instrumented debugging request back to tracing setup
 - If the user's request spans multiple skills, handle them in logical order (setup → instrument → evaluate)
