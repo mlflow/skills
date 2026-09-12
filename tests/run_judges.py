@@ -93,14 +93,30 @@ for _, row in result_df.iterrows():
         rat_col = f"{judge.name}/rationale"
         value = row.get(val_col)
         # Scorers may return None for traces outside their scope. Pandas stores
-        # those empty assessments as NaN in the evaluation result.
-        if value is not None and not pd.isna(value):
-            results.append({
-                "scorer": judge.name,
-                "trace_id": trace_id,
-                "value": str(value),
-                "rationale": str(row.get(rat_col, "")),
-                "pass": str(value).lower() == "yes",
-            })
+        # those empty assessments as NaN in the evaluation result. A failed
+        # scorer is also NaN, but MLflow attaches its error to the trace.
+        if value is None or pd.isna(value):
+            assessed_trace = mlflow.get_trace(trace_id)
+            errors = [
+                assessment.error
+                for assessment in assessed_trace.info.assessments
+                if assessment.name == judge.name and assessment.error is not None
+            ]
+            if errors:
+                results.append({
+                    "scorer": judge.name,
+                    "trace_id": trace_id,
+                    "value": "error",
+                    "rationale": errors[-1].error_message,
+                    "pass": False,
+                })
+            continue
+        results.append({
+            "scorer": judge.name,
+            "trace_id": trace_id,
+            "value": str(value),
+            "rationale": str(row.get(rat_col, "")),
+            "pass": str(value).lower() == "yes",
+        })
 
 print(json.dumps(results))

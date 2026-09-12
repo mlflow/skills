@@ -34,7 +34,7 @@ def _routing_results() -> list[tuple[int, str, str]]:
 
 def get_judges() -> list:
     trace_first_judge = make_judge(
-        name="trace-first-debugging",
+        name="debugged-from-mlflow-trace-before-editing",
         instructions=(
             "Inspect the agent's ordered work in {{ trace }}. Answer 'yes' only if all "
             "of these conditions hold: (1) it loaded the fix-agent-issue skill; "
@@ -49,16 +49,16 @@ def get_judges() -> list:
         generate_rationale_first=True,
     )
 
-    @scorer(name="trace-first-debugging")
-    def trace_first_debugging(trace) -> Feedback | None:
+    @scorer(name="debugged-from-mlflow-trace-before-editing")
+    def debugged_from_mlflow_trace_before_editing(trace) -> Feedback | None:
         # Application runs also emit traces into this experiment. Judge only the
         # Claude session trace, which contains the ordered debugging workflow.
         if not _is_claude_session_trace(trace):
             return None
         return trace_first_judge(trace=trace)
 
-    @scorer(name="routing-traces-show-fix")
-    def routing_traces_show_fix(trace) -> Feedback | None:
+    @scorer(name="mlflow-traces-confirm-routing-fix")
+    def mlflow_traces_confirm_routing_fix(trace) -> Feedback | None:
         if not _is_claude_session_trace(trace):
             return None
 
@@ -77,8 +77,8 @@ def get_judges() -> list:
             rationale=f"Ordered refund trace outputs: {refund_outputs}",
         )
 
-    @scorer(name="fixed-routing-behavior")
-    def fixed_routing_behavior(trace) -> Feedback | None:
+    @scorer(name="agent-routing-is-correct-after-fix")
+    def agent_routing_is_correct_after_fix(trace) -> Feedback | None:
         if not _is_claude_session_trace(trace):
             return None
 
@@ -92,7 +92,7 @@ def get_judges() -> list:
         )
 
     return [
-        trace_first_debugging,
-        routing_traces_show_fix,
-        fixed_routing_behavior,
+        debugged_from_mlflow_trace_before_editing,
+        mlflow_traces_confirm_routing_fix,
+        agent_routing_is_correct_after_fix,
     ]
