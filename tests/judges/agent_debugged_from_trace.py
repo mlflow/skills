@@ -26,7 +26,7 @@ def get_judges() -> list:
             "skill loaded": "fix-agent-issue" in text,
             "failure reproduced": "python agent.py" in text,
             "trace retrieved": "search_traces" in text,
-            "trace inspected": "newest trace" in text and "input:" in text and "output:" in text,
+            "trace inspected": "user_review" in text and "I need a refund" in text and "sales" in text,
             "source edited": 'return \\"support\\"' in text or 'return "support"' in text,
             "fix verified": "pytest" in text and "passed" in text,
         }
