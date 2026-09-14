@@ -22,7 +22,8 @@ Use when the user wants to do anything with MLflow but hasn't specified which sk
 1. Read the user's request and identify intent
 2. Map to the appropriate skill:
    - Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
-   - Debug or fix an agent's behavior → `fix-agent-issue` (start from its MLflow traces)
+   - Debug or explain an agent failure → `debug-agent`
+   - Fix or change an agent's behavior → `fix-agent-issue`
    - Evaluation / scoring → `agent-evaluation`
    - Debug a trace → `analyze-mlflow-trace`
    - Debug a chat session → `analyze-mlflow-chat-session`

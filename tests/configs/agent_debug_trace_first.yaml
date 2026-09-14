@@ -6,6 +6,7 @@ judges:
   - tests/judges/agent_debugged_from_trace.py
 
 skills:
+  - debug-agent
   - fix-agent-issue
 
 prompt: "The routing agent sends refund requests to sales instead of support. Debug and fix the agent. Do not ask for input."

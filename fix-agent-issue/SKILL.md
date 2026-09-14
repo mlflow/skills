@@ -1,20 +1,18 @@
 ---
 name: fix-agent-issue
 description: >-
-  Debugs, fixes, or changes an AI agent's behavior with a trace-first
-  explore-plan-implement-verify loop and regression tests. Use for every agent
-  behavior investigation or change: "debug this agent", "why did it do X", "this
-  output is wrong", hallucinations, reported failures, trace investigations, and
-  new rules such as "always/never do X". When MLflow tracing already exists, this
-  skill must reproduce the issue and inspect the matching trace before reading or
-  editing source code. If no trace ID is supplied, discover the configured
-  experiment and retrieve the newest matching trace instead of skipping traces or
-  recommending that MLflow be installed again.
+  Fixes or changes an AI agent's behavior with a trace-grounded
+  explore-plan-implement-verify loop and regression tests. Use when the user asks
+  to implement a fix or introduce a rule such as "always/never do X". For
+  diagnosis without a requested code change, use `debug-agent` instead. Prefer an
+  existing matching MLflow trace; reproduce only when no usable trace exists.
 ---
 
 # Fix Agent Issue
 
-The user wants to change an AI agent's behavior — either because something is **wrong** (pointing at a trace, pasting an answer they didn't like, describing a failure mode) **or because they're introducing a new requirement, business rule, or policy** ("lead with our premium line," "never reveal internal docs," "always confirm the order ID first"). A new business rule is not a bug, but it earns the *same* discipline: it's a behavior change that can silently break other behaviors, so it goes through the loop too. They want the change made with confidence that it sticks and doesn't regress anything else. Drive a disciplined improvement loop, **never** a one-shot patch.
+The user wants to change an AI agent's behavior — either fix a failure or add a
+new requirement, business rule, or policy. Diagnosis-only requests belong to
+`debug-agent`; this skill owns implementation and regression verification.
 
 ## The non-negotiable loop
 
@@ -33,11 +31,18 @@ Two kinds of request trigger this skill, and both get the same test-first discip
 
 **Do NOT edit any agent code in this phase.**
 
+Invoke `debug-agent` to produce the trace-grounded diagnosis. Continue with its
+trace ID and findings; do not repeat work it already completed.
+
 ### Find the trace when the user did not provide an ID
 
 Do not fall back to source-only debugging. First inspect the project for existing MLflow instrumentation and its tracking URI and experiment configuration. If tracing is already configured, do not recommend installing or instrumenting MLflow again.
 
-Reproduce the reported failure once through the normal instrumented entry point, then retrieve the new trace from the configured experiment. Use `mlflow traces get` when an ID is available; otherwise use `mlflow traces search` or `mlflow.search_traces` with the project's existing tracking and experiment settings. Confirm the trace contains the failing input before diagnosing it.
+Search for an existing trace matching the reported failure and use it when one
+exists. Only when no usable trace exists, reproduce the failure once through the
+normal instrumented entry point and retrieve the resulting trace. Never require
+reproduction for a production-only, unsafe, or externally dependent failure.
+Confirm the trace contains the failing input before settling on a diagnosis.
 
 Only load `instrumenting-with-mlflow-tracing` when the production path is genuinely uninstrumented or no trace can be produced. State that limitation explicitly instead of pretending source inspection is trace-based debugging.
 

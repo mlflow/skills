@@ -22,6 +22,9 @@ def main():
     if any(k in prompt for k in ["trace id", "debug trace", "why did", "what went wrong", "analyze trace"]):
         suggestions.append("💡 Use the `analyze-mlflow-trace` skill to debug this trace.")
 
+    if any(k in prompt for k in ["debug my agent", "debug this agent", "agent failure", "root cause my agent"]):
+        suggestions.append("💡 Use the `debug-agent` skill to root-cause the failure from MLflow traces.")
+
     if any(k in prompt for k in ["session", "conversation", "chat history", "multi-turn"]):
         suggestions.append("💡 Use the `analyze-mlflow-chat-session` skill to analyze chat sessions.")
 

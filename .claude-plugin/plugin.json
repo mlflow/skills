@@ -18,6 +18,7 @@
     "./querying-mlflow-metrics",
     "./mlflow-onboarding",
     "./searching-mlflow-docs",
+    "./debug-agent",
     "./fix-agent-issue",
     "./sagemaker-mlflow"
   ],

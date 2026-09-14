@@ -119,4 +119,15 @@ for _, row in result_df.iterrows():
             "pass": str(value).lower() == "yes",
         })
 
+scorers_with_results = {entry["scorer"] for entry in results}
+for judge in judges:
+    if judge.name not in scorers_with_results:
+        results.append({
+            "scorer": judge.name,
+            "trace_id": "none",
+            "value": "error",
+            "rationale": "Scorer produced no non-skipped assessment.",
+            "pass": False,
+        })
+
 print(json.dumps(results))
