@@ -1,11 +1,13 @@
 ---
 name: fix-agent-issue
 description: >-
-  Fixes or changes an AI agent's behavior with a trace-grounded
-  explore-plan-implement-verify loop and regression tests. Use when the user asks
-  to implement a fix or introduce a rule such as "always/never do X". For
-  diagnosis without a requested code change, use `debug-agent` instead. Prefer an
-  existing matching MLflow trace; reproduce only when no usable trace exists.
+  Drives a trace-grounded explore-plan-implement-verify loop for fixing or
+  changing an AI agent's behavior with regression tests. Use whenever the user
+  asks to fix an agent issue, debug and fix an agent, change an agent's output,
+  address hallucinations or reported failures, or introduce rules such as
+  "always/never do X". For diagnosis or root-cause analysis without a requested
+  code change, use `debug-agent` instead. Prefer an existing matching MLflow
+  trace; reproduce only when no usable trace exists.
 ---
 
 # Fix Agent Issue
