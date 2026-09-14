@@ -163,6 +163,29 @@ def setup_infrastructure(config: TestConfig, state: RuntimeState) -> bool:
     state.full_project_dir = state.work_dir / config.project_dir
     log.info(f"Created working directory: {state.work_dir}")
 
+    # Use a fresh Claude home so personal skills, plugins, MCPs, hooks, and
+    # instructions cannot influence the skill under test. Carry authentication
+    # only, matching the clean Docker CUJ environment.
+    state.claude_config_dir = Path(
+        tempfile.mkdtemp(prefix=f"{config.name}-claude-")
+    )
+    os.chmod(state.claude_config_dir, 0o700)
+    credentials = Path.home() / ".claude" / ".credentials.json"
+    if credentials.exists():
+        destination = state.claude_config_dir / ".credentials.json"
+        shutil.copy2(credentials, destination)
+        os.chmod(destination, 0o600)
+    with open(state.claude_config_dir / ".claude.json", "w") as f:
+        json.dump(
+            {
+                "hasCompletedOnboarding": True,
+                "projects": {str(state.full_project_dir): {"hasTrustDialogAccepted": True}},
+            },
+            f,
+        )
+    os.environ["CLAUDE_CONFIG_DIR"] = str(state.claude_config_dir)
+    log.info(f"Using isolated Claude config: {state.claude_config_dir}")
+
     # Start local MLflow server or use external one
     if state.use_external_server:
         log_section("Using External MLflow Server")
@@ -401,7 +424,8 @@ def cleanup(config: TestConfig, state: RuntimeState) -> None:
     # Copy Claude session logs to work directory
     if state.work_dir and state.work_dir.exists() and state.full_project_dir:
         project_path_encoded = str(state.full_project_dir).replace("/", "-")
-        session_dir = Path.home() / ".claude" / "projects" / project_path_encoded
+        claude_home = state.claude_config_dir or (Path.home() / ".claude")
+        session_dir = claude_home / "projects" / project_path_encoded
 
         if session_dir.exists():
             dest_dir = state.work_dir / "claude-sessions"
@@ -410,6 +434,10 @@ def cleanup(config: TestConfig, state: RuntimeState) -> None:
                 log.info(f"Claude session logs copied to: {dest_dir}")
             except Exception as e:
                 log.error(f"Failed to copy session logs: {e}")
+
+    if state.claude_config_dir and state.claude_config_dir.exists():
+        shutil.rmtree(state.claude_config_dir)
+        log.info("Removed isolated Claude config")
 
     # Stop MLflow server if we started one
     if state.mlflow_server_pid and not state.use_external_server:
