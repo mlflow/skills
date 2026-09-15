@@ -1,20 +1,27 @@
 ---
 name: fix-agent-issue
 description: >-
-  Debugs and fixes, or changes, an AI agent's behavior with a trace-first
-  explore-plan-implement-verify loop and regression tests. Use whenever the user
-  asks to "debug and fix" an agent, fix an agent issue, change an agent's output,
-  address hallucinations or reported failures, or introduce rules such as
-  "always/never do X". For diagnosis or root-cause analysis without a requested
-  code change, use `debug-agent` instead. Prefer an existing matching MLflow
-  trace; reproduce only when no usable trace exists.
+  Drives a disciplined explore → plan → implement → verify loop for changing an
+  AI agent's behavior with confidence — whether fixing a reported failure or
+  introducing a new requirement, business rule, or policy. Grounds the diagnosis
+  in MLflow traces, codifies the desired behavior as a regression test suite
+  (`mlflow.genai.evaluate` assertions in `@mlflow.test` pytest tests), and iterates
+  the agent — not the test — until green, resisting quick system-prompt patches
+  when the real fix is upstream (missing tool, retrieval source, or capability).
+  Use whenever the user wants to fix or change how an agent behaves — e.g. "fix
+  this issue in my agent", "this answer is wrong", "the agent is hallucinating",
+  "improve my agent based on this trace", "make the agent do X instead of Y", "I
+  want the agent to lead with/prioritize/recommend X", "new business rule: the
+  agent should X", "always/never do X", "change the agent's default behavior" — or
+  when you are debugging an agent's behavior mid-loop and reaching for source code
+  and output files — "debug this agent", "figure out why the agent did X", "the
+  agent's output is wrong", "why did the agent produce this" — where the trace is
+  the evidence to read first — or shares a trace they want addressed.
 ---
 
 # Fix Agent Issue
 
-The user wants to change an AI agent's behavior — either fix a failure or add a
-new requirement, business rule, or policy. Diagnosis-only requests belong to
-`debug-agent`; this skill owns implementation and regression verification.
+The user wants to change an AI agent's behavior — either because something is **wrong** (pointing at a trace, pasting an answer they didn't like, describing a failure mode) **or because they're introducing a new requirement, business rule, or policy** ("lead with our premium line," "never reveal internal docs," "always confirm the order ID first"). A new business rule is not a bug, but it earns the *same* discipline: it's a behavior change that can silently break other behaviors, so it goes through the loop too. They want the change made with confidence that it sticks and doesn't regress anything else. Drive a disciplined improvement loop, **never** a one-shot patch.
 
 ## The non-negotiable loop
 
@@ -33,20 +40,8 @@ Two kinds of request trigger this skill, and both get the same test-first discip
 
 **Do NOT edit any agent code in this phase.**
 
-Invoke `debug-agent` to produce the trace-grounded diagnosis. Continue with its
-trace ID and findings; do not repeat work it already completed.
-
-### Find the trace when the user did not provide an ID
-
-Do not fall back to source-only debugging. First inspect the project for existing MLflow instrumentation and its tracking URI and experiment configuration. If tracing is already configured, do not recommend installing or instrumenting MLflow again.
-
-Search for an existing trace matching the reported failure and use it when one
-exists. Only when no usable trace exists, reproduce the failure once through the
-normal instrumented entry point and retrieve the resulting trace. Never require
-reproduction for a production-only, unsafe, or externally dependent failure.
-Confirm the trace contains the failing input before settling on a diagnosis.
-
-Only load `instrumenting-with-mlflow-tracing` when the production path is genuinely uninstrumented or no trace can be produced. State that limitation explicitly instead of pretending source inspection is trace-based debugging.
+If a trace-grounded diagnosis is not already available, invoke `debug-agent`
+first. Continue from its trace ID and findings without repeating its work.
 
 ### Read the trace, the full trace
 
