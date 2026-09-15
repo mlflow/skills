@@ -52,6 +52,7 @@ class RuntimeState:
     cc_tracing_experiment_id: Optional[str] = None
     repo_root: Optional[Path] = None
     run_start_timestamp_ms: Optional[int] = None
+    claude_config_dir: Optional[Path] = None
 
 
 def load_config(yaml_path: str) -> TestConfig:

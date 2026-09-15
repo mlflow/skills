@@ -13,6 +13,7 @@ A `UserPromptSubmit` hook that detects MLflow-related patterns in your prompts a
 | trace, tracing, autolog, span, instrument | `instrumenting-with-mlflow-tracing` |
 | evaluat, scorer, judge, dataset, assess, improve quality | `agent-evaluation` |
 | trace id, debug trace, why did, what went wrong, analyze trace | `analyze-mlflow-trace` |
+| debug my agent, debug this agent, agent failure, root cause my agent | `debug-agent` |
 | session, conversation, chat history, multi-turn | `analyze-mlflow-chat-session` |
 | search traces, find traces, filter traces, get trace | `retrieving-mlflow-traces` |
 | metrics, token usage, latency, cost, usage trend | `querying-mlflow-metrics` |

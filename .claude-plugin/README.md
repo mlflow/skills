@@ -4,12 +4,14 @@ This plugin packages the MLflow Skills collection for distribution via the Anthr
 
 ## What's Included
 
-**9 skills** covering the full MLflow agent improvement loop:
+Skills covering the full MLflow agent improvement loop:
 
 | Skill | Purpose |
 |-------|---------|
 | `mlflow-agent` | Dispatcher — recommended entry point; routes to the right skill automatically |
 | `agent-evaluation` | Set up datasets, scorers, and evaluation runs |
+| `debug-agent` | Root-cause agent failures from MLflow traces without changing code |
+| `fix-agent-issue` | Implement and regression-test an agent behavior change |
 | `instrumenting-with-mlflow-tracing` | Instrument Python/TypeScript code with MLflow Tracing |
 | `analyze-mlflow-trace` | Debug issues by examining spans and correlating with code |
 | `analyze-mlflow-chat-session` | Analyze multi-turn chat session traces |

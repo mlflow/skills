@@ -22,6 +22,7 @@ import os
 import sys
 
 import mlflow
+import pandas as pd
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -91,13 +92,42 @@ for _, row in result_df.iterrows():
         val_col = f"{judge.name}/value"
         rat_col = f"{judge.name}/rationale"
         value = row.get(val_col)
-        if value is not None:
-            results.append({
-                "scorer": judge.name,
-                "trace_id": trace_id,
-                "value": str(value),
-                "rationale": str(row.get(rat_col, "")),
-                "pass": str(value).lower() == "yes",
-            })
+        # Scorers may return None for traces outside their scope. Pandas stores
+        # those empty assessments as NaN in the evaluation result. A failed
+        # scorer is also NaN, but MLflow attaches its error to the trace.
+        if value is None or pd.isna(value):
+            assessed_trace = mlflow.get_trace(trace_id)
+            errors = [
+                assessment.error
+                for assessment in assessed_trace.info.assessments
+                if assessment.name == judge.name and assessment.error is not None
+            ]
+            if errors:
+                results.append({
+                    "scorer": judge.name,
+                    "trace_id": trace_id,
+                    "value": "error",
+                    "rationale": errors[-1].error_message,
+                    "pass": False,
+                })
+            continue
+        results.append({
+            "scorer": judge.name,
+            "trace_id": trace_id,
+            "value": str(value),
+            "rationale": str(row.get(rat_col, "")),
+            "pass": str(value).lower() == "yes",
+        })
+
+scorers_with_results = {entry["scorer"] for entry in results}
+for judge in judges:
+    if judge.name not in scorers_with_results:
+        results.append({
+            "scorer": judge.name,
+            "trace_id": "none",
+            "value": "error",
+            "rationale": "Scorer produced no non-skipped assessment.",
+            "pass": False,
+        })
 
 print(json.dumps(results))
