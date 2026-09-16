@@ -40,6 +40,9 @@ Two kinds of request trigger this skill, and both get the same test-first discip
 
 **Do NOT edit any agent code in this phase.**
 
+If a trace-grounded diagnosis is not already available, invoke `debug-agent`
+first. Continue from its trace ID and findings without repeating its work.
+
 ### Read the trace, the full trace
 
 Fetch the trace and inspect it span by span. The reference for trace anatomy lives in the `analyzing-mlflow-trace` skill — use it.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Debug Agent with MLflow"
+  short_description: "Root-cause agent failures from MLflow traces"
+  default_prompt: "Debug this agent issue using its MLflow traces and explain the root cause without changing code."
