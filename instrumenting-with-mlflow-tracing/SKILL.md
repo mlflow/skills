@@ -37,14 +37,14 @@ If auth is expired, run `databricks auth login --profile <name>`. Never print or
 
 **Trace these operations** (high debugging/observability value):
 
-| Operation Type          | Examples                                               | Why Trace                                        |
-| ----------------------- | ------------------------------------------------------ | ------------------------------------------------ |
-| **Root operations**     | Main entry points, top-level pipelines, workflow steps | End-to-end latency, input/output logging         |
-| **LLM calls**           | Chat completions, embeddings                           | Token usage, latency, prompt/response inspection |
-| **Retrieval**           | Vector DB queries, document fetches, search            | Relevance debugging, retrieval quality           |
-| **Tool/function calls** | API calls, database queries, web search                | External dependency monitoring, error tracking   |
-| **Agent decisions**     | Routing, planning, tool selection                      | Understand agent reasoning and choices           |
-| **External services**   | HTTP APIs, file I/O, message queues                    | Dependency failures, timeout tracking            |
+| Operation Type | Examples | Why Trace |
+|---------------|----------|-----------|
+| **Root operations** | Main entry points, top-level pipelines, workflow steps | End-to-end latency, input/output logging |
+| **LLM calls** | Chat completions, embeddings | Token usage, latency, prompt/response inspection |
+| **Retrieval** | Vector DB queries, document fetches, search | Relevance debugging, retrieval quality |
+| **Tool/function calls** | API calls, database queries, web search | External dependency monitoring, error tracking |
+| **Agent decisions** | Routing, planning, tool selection | Understand agent reasoning and choices |
+| **External services** | HTTP APIs, file I/O, message queues | Dependency failures, timeout tracking |
 
 **Skip tracing these** (too granular, adds noise):
 
@@ -63,6 +63,7 @@ If auth is expired, run `databricks auth login --profile <name>`. Never print or
 After instrumenting the code, **always verify that tracing is working**.
 
 > **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. Complete verification below first.
+
 
 1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
 2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment. If the trace is not found, try `mlflow.flush_trace_async_logging()` to flush the background queue.
@@ -107,7 +108,6 @@ For automated validation, use `agent-evaluation/scripts/validate_tracing_runtime
 Log user feedback on traces for evaluation, debugging, and fine-tuning. Essential for identifying quality issues in production.
 
 See `references/feedback-collection.md` for:
-
 - Recording user ratings and comments with `mlflow.log_feedback()`
 - Capturing trace IDs to return to clients
 - LLM-as-judge automated evaluation
@@ -119,7 +119,6 @@ See `references/feedback-collection.md` for:
 ### Production Deployment
 
 See `references/production.md` for:
-
 - Environment variable configuration
 - Async logging for low-latency applications
 - Sampling configuration (MLFLOW_TRACE_SAMPLING_RATIO)
@@ -129,7 +128,6 @@ See `references/production.md` for:
 ### Advanced Patterns
 
 See `references/advanced-patterns.md` for:
-
 - Async function tracing
 - Multi-threading with context propagation
 - PII redaction with span processors
@@ -137,7 +135,6 @@ See `references/advanced-patterns.md` for:
 ### Distributed Tracing
 
 See `references/distributed-tracing.md` for:
-
 - Propagating trace context across services
 - Client/server header APIs
 
