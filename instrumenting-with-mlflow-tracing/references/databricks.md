@@ -63,7 +63,6 @@ Unlike Python, TypeScript cannot provision the location or default its table pre
 **`table_prefix`** is the prefix applied to every table storing trace data. MLflow creates four Delta tables from it: `<table_prefix>_otel_spans`, `<table_prefix>_otel_logs`, `<table_prefix>_otel_metrics`, and `<table_prefix>_otel_annotations`.
 
 **Notes**:
-
 - Requires `mlflow>=3.11.1`. Upgrade first if `UnityCatalog` or the `trace_location` argument is unavailable.
 - Experiment names on Databricks must be absolute workspace paths (`/Users/<email>/name` or `/Shared/name`). A bare name is rejected. To attach to an existing experiment, use `mlflow.set_experiment(experiment_id="<numeric-id>")`.
 - Requires a SQL warehouse (`MLFLOW_TRACING_SQL_WAREHOUSE_ID`) to provision and query the tables.
