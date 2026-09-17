@@ -45,9 +45,15 @@ from concurrent.futures import ThreadPoolExecutor
 import contextvars
 
 @mlflow.trace(name="parallel_processing", span_type=SpanType.CHAIN)
-def process_items(items: list) -> dict:
+def process_items(items: list) -> list:
+    results = []
+
     def process_one(item):
-        return heavy_computation(item)
+        with mlflow.start_span(name=f"process_{item}") as span:
+            span.set_inputs({"item": item})
+            result = heavy_computation(item)
+            span.set_outputs({"result": result})
+            return result
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
@@ -55,25 +61,12 @@ def process_items(items: list) -> dict:
             # Copy once per submission: a Context cannot run concurrently.
             ctx = contextvars.copy_context()
             futures.append(executor.submit(ctx.run, process_one, item))
-        succeeded_count, redacted_failures = 0, []
-        for future in futures:
-            try:
-                future.result()
-                succeeded_count += 1
-            except Exception as exc:
-                redacted_failures.append({"error_type": type(exc).__name__})
+        results = [f.result() for f in futures]
 
-    return {
-        "processed_count": len(items),
-        "succeeded_count": succeeded_count,
-        "failed_count": len(redacted_failures),
-        "failures": redacted_failures[:10],
-    }
+    return results
 ```
 
 Create a fresh context for each submitted task. Reusing one `Context` concurrently raises `RuntimeError: cannot enter context ... is already entered`.
-
-`process_one` deliberately creates no per-item span. `parallel_processing` returns only aggregate counts and a bounded, redacted failure list; it does not return worker results or raw item values in the traced output. Do not create a span or call `set_inputs`/`set_outputs` for each item.
 
 **Using `run_in_executor` with asyncio**:
 
