@@ -90,4 +90,20 @@ traces = mlflow.search_traces(locations=[experiment.experiment_id])
 assert len(traces) > 0
 ```
 
+## Link to the verified trace
+
+After verification, give the user a clickable link to a trace from the run you just verified. Prefer this direct route instead of guessing trace-drawer query parameters:
+
+```text
+https://<workspace-host>/ml/experiments/<experiment-id>/traces/<trace-id>
+```
+
+- Use the workspace host from the authenticated Databricks profile or application configuration. `databricks` and `databricks://<profile>` are tracking URIs, not browser URLs. If the host or experiment ID cannot be discovered, ask the user instead of guessing a link.
+- Use the numeric experiment ID configured for the application and linked to its UC trace location, not the experiment name or a catalog/schema/table name. Do not rely on `trace.info.experiment_id` for UC traces: it can be `None`.
+- For a UC trace ID such as `trace:/catalog.schema/0123456789abcdef0123456789abcdef`, use only the final `0123456789abcdef0123456789abcdef` component in the browser path. Keep the full qualified ID for SDK/API calls. For legacy workspace trace IDs such as `tr-0123456789abcdef0123456789abcdef`, keep the `tr-` prefix.
+- Append `?o=<workspace-id>` after the complete trace path if it is present in an existing workspace URL; do not invent a workspace ID.
+- Do not use the OSS MLflow `#/experiments/...` route, a run URL, or a REST API endpoint as a Databricks trace link. A trace URL does not prove UC storage was configured; keep the storage verification above.
+
+The direct trace URL format is documented in the [Databricks tracing FAQ](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/faq).
+
 Docs: https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog

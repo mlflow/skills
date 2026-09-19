@@ -87,7 +87,7 @@ for span in spans:
     print(f"  - {span.name} ({span.span_type})")
 ```
 
-4. **Report the result** — tell the user how many traces and spans were found and confirm tracing is working
+4. **Report the result** — tell the user how many traces and spans were found and confirm tracing is working. On Databricks, include a clickable link to a verified trace from the run using the URL guidance in `references/databricks.md`; an experiment link alone does not open the trace.
 
 ### If no traces appear
 
