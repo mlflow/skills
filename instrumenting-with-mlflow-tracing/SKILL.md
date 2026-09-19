@@ -20,7 +20,7 @@ If unclear, check for `package.json` (TypeScript) or `requirements.txt`/`pyproje
 
 When the target is Databricks, **read `references/databricks.md` before editing code** and configure a `UnityCatalog` trace location. Calling only `mlflow.set_tracking_uri("databricks")` and `mlflow.set_experiment(...)` without a trace location uses legacy workspace experiment storage; that does not satisfy a request to send traces to Databricks.
 
-Use existing project or environment configuration for the catalog, schema, optional table prefix, and SQL warehouse when available. If the required values cannot be discovered, ask the user for them before implementing tracing. Do not silently fall back to legacy workspace trace storage. Use legacy storage only when the user explicitly requests it.
+Inspect existing project or environment configuration for candidate destinations, the optional table prefix, and SQL warehouse. Before binding an experiment or provisioning UC resources, follow the schema-selection workflow in `references/databricks.md`: ask the user to choose an existing schema or create a new one unless they have already explicitly chosen the destination. Never select an arbitrary accessible schema. Ask for any missing required values before implementing tracing. Do not silently fall back to legacy workspace trace storage. Use legacy storage only when the user explicitly requests it.
 
 Verify auth and the target workspace before the first run. An expired token, or a default profile pointed at the wrong workspace, drops traces silently at export with no error raised.
 

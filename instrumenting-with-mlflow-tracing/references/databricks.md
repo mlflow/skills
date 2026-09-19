@@ -18,6 +18,18 @@ Optional value for Python:
 
 If required values are not available, ask the user for them. Do not invent a production destination or silently omit the UC trace location.
 
+## Choose the schema before provisioning
+
+Unless the user has already explicitly chosen a destination, ask whether they want to **use an existing schema or create a new one**. Present any discovered project configuration as a candidate, not an automatic selection. A schema being accessible, listed first, or named `default` does not mean it belongs to the user or their team.
+
+- **Existing schema:** obtain or confirm the fully qualified `catalog.schema` and verify it exists. If the user supplied the destination or explicitly asked to reuse the project's configured destination, honor that choice without asking them to choose again.
+- **New schema:** obtain the target catalog and new schema name from the user. Explain that setup will create the schema and MLflow trace tables, and confirm authorization before creating it. Check permission to create a schema in that catalog; do not attempt creation in a different catalog as a fallback.
+- **Permission blocker:** report the chosen destination and the operation that failed. Ask the user to arrange the required permissions or explicitly choose another destination. Do not silently switch to another accessible schema or legacy workspace storage.
+
+After selection and any authorized schema creation, confirm `USE CATALOG`, `USE SCHEMA`, and `CREATE TABLE` on the destination plus permission to use the SQL warehouse. Only then bind the experiment and provision its trace location. The `UnityCatalog` argument below provisions trace tables in the chosen schema; it is not a substitute for choosing or creating the schema.
+
+## Configure Python tracing
+
 ```python
 import os
 import mlflow
@@ -66,7 +78,6 @@ Unlike Python, TypeScript cannot provision the location or default its table pre
 - Requires `mlflow>=3.11.1`. Upgrade first if `UnityCatalog` or the `trace_location` argument is unavailable.
 - Experiment names on Databricks must be absolute workspace paths (`/Users/<email>/name` or `/Shared/name`). A bare name is rejected. To attach to an existing experiment, use `mlflow.set_experiment(experiment_id="<numeric-id>")`.
 - Requires a SQL warehouse (`MLFLOW_TRACING_SQL_WAREHOUSE_ID`) to provision and query the tables.
-- Confirm the principal has `USE CATALOG`, `USE SCHEMA`, and `CREATE TABLE` on the destination plus permission to use the SQL warehouse before provisioning.
 - A UC trace location is permanent — once bound, an experiment cannot be reassigned to a different UC location.
 - Before reusing an existing experiment, inspect `experiment.trace_location`. Bind it when it is unbound and reuse it when it matches the requested UC destination. If it points elsewhere, explain the conflict and use a new experiment name or ask the user which destination to keep; do not catch the error and continue with legacy storage.
 - Binding an existing experiment changes the destination for new traces; it does not migrate traces already stored in the legacy experiment backend.
