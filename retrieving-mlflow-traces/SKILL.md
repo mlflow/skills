@@ -5,6 +5,18 @@ description: Retrieves MLflow traces using CLI or Python API. Use when the user 
 
 # Retrieving MLflow Traces
 
+## Bound Unity Catalog Searches by Time
+
+When searching traces stored in Unity Catalog, include `trace.timestamp_ms >= <start_time_ms>` in the filter string, with an upper bound when known. This also applies when searching by experiment ID, run ID, session, or other filters: a small result limit does not prevent a scan across the full trace history. In Python, pass the time condition through `filter_string`; `mlflow.search_traces()` has no `start_time` argument.
+
+Use the time window requested by the user or established by the run or incident. For setup verification, record the time immediately before the instrumented run. Do not silently restrict historical investigations to the last hour. If the relevant period cannot be determined, ask for it before starting a broad UC search. The examples below demonstrate individual filters; combine them with the relevant time bounds for UC.
+
+## Keep Setup Verification Brief
+
+For verifying newly added instrumentation, follow the verification workflow in `instrumenting-with-mlflow-tracing`. Allow about 60 seconds total for readback: make one fetch by a known trace ID, or one time-bounded search with `--max-results 1` (Python: `max_results=1`). Retry at most once after a concrete, quick fix, within the same budget. Stop once one trace and its expected spans are confirmed.
+
+If readback is slow or fails, report what was verified, what remains unverified, and the observed blocker and required user action (such as configuring a missing API key, logging in, obtaining permission, or resolving warehouse availability/capacity). Do not start parallel searches or fall back to direct SQL, raw REST, alternate authentication, or repeated agent runs just to complete setup verification. A dedicated retrieval or debugging request can require broader investigation; preserve the user's scope.
+
 ## Single Fetch vs Search
 
 Choose the right approach based on what you have:

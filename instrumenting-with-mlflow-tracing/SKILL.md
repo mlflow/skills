@@ -60,46 +60,66 @@ If auth is expired, run `databricks auth login --profile <name>`. Never print or
 
 ## Verification
 
-After instrumenting the code, **always verify that tracing is working**.
+After instrumenting the code, run one representative example and attempt a quick verification. **Limit trace readback to about 60 seconds total**, including flushing and retries, unless the user asks for deeper troubleshooting. Use a tool/process timeout that stops the readback; a command yielding while it keeps polling does not enforce this limit.
 
-> **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. Complete verification below first.
+> **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. If verification is blocked, report the blocker and pause evaluation.
 
+1. **Run the instrumented code once** — record its start time in epoch milliseconds before executing it, then capture `mlflow.get_last_active_trace_id()` immediately afterward in the same Python process. Save the ID so verification never requires rerunning the agent just to recover it.
+2. **Read one trace** — flush pending writes once, then fetch the captured ID. If no ID is available, make one search scoped to the experiment and test run's time range, with `max_results=1`. Every UC search needs a `trace.timestamp_ms` filter, including searches by experiment ID; `max_results` alone does not limit the table scan. `search_traces()` has no `start_time` keyword.
 
-1. **Run the instrumented code** — execute the application or agent so that at least one traced operation fires
-2. **Confirm traces are logged** — use `mlflow.search_traces()` or `MlflowClient().search_traces()` to check that traces appear in the experiment. If the trace is not found, try `mlflow.flush_trace_async_logging()` to flush the background queue.
+Adapt `run_agent(test_input)` below to the application's entry point. Run readback under the timeout above.
 
 ```python
+import time
+
 import mlflow
 
+run_start_ms = int(time.time() * 1000)
+run_agent(test_input)
+trace_id = mlflow.get_last_active_trace_id()
+run_end_ms = int(time.time() * 1000)
+print(f"Trace ID: {trace_id}", flush=True)
+
 mlflow.flush_trace_async_logging()
-traces = mlflow.search_traces(locations=["<experiment_id>"])
-print(f"Found {len(traces)} trace(s)")
-assert len(traces) > 0, "No traces were logged — check tracking URI and experiment settings"
+if trace_id:
+    trace = mlflow.get_trace(trace_id)
+else:
+    traces = mlflow.search_traces(
+        locations=["<experiment_id>"],
+        filter_string=(
+            f"trace.timestamp_ms >= {run_start_ms} "
+            f"AND trace.timestamp_ms <= {run_end_ms}"
+        ),
+        max_results=1,
+        return_type="list",
+        include_spans=True,
+    )
+    trace = traces[0] if traces else None
+
+assert trace is not None, "Trace readback incomplete; report the error or missing configuration"
+assert trace.info.request_time >= run_start_ms, "The trace predates this test run"
+assert trace.data.spans, "No spans were captured"
 ```
 
-3. **Verify spans were captured** — confirm the trace contains the expected spans, not just an empty shell:
+3. **Inspect the returned trace once** — check the expected graph/root, LLM, and tool spans and their relevant inputs and outputs. Reuse the returned spans; do not fetch the trace again or launch another audit after this succeeds.
 
 ```python
-trace = traces.iloc[0]
-spans = mlflow.get_trace(trace.trace_id).data.spans
-print(f"Trace has {len(spans)} span(s)")
-for span in spans:
+print(f"Trace {trace.info.trace_id} has {len(trace.data.spans)} span(s)")
+for span in trace.data.spans:
     print(f"  - {span.name} ({span.span_type})")
 ```
 
 4. **Report the result** — tell the user how many traces and spans were found and confirm tracing is working. On Databricks, include a clickable link to a verified trace from the run using the URL guidance in `references/databricks.md`; an experiment link alone does not open the trace.
 
-### If no traces appear
+### If verification is slow or blocked
 
-Check these in order:
+Allow at most one retry after a concrete, quick fix within the same time budget, such as correcting the experiment ID or flushing a missed export. Do not launch parallel searches, repeatedly poll, rerun the application, or try direct UC SQL, raw REST endpoints, or alternate credentials as verification fallbacks. A warehouse timeout, `RESOURCE_EXHAUSTED`/429, missing API key, or authentication/permission error is a reason to stop and hand off.
 
-- **Verification ran before traces were exported** — trace logging is asynchronous by default, so an in-process `search_traces()` right after the run can return zero before the background queue flushes (up to a few seconds later). Call `mlflow.flush_trace_async_logging()` before searching, as shown above.
-- **Tracking URI not set** — is `mlflow.set_tracking_uri(...)` called before the agent run? Without this, traces go to a local `./mlruns` directory instead of the configured server.
-- **Autolog warnings** — did `mlflow.autolog()` or framework-specific `mlflow.<framework>.autolog()` raise any warnings during setup? Check stderr for patching failures.
-- **Wrong experiment ID** — verify the experiment ID passed to `search_traces()` matches the experiment active when the code ran (`mlflow.get_experiment_by_name(...)` to confirm).
-- **Network/auth issues** — can the process reach the tracking server? Check for connection errors or 401/403 responses in logs.
+Use the existing configuration and error output to identify an obvious issue: tracking URI or experiment mismatch, autolog patching warnings, a missing model-provider key, failed authentication, or warehouse availability. Do not broaden this into an infrastructure investigation.
 
-For automated validation, use `agent-evaluation/scripts/validate_tracing_runtime.py`.
+Tell the user what was implemented and what actually succeeded (application run, trace ID captured, spans inspected), what remains unverified, and the exact failing operation/error. Include the captured trace ID or link when available, labeling an unverified link accordingly. Ask for the specific missing prerequisite indicated by the error, such as configuring a named API-key environment variable, completing login, granting access, or providing a usable warehouse. Never ask the user to paste secrets into chat. If the cause is unclear, report the uncertainty and ask for help resolving it. Keep the instrumentation changes; do not claim backend verification succeeded.
+
+For evaluation workflows that require automated validation, use `agent-evaluation/scripts/validate_tracing_runtime.py` as an alternative to the manual workflow under the same timeout and stopping rule. Do not run it as an additional audit after successful verification.
 
 ---
 
