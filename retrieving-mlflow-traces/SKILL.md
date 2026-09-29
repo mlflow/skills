@@ -13,7 +13,7 @@ Use the time window requested by the user or established by the run or incident.
 
 ## Keep Setup Verification Brief
 
-For verifying newly added instrumentation, follow the verification workflow in `instrumenting-with-mlflow-tracing`. Allow about 60 seconds total for readback: make one fetch by a known trace ID, or one time-bounded search with `--max-results 1` (Python: `max_results=1`). Retry at most once after a concrete, quick fix, within the same budget. Stop once one trace and its expected spans are confirmed.
+For verifying newly added instrumentation, follow the verification workflow in `instrumenting-with-mlflow-tracing`. Enforce a 60-second wall-clock deadline for readback, cancelling the verification command at the deadline even if a call is still retrying internally: make one fetch by a known trace ID, or one time-bounded search with `--max-results 1` (Python: `max_results=1`). Retry at most once after a concrete, quick fix, within the same budget. Stop once one trace and its expected spans are confirmed.
 
 If readback is slow or fails, report what was verified, what remains unverified, and the observed blocker and required user action (such as configuring a missing API key, logging in, obtaining permission, or resolving warehouse availability/capacity). Do not start parallel searches or fall back to direct SQL, raw REST, alternate authentication, or repeated agent runs just to complete setup verification. A dedicated retrieval or debugging request can require broader investigation; preserve the user's scope.
 

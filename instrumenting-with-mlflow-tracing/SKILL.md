@@ -60,14 +60,16 @@ If auth is expired, run `databricks auth login --profile <name>`. Never print or
 
 ## Verification
 
-After instrumenting the code, run one representative example and attempt a quick verification. **Limit trace readback to about 60 seconds total**, including flushing and retries, unless the user asks for deeper troubleshooting. Use a tool/process timeout that stops the readback; a command yielding while it keeps polling does not enforce this limit.
+After instrumenting the code, run one representative example and attempt a quick verification. **Spend at most 60 seconds of wall-clock time on trace readback**, including flushing, requests, internal SDK retries, and backoff, unless the user asks for deeper troubleshooting.
+
+Before readback starts, arrange a terminal/process deadline. If your tool only yields a running session, track elapsed time and cancel or terminate that verification session at the deadline, even if the MLflow call has not returned. Stop polling and hand off; do not reset the budget for a retry or fallback. A yield timeout or a timeout on waiting for a thread does not stop the underlying call. If cancellation is unavailable, skip optional backend verification and report that limitation.
 
 > **Planning to evaluate your agent?** Tracing must be working before you run `agent-evaluation`. If verification is blocked, report the blocker and pause evaluation.
 
 1. **Run the instrumented code once** — record its start time in epoch milliseconds before executing it, then capture `mlflow.get_last_active_trace_id()` immediately afterward in the same Python process. Save the ID so verification never requires rerunning the agent just to recover it.
 2. **Read one trace** — flush pending writes once, then fetch the captured ID. If no ID is available, make one search scoped to the experiment and test run's time range, with `max_results=1`. Every UC search needs a `trace.timestamp_ms` filter, including searches by experiment ID; `max_results` alone does not limit the table scan. `search_traces()` has no `start_time` keyword.
 
-Adapt `run_agent(test_input)` below to the application's entry point. Run readback under the timeout above.
+Adapt `run_agent(test_input)` below to the application's entry point. This snippet shows the MLflow operations; the coding agent must enforce the readback deadline through its execution tool. Start the 60-second budget when the `Starting trace readback` marker appears, and preserve the printed trace ID before cancelling a slow verification.
 
 ```python
 import time
@@ -80,6 +82,7 @@ trace_id = mlflow.get_last_active_trace_id()
 run_end_ms = int(time.time() * 1000)
 print(f"Trace ID: {trace_id}", flush=True)
 
+print("Starting trace readback", flush=True)
 mlflow.flush_trace_async_logging()
 if trace_id:
     trace = mlflow.get_trace(trace_id)
