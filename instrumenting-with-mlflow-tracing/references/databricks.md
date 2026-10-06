@@ -91,21 +91,19 @@ Unlike Python, TypeScript cannot provision the location or default its table pre
 
 ## Verification
 
-After generating a trace, confirm both the trace and its storage destination. A trace appearing in the Databricks experiment UI proves export succeeded, but does not by itself prove UC storage was configured.
+Follow the single-run, time-limited verification in `../SKILL.md`. Confirm the configured storage destination using experiment metadata, then reuse the trace retrieved by that workflow. A trace appearing in the Databricks experiment UI proves export succeeded, but does not by itself prove UC storage was configured.
 
 ```python
 import mlflow
 from mlflow.entities.trace_location import UnityCatalog
 
-mlflow.flush_trace_async_logging()
 experiment = mlflow.get_experiment_by_name("<MLFLOW_EXPERIMENT_NAME>")
 assert experiment is not None
 print(experiment.trace_location)
 assert isinstance(experiment.trace_location, UnityCatalog)
-
-traces = mlflow.search_traces(locations=[experiment.experiment_id])
-assert len(traces) > 0
 ```
+
+If searching is necessary because no trace ID was captured, include `trace.timestamp_ms >= <run_start_ms>` (epoch milliseconds recorded before the test run) and `max_results=1`, even when searching by experiment ID. Reuse the returned spans instead of issuing another fetch. UC reads, including `get_trace()`, use SQL warehouse capacity; a direct fetch can also time out. If readback exceeds the verification budget or returns a warehouse timeout, `RESOURCE_EXHAUSTED`/429, or an auth/permission error, stop and report the operation, error, and known trace ID. Ask the user to resolve the specific access or warehouse blocker; do not switch to SQL queries, raw REST requests, or another warehouse as a verification fallback.
 
 ## Link to the verified trace
 

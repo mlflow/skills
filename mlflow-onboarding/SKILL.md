@@ -236,17 +236,9 @@ After integration, verify that MLflow is capturing data correctly:
 
 ### GenAI Verification
 
-1. Run the application and trigger at least one LLM call
-2. Check for traces:
-   ```bash
-   mlflow traces search \
-     --experiment-id <EXPERIMENT_ID> \
-     --max-results 5 \
-     --extract-fields 'info.trace_id,info.state,info.request_time' \
-     --output json > /tmp/verify_traces.json
-   jq '.traces | length' /tmp/verify_traces.json
-   ```
-3. If traces appear, open the MLflow UI to inspect them visually
+Follow the [verification workflow in `instrumenting-with-mlflow-tracing`](../instrumenting-with-mlflow-tracing/SKILL.md#verification). Run the instrumented application once, then enforce a 60-second wall-clock deadline for readback: fetch the captured trace ID, or search with a `trace.timestamp_ms` bound from the run start and `max_results=1`. Cancel the verification command when that deadline expires, even if an MLflow call is still waiting or retrying internally. Retry at most once after a concrete, quick fix within the original budget. Stop once the trace and expected spans are confirmed; an additional visual audit is unnecessary.
+
+If execution or readback is blocked by a missing API key, authentication, permissions, or a slow/unavailable SQL warehouse, hand back the verified steps, the unverified result, the observed error, and the specific user action needed. Do not keep rerunning the app or try SQL, raw REST, or alternate authentication paths to finish verification.
 
 ### ML Verification
 
