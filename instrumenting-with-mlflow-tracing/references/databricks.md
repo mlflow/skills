@@ -16,7 +16,13 @@ Optional value for Python:
 
 - Table prefix. Omit it to let MLflow use the experiment ID, which avoids naming collisions.
 
-If required values are not available, ask the user for them. Do not invent a production destination or silently omit the UC trace location.
+Handle the destination and warehouse separately. Follow the explicit schema-selection workflow below for the catalog and schema. Discover and select the SQL warehouse automatically as described in the next section. Do not invent a production destination or silently omit the UC trace location.
+
+## Select a SQL warehouse automatically
+
+Use existing project or environment configuration when it names a SQL warehouse. Otherwise, list warehouses through the authenticated Databricks profile and select any warehouse the user can access. Prefer an already-running warehouse to avoid startup delay, but use another available warehouse when necessary. Do not ask the user to choose among usable warehouses, and do not infer that a warehouse is unusable from its display name or apparent owner.
+
+Verify the selected warehouse during setup. If it cannot be used because of permissions or availability, try another discovered candidate. Ask the user for a warehouse only when discovery returns no usable candidate.
 
 ## Choose the schema before provisioning
 
