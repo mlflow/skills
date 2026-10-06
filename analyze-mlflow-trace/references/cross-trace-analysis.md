@@ -10,6 +10,6 @@ For multi-agent systems, identify each agent or stage from actual span names and
 
 ## Profile performance
 
-For each trace, measure root latency and child span durations. Compare by span type and normalized component name, excluding wrapper spans that merely enclose child work. Account for parallel spans: summing all child durations can exceed wall-clock time. Find repeated calls and gaps between spans to distinguish model latency, tool latency, retries, and orchestration overhead. Examine token usage by LLM span to identify excessive context or output length; use `querying-mlflow-metrics` to confirm prevalence across traffic.
+Compare latency distributions by span type and normalized component name, excluding wrapper spans that merely enclose child work. Account for parallel spans: summing child durations can exceed wall-clock time. Use `querying-mlflow-metrics` to check whether the bottleneck seen in representative traces is prevalent across traffic.
 
 For recurring failures, preserve representative trace IDs and hand them to `agent-evaluation/references/advanced-evaluation.md` for regression dataset curation.

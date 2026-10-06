@@ -14,5 +14,3 @@ The old Databricks evaluation skill used `GepaPromptOptimizer` with `mlflow.gena
 ## Evaluate and promote
 
 Compare the original and optimized prompts on holdout data using `advanced-evaluation.md`. Register the optimized prompt as a new version with links to the optimization and holdout runs. Move the production alias only if the predeclared acceptance rule passes; keep the old version available for rollback. If it fails, preserve the candidate and trace evidence without changing the alias.
-
-For a domain-expert loop: collect representative traces → label them → align the judge → optimize the prompt with that judge → test on holdout data → promote conditionally. Judge alignment and prompt optimization are independent: stop after alignment when the user only needs trustworthy evaluation or monitoring.

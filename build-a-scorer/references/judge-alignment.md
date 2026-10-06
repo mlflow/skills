@@ -4,7 +4,7 @@ Use this when an LLM judge disagrees with domain experts or the user wants judge
 
 ## Gather paired evidence
 
-1. Define one criterion and a base `make_judge` with a clear feedback type and name. Register it to the experiment so the same judge can be retrieved later. A boolean, numeric, or categorical criterion can be aligned; keep its feedback type consistent with the human label schema.
+1. Define one criterion and a base `make_judge` with a clear feedback type and name. Have `agent-evaluation` register it to the experiment so the same judge can be retrieved later. A boolean, numeric, or categorical criterion can be aligned; keep its feedback type consistent with the human label schema.
 2. Run the base judge on representative traces. Check both that the agent completed and that the judge produced a valid assessment; `trace.state == OK` alone does **not** prove the judge scored successfully. Tag eligible trace IDs for review and retain the originating evaluation run.
 3. Use existing human feedback if available. Otherwise create a Review App labeling session for a curated dataset of these traces. Assign domain experts, write concrete labeling instructions, allow rationale comments, and share the session URL. The label schema **name must exactly match the judge name** used to score those traces; `align()` pairs human and judge feedback by that name. Confirm labels are present on the traces before alignment.
 4. Hold out a separately labeled sample to measure whether alignment improves agreement. Avoid judging the optimizer only on the traces it trained on.
