@@ -1,6 +1,6 @@
 ---
 name: build-a-scorer
-description: Help the user go from zero to a shipped MLflow evaluation prototype by understanding their app, generalizing a small set of atomic quality criteria, and implementing each criterion with the cheapest reliable scorer. Use when the user wants help choosing, creating, or iterating MLflow judges/scorers for an agent, RAG app, LLM app, or GenAI workflow.
+description: Help the user choose, create, iterate, or align MLflow judges and scorers for an agent, RAG app, LLM app, or GenAI workflow, including MemAlign and domain-expert labels. Build a small set of atomic quality criteria with the cheapest reliable implementation.
 allowed-tools: Read, Write, Bash, Grep, Glob
 ---
 
@@ -334,6 +334,8 @@ validation plan.
 > `agent-evaluation` decides *how to run it and what the results mean*. If you find yourself
 > preparing a dataset, registering scorers, or interpreting eval output, you have left this skill's
 > scope — hand off instead.
+
+For multi-stage or multi-agent scorer patterns, read [references/advanced-scorers.md](references/advanced-scorers.md). For domain-expert labels, Review App labeling sessions, or MemAlign, read [references/judge-alignment.md](references/judge-alignment.md). Running the resulting evaluation remains `agent-evaluation`'s job.
 
 ## Anti-patterns
 

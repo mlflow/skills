@@ -11,6 +11,8 @@ A trace captures the full execution of an AI/ML application as a tree of **spans
 
 It is recommended to read [references/trace-structure.md](references/trace-structure.md) before analyzing a trace — it covers the complete data model, all fields and types, analysis guidance, and OpenTelemetry compatibility notes.
 
+For a batch of traces, component bottlenecks, or recurring error patterns, read [references/cross-trace-analysis.md](references/cross-trace-analysis.md) after selecting a bounded sample with `retrieving-mlflow-traces`.
+
 ## Handling CLI Output
 
 Traces can be 100KB+ for complex agent executions. **Always redirect output to a file** — do not pipe `mlflow traces get` directly to `jq`, `head`, or other commands, as piping can silently produce no output.

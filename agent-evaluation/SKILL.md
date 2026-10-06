@@ -13,7 +13,7 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 **DO NOT create custom evaluation frameworks.** You MUST use MLflow's native APIs:
 
 - **Datasets**: Use `mlflow.genai.datasets.create_dataset()` - NOT custom test case files
-- **Scorers**: Use `mlflow.genai.scorers` and `mlflow.genai.judges.make_judge()` - NOT custom scorer functions
+- **Scorers**: Use MLflow built-ins, `@scorer`, or `mlflow.genai.judges.make_judge()` - NOT a custom evaluation framework
 - **Evaluation**: Use `mlflow.genai.evaluate()` - NOT custom evaluation loops
 - **Scripts**: Use the provided `scripts/` directory templates - NOT custom `evaluation/` directories
 
@@ -505,5 +505,8 @@ Detailed guides in `references/` (load as needed):
 - **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)
 - **troubleshooting.md** - Common errors by phase with solutions
 - **throughput-guide.md** - Parallelism env vars, async predict_fn, dataset splitting for 200+ question evals
+- **advanced-evaluation.md** - Curate production traces, compare versions or prompts, and run continuous evaluation
+- **online-monitoring.md** - Register, start, verify, sample, and manage production scorers
+- **prompt-optimization.md** - Optimize a registered prompt with GEPA, evaluate on holdout data, and promote conditionally
 
 Scripts are self-documenting - run with `--help` for usage details.
