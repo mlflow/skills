@@ -1,6 +1,6 @@
 # Score production traces
 
-Production monitoring applies registered scorers to a sample of traces already flowing to an MLflow experiment. First verify tracing and its destination with `instrumenting-with-mlflow-tracing`; online scoring does not repair missing traces.
+Apply registered scorers to a sample of production traces. Set up and verify the trace destination with `instrumenting-with-mlflow-tracing` first.
 
 ## Configure
 
@@ -12,5 +12,3 @@ Production monitoring applies registered scorers to a sample of traces already f
 ## Operate
 
 List registered scorers and their states, retrieve a named scorer, and update its sample rate deliberately. To pause scoring while keeping registration, stop it. Delete the registration only when it is no longer needed. Keep an aligned judge's version associated with its monitoring period; comparing raw scores across judge revisions is misleading. Use `querying-mlflow-metrics` for aggregated quality and cost trends, and inspect the underlying traces for failures.
-
-On Databricks, see `instrumenting-with-mlflow-tracing/references/databricks.md` for the current Unity Catalog trace-location setup. The deleted evaluation guide used older UC linking and trace-destination calls; do not copy them into a new deployment. Confirm the installed MLflow version and experiment's actual `UnityCatalog` trace location instead.

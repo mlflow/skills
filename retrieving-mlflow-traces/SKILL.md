@@ -202,7 +202,3 @@ WebFetch(
 ## Python API
 
 For `mlflow.search_traces()`, see: https://mlflow.org/docs/latest/genai/tracing/search-traces.md
-
-## Curating traces for an evaluation dataset
-
-Search for representative failures, successes, slow traces, and low-scored assessments. Inspect each candidate before tagging it; `OK` only means the request completed. If the connected MLflow MCP server exposes trace tagging or assessment tools, discover their actual names and arguments before using them, apply a project-specific candidate tag or expectation, and fetch the trace again to verify the write. If MCP tools are unavailable, use the installed MLflow SDK or keep the trace IDs for a later authorized curation pass. Never claim a trace was annotated based solely on an MCP tool being available. Hand selected trace IDs to `agent-evaluation/references/advanced-evaluation.md` for dataset creation.

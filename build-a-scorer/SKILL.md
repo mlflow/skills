@@ -223,6 +223,11 @@ Default routes:
 - Domain tone, policy adherence, task-specific correctness, paraphrase-matching against a source,
   nuanced refusal quality: LLM judge.
 
+For a multi-stage agent, map each agreed criterion to the instrumented stage where it can be
+observed. Compare an explicitly expected tool call with the trace using a code check; use a judge
+only when the choice depends on semantic intent. Measure stage latency from spans, not a judge.
+Use a class-based scorer only when a criterion needs reusable configuration or state.
+
 **Prefer a hybrid over a pure judge.** Most "semantic" checks have a cheap deterministic front end:
 a keyword or phrase scan catches the bright-line cases at ~zero cost and passes only ambiguous ones
 to a model. Reach for this whenever a criterion mentions specific commitments, categories, or
@@ -335,7 +340,7 @@ validation plan.
 > preparing a dataset, registering scorers, or interpreting eval output, you have left this skill's
 > scope — hand off instead.
 
-For multi-stage or multi-agent scorer patterns, read [references/advanced-scorers.md](references/advanced-scorers.md). For domain-expert labels, Review App labeling sessions, or MemAlign, read [references/judge-alignment.md](references/judge-alignment.md). Running the resulting evaluation remains `agent-evaluation`'s job.
+For domain-expert labels, Review App labeling sessions, or MemAlign, read [references/judge-alignment.md](references/judge-alignment.md). Running the resulting evaluation remains `agent-evaluation`'s job.
 
 ## Anti-patterns
 
