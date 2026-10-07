@@ -1,6 +1,6 @@
 ---
 name: build-a-scorer
-description: Help the user go from zero to a shipped MLflow evaluation prototype by understanding their app, generalizing a small set of atomic quality criteria, and implementing each criterion with the cheapest reliable scorer. Use when the user wants help choosing, creating, or iterating MLflow judges/scorers for an agent, RAG app, LLM app, or GenAI workflow.
+description: Help the user choose, create, iterate, or align MLflow judges and scorers for an agent, RAG app, LLM app, or GenAI workflow, including MemAlign and domain-expert labels. Build a small set of atomic quality criteria with the cheapest reliable implementation.
 allowed-tools: Read, Write, Bash, Grep, Glob
 ---
 
@@ -223,6 +223,11 @@ Default routes:
 - Domain tone, policy adherence, task-specific correctness, paraphrase-matching against a source,
   nuanced refusal quality: LLM judge.
 
+For a multi-stage agent, map each agreed criterion to the instrumented stage where it can be
+observed. Compare an explicitly expected tool call with the trace using a code check; use a judge
+only when the choice depends on semantic intent. Measure stage latency from spans, not a judge.
+Use a class-based scorer only when a criterion needs reusable configuration or state.
+
 **Prefer a hybrid over a pure judge.** Most "semantic" checks have a cheap deterministic front end:
 a keyword or phrase scan catches the bright-line cases at ~zero cost and passes only ambiguous ones
 to a model. Reach for this whenever a criterion mentions specific commitments, categories, or
@@ -334,6 +339,8 @@ validation plan.
 > `agent-evaluation` decides *how to run it and what the results mean*. If you find yourself
 > preparing a dataset, registering scorers, or interpreting eval output, you have left this skill's
 > scope — hand off instead.
+
+For domain-expert labels, Review App labeling sessions, or MemAlign, read [references/judge-alignment.md](references/judge-alignment.md). Running the resulting evaluation remains `agent-evaluation`'s job.
 
 ## Anti-patterns
 

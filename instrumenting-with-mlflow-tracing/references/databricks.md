@@ -89,9 +89,27 @@ Unlike Python, TypeScript cannot provision the location or default its table pre
 - Binding an existing experiment changes the destination for new traces; it does not migrate traces already stored in the legacy experiment backend.
 - To create the experiment explicitly, use `mlflow.create_experiment(name=..., trace_location=UnityCatalog(...))`, then `mlflow.set_experiment(experiment_id=...)`.
 
+## Trace deployed agents
+
+Configure the deployment with the same tracking URI and numeric experiment ID used above. A successful local trace does not prove that the deployed identity can write to the UC destination.
+
+### Databricks Apps
+
+Give the app's service identity access to the selected experiment, UC schema, and SQL warehouse. Set the MLflow tracking URI, experiment ID, and required tracing configuration as app environment variables or resources; avoid embedding a personal token. Initialize tracing before the request handler creates its first span.
+
+### Model Serving
+
+Instrument the model's `predict` or agent entry point with supported MLflow autologging or `@mlflow.trace` before deployment. Confirm the serving endpoint's identity can access the same destination. A locally traced client call does not prove that the endpoint's internal spans were captured.
+
+### External OpenTelemetry clients
+
+Check the installed MLflow and Databricks documentation for the supported OTLP ingestion endpoint, authentication, and resource attributes. Configure the exporter to that endpoint rather than an arbitrary workspace URL. Preserve trace and span IDs across services with standard W3C trace context. Third-party OTel clients may use GenAI semantic conventions rather than MLflow's field names.
+
 ## Verification
 
 Follow the single-run, time-limited verification in `../SKILL.md`. Confirm the configured storage destination using experiment metadata, then reuse the trace retrieved by that workflow. A trace appearing in the Databricks experiment UI proves export succeeded, but does not by itself prove UC storage was configured.
+
+For a deployed agent, run the representative request under its deployed identity. Inspect root and child spans, including tool or `RETRIEVER` spans when applicable, and check timing, available token fields, and the actual trace destination. If the deployment cannot reach the backend, report the failing identity and operation; do not switch to legacy workspace trace storage.
 
 ```python
 import mlflow

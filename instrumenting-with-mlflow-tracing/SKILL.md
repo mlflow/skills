@@ -163,7 +163,7 @@ See `references/distributed-tracing.md` for:
 
 ### Databricks (Unity Catalog storage)
 
-See `references/databricks.md` for the required Databricks default: storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix).
+See `references/databricks.md` for the required Databricks default: storing traces in Unity Catalog Delta tables by binding an experiment to a `UnityCatalog` trace location (catalog, schema, table prefix). It also covers tracing Databricks Apps, Model Serving, and external OpenTelemetry clients; verify a trace from the deployed identity.
 
 ---
 
