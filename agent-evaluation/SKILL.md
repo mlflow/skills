@@ -506,7 +506,7 @@ Detailed guides in `references/` (load as needed):
 - **troubleshooting.md** - Common errors by phase with solutions
 - **throughput-guide.md** - Parallelism env vars, async predict_fn, dataset splitting for 200+ question evals
 - **advanced-evaluation.md** - Curate production traces, compare versions or prompts, and run continuous evaluation
-- **online-monitoring.md** - Register, start, verify, sample, and manage production scorers
+- **databricks-online-monitoring.md** - Register, start, verify, sample, and manage production scorers on Databricks
 - **prompt-optimization.md** - Optimize a registered prompt with GEPA, evaluate on holdout data, and promote conditionally
 
 Scripts are self-documenting - run with `--help` for usage details.
