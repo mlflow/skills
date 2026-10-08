@@ -22,7 +22,6 @@
     "./fix-agent-issue",
     "./sagemaker-mlflow"
   ],
-  "hooks": "./hooks/hooks.json",
   "categories": ["observability", "evaluation", "ai-agents"],
   "minClaudeCodeVersion": "2.0.0"
 }
