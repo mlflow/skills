@@ -34,7 +34,7 @@ mlflow.set_experiment("my-agent")                 # skip if MLFLOW_EXPERIMENT_ID
 > experiment, look up its numeric ID in the UI and pass `set_experiment(experiment_id="<id>")`.
 >
 > **On Databricks: opt into UC trace storage**<br>
-> Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`references/databricks.md`](references/databricks.md) for the one-liner.
+> Traces land in the experiment backend by default (capped at 100,000 per experiment). For production use, bind the experiment to a UC trace location when calling `set_experiment`. See [`databricks.md`](databricks.md) for the one-liner.
 
 ### Enable Tracing
 
