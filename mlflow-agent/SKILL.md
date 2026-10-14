@@ -24,7 +24,8 @@ Use when the user wants to do anything with MLflow but hasn't specified which sk
    - Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
    - Debug or explain an agent failure → `debug-agent`
    - Fix or change an agent's behavior → `fix-agent-issue`
-   - Evaluation / scoring → `agent-evaluation`
+   - Run evaluation / compare results → `agent-evaluation`
+   - Design or align criteria / scorers → `build-a-scorer`
    - Debug a trace → `analyze-mlflow-trace`
    - Debug a chat session → `analyze-mlflow-chat-session`
    - Search traces → `retrieving-mlflow-traces`
@@ -34,10 +35,21 @@ Use when the user wants to do anything with MLflow but hasn't specified which sk
 3. If intent is unclear, ask ONE clarifying question, then dispatch
 4. Invoke the matched skill using the Skill tool
 
+## Workflow ownership
+
+- **Setup:** `mlflow-onboarding` and the `sagemaker-mlflow` backend adapter own missing backend configuration.
+- **Tracing:** instrumentation, retrieval, trace/session analysis, diagnosis and operational metrics.
+- **Evaluation:** evaluation execution, scorer design/alignment (`build-a-scorer`) and verified behavior changes (`fix-agent-issue`).
+
+These groups retain their existing entry points. A diagnosis-only request stays in tracing;
+a request to change behavior uses the evaluation improvement loop. Reuse trace findings,
+criteria and configuration across handoffs instead of restarting discovery.
+
 ## Key Rules
 
 - Never do the work yourself — always dispatch to the appropriate sub-skill
 - One clarifying question maximum before dispatching
-- If the user says "evaluate AND trace", dispatch tracing first, then evaluation
+- If evaluation requires new trace evidence, dispatch tracing first; reuse existing traces when available.
 - Do not route an already-instrumented debugging request back to tracing setup
-- If the user's request spans multiple skills, handle them in logical order (setup → instrument → evaluate)
+- Reuse working backend and experiment configuration, including configuration supplied by Databricks tooling. Invoke setup only for missing configuration or a requested backend change.
+- If the request spans multiple skills, run only the necessary prerequisites before the requested workflow.
