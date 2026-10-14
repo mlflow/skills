@@ -1,5 +1,4 @@
 import ast
-import json
 import os
 from pathlib import Path
 
@@ -36,9 +35,8 @@ def get_judges():
             for candidate in traces:
                 for span in candidate.data.spans:
                     if span.outputs in ("support", "general"):
-                        text = json.dumps(span.inputs)
                         for message in ["REFUND", "Hello"]:
-                            if message in text:
+                            if span.inputs == {"message": message}:
                                 outcomes.add((message, span.outputs))
             passed = {("REFUND", "support"), ("Hello", "general")} <= outcomes
             rationale = f"Persisted application input/output pairs: {sorted(outcomes)}"

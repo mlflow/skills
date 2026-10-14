@@ -76,6 +76,7 @@ def get_judges():
                 else:
                     result = json.loads(Path("connection.json").read_text())
                     assert result["status"] == "blocked", "Claimed readiness despite unavailable prerequisite"
+                    assert result.get("reason"), "Missing prerequisite failure explanation"
                     outputs = "\n".join(str(s.outputs) for s in trace.data.spans if s.attributes.get("tool_name") == "Bash")
                     if case == "unavailable_backend":
                         assert re.search(r"ConnectionError|Connection refused|Failed to establish|Max retries", outputs, re.I)

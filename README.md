@@ -186,7 +186,7 @@ We welcome contributions! Here's how to help:
 
 ### Testing skill behavior
 
-The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install only the selected skills, and verify its work against a real MLflow server. Each scenario checks both a successful skill read and an observable task outcome. Merely mentioning an API or reporting success does not pass.
+The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks both a successful skill read and an observable task outcome. Merely mentioning an API or reporting success does not pass.
 
 Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
 
@@ -221,7 +221,7 @@ for config in tests/configs/*.yaml; do
     *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*) continue ;;
   esac
   uv run --with mlflow --with litellm --with pytest --with langgraph --with langchain-core \
-    python tests/test_skill.py "$config" || break
+    python tests/test_skill.py "$config" || exit 1
 done
 ```
 
