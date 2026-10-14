@@ -24,4 +24,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 environment:
   TEST_CASE: diagnosis_only
-  EXPECTED_SKILLS: debug-agent,analyze-mlflow-trace
+  EXPECTED_SKILLS: debug-agent

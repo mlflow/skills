@@ -44,7 +44,10 @@ def get_judges() -> list:
             "instrumented application; (3) it retrieved and inspected the matching MLflow "
             "trace before settling on a diagnosis or making its first source-code edit; "
             "and (4) its diagnosis used evidence "
-            "from that trace, including the failing input and output. Do not infer actions "
+            "from that trace, including the failing input and output; (5) it wrote and ran "
+            "regression tests before the implementation edit, observed the refund test fail, "
+            "and reran those tests successfully after the fix with a non-refund regression check. "
+            "Require actual tool execution/results, not just a final claim. Do not infer actions "
             "that are not visible in the trace. Explain the evidence and ordering in the "
             "rationale."
         ),
