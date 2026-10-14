@@ -1,0 +1,27 @@
+name: session-analysis
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- analyze-mlflow-chat-session
+- analyze-mlflow-trace
+- retrieving-mlflow-traces
+prompt: Use analyze-mlflow-chat-session. Use analyze-mlflow-trace. Use retrieving-mlflow-traces. Read
+  task.json for the investigation scope. Analyze only task.json.session_id. Reconstruct all turns chronologically,
+  identify the first incorrect answer and which later turns propagate it, and inspect the responsible
+  span. Use the current_policy in task.json as the policy reference. Distinguish session feedback and
+  failed evaluator assessments from turn-level application failures. Write outcome.json with session_id,
+  ordered_trace_ids, first_bad_trace_id, propagated_trace_ids, root_cause_span_id, document_id (the incorrectly
+  used document), observed_refund_days, expected_refund_days, ignored_assessment_names (only assessments
+  whose scorer failed). Do not include other sessions. Explain your evidence in the final response.
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+mlflow_port: 32972
+tracking_uri: null
+test_runs_dir: /tmp
+keep_workdir: true
+environment:
+  TEST_CASE: session_analysis
+  EXPECTED_SKILLS: analyze-mlflow-chat-session,analyze-mlflow-trace,retrieving-mlflow-traces
