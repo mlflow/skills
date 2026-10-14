@@ -1,262 +1,74 @@
 ---
 name: mlflow-onboarding
-description: Onboards users to MLflow by determining their use case (GenAI agents/apps or traditional ML/deep learning) and guiding them through relevant quickstart tutorials and initial integration. If an experiment ID is available, it should be supplied as input to help determine the use case. Use when the user asks to get started with MLflow, set up tracking, add observability, or integrate MLflow into their project. Triggers on "get started with MLflow", "set up MLflow", "onboard to MLflow", "add MLflow to my project", "how do I use MLflow".
+description: Set up or connect MLflow for GenAI tracing or traditional ML training. Use for initial integration or missing backend configuration; reuse an already configured environment.
 ---
 
-# MLflow Onboarding
-
-MLflow supports two broad use cases that require different onboarding paths:
-
-- **GenAI applications and agents**: LLM-powered apps, chatbots, RAG pipelines, tool-calling agents. Key MLflow features include **tracing** for observability, **evaluation** with LLM judges, and **prompt management**, among others.
-- **Traditional ML / deep learning models**: scikit-learn, PyTorch, TensorFlow, XGBoost, etc. Key MLflow features include **experiment tracking** (parameters, metrics, artifacts), **model logging**, and **model deployment**, among others.
-
-Determining which use case applies is the first and most important step. The onboarding path, quickstart tutorials, and integration steps differ significantly between the two.
-
-## Reuse an existing environment
-
-Check for a configured tracking URI and experiment before starting onboarding. If they are
-already usable, continue with the requested tracing or evaluation workflow. In Databricks
-environments where tooling supplies MLflow configuration, reuse it; do not add a second
-setup flow or replace the supplied profile, credentials or experiment. Resolve only missing
-configuration or a backend change the user requested.
-
-## Step 1: Determine the Use Case
-
-Before recommending tutorials or integration steps, determine which use case the user is working on. Use the signals below, checking them in order. **If the signals are ambiguous or absent, you MUST ask the user directly.**
-
-### Signal 1: Check the Codebase
-
-Search the user's project for imports and usage patterns that indicate the use case:
-
-**GenAI indicators** (any of these suggest GenAI):
-- Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `google.genai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
-- Imports from MLflow GenAI modules: `mlflow.genai`, `mlflow.tracing`, `mlflow.openai`, `mlflow.langchain`
-- Usage of chat completions, embeddings, or agent frameworks
-- Prompt templates or prompt engineering code
-
-**Traditional ML indicators** (any of these suggest ML):
-- Imports from ML frameworks: `sklearn`, `torch`, `tensorflow`, `keras`, `xgboost`, `lightgbm`, `catboost`, `statsmodels`, `scipy`
-- Imports from MLflow ML modules: `mlflow.sklearn`, `mlflow.pytorch`, `mlflow.tensorflow`
-- Model training loops, `.fit()` calls, hyperparameter tuning code
-- Dataset loading with tabular/image/time-series data
-
-```bash
-# Search for GenAI indicators
-grep -rl --include='*.py' -E '(import openai|import anthropic|from langchain|from langgraph|import litellm|from mlflow\.genai|from mlflow\.tracing|mlflow\.openai|mlflow\.langchain|ChatCompletion|chat\.completions)' .
-
-# Search for ML indicators
-grep -rl --include='*.py' -E '(from sklearn|import torch|import tensorflow|import keras|import xgboost|import lightgbm|mlflow\.sklearn|mlflow\.pytorch|mlflow\.tensorflow|\.fit\()' .
-```
-
-### Signal 2: Check the Experiment Type Tag
-
-If the codebase or project directory is the MLflow repository itself, skip to Signal 3 — the MLflow repo contains code for all use cases and does not indicate the user's intent.
-
-If the experiment ID is known, check its `mlflow.experimentKind` tag. This tag is set by MLflow to indicate the experiment type:
-
-```bash
-mlflow experiments get --experiment-id <EXPERIMENT_ID> --output json > /tmp/exp_detail.json
-jq -r '.tags["mlflow.experimentKind"] // "not set"' /tmp/exp_detail.json
-```
-
-- **`genai_development`** → GenAI use case
-- **`custom_model_development`** → Traditional ML use case
-- **Not set** → Proceed to Signal 3
-
-If the experiment ID is not known, skip to Signal 3.
-
-### Signal 3: Ask the User
-
-If the codebase and experiment signals are inconclusive, ask directly:
-
-> Are you building a **GenAI application** (e.g., an LLM-powered chatbot, RAG pipeline, or tool-calling agent) or a **traditional ML/deep learning model** (e.g., training a classifier, regression model, or neural network)?
-
-**Do not guess.** The onboarding paths are different enough that starting down the wrong one wastes the user's time.
-
-## Step 2: Recommend Quickstart Tutorials
-
-Once the use case is determined, recommend the appropriate quickstart tutorials from the MLflow documentation. Present them to the user and ask if they'd like to follow along or jump directly to integrating MLflow into their project.
-
-### GenAI Path
-
-The MLflow GenAI documentation is at: https://mlflow.org/docs/latest/genai/getting-started/
-
-Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
-
-- **Tracing Quickstart** (https://mlflow.org/docs/latest/genai/tracing/quickstart/) — Enabling automatic tracing for LLM calls. Covers starting an MLflow server, creating an experiment, enabling autologging, and viewing traces in the UI.
-  - Python + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/
-  - TypeScript + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/typescript-openai
-  - OpenTelemetry (language-agnostic) variant: also linked from the quickstart page
-- **Evaluation Quickstart** (https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/) — Evaluating GenAI application quality using LLM judges (scorers). Covers defining datasets, prediction functions, and built-in + custom scorers.
-- **Version Tracking Quickstart** (https://mlflow.org/docs/latest/genai/version-tracking/quickstart/) — Prompt management, application versioning, and connecting tracing to versioned prompts.
-
-If none of these match the user's needs, look up the MLflow GenAI documentation for more relevant guides.
-
-### Traditional ML Path
-
-The MLflow ML documentation is at: https://mlflow.org/docs/latest/ml/getting-started/
-
-Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
-
-- **Tracking Quickstart** (https://mlflow.org/docs/latest/ml/tracking/quickstart/) — Experiment tracking with scikit-learn: autologging, manual parameter/metric/model logging, and exploring results in the MLflow UI.
-- **Deep Learning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/deep-learning/) — Training a PyTorch model with MLflow logging: parameters, metrics, checkpoints, and system metrics (GPU utilization, memory).
-- **Hyperparameter Tuning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/hyperparameter-tuning/) — Running hyperparameter searches with Optuna + MLflow, comparing results, and selecting the best model.
-
-If none of these match the user's needs, look up the MLflow ML documentation for more relevant guides.
-
-## Step 3: Integrate MLflow into the User's Project
-
-After the user has reviewed the quickstart tutorials (or opted to skip them), offer to help integrate MLflow directly into their codebase. **Always ask for the user's consent before making changes to their code.**
-
-### GenAI Integration
-
-The core integration for GenAI apps is **tracing** — capturing LLM calls, tool invocations, and agent steps automatically.
-
-**If asked to create an example project:** Do not assume the user has LLM API keys (e.g., OpenAI, Anthropic). Instead, create traces with mock data using `@mlflow.trace` and `mlflow.start_span()` to demonstrate tracing without requiring external API access. For example:
-
-```python
-import mlflow
-
-mlflow.set_experiment("example-genai-app")
-
-@mlflow.trace
-def mock_chat(query: str) -> str:
-    with mlflow.start_span(name="retrieve_context") as span:
-        context = "Mock retrieved context for: " + query
-        span.set_inputs({"query": query})
-        span.set_outputs({"context": context})
-    with mlflow.start_span(name="generate_response") as span:
-        response = "Mock response based on: " + context
-        span.set_inputs({"context": context, "query": query})
-        span.set_outputs({"response": response})
-    return response
-
-mock_chat("What is MLflow?")
-```
-
-**What to set up (for an existing project):**
-
-1. **Autologging** — If the user's code uses a supported framework, a single line automatically traces all calls to their LLM provider. See https://mlflow.org/docs/latest/genai/tracing/ for the full list of supported providers. If the provider is supported:
-
-   ```python
-   import mlflow
-
-   # Pick the one that matches the user's LLM provider:
-   mlflow.openai.autolog()       # OpenAI SDK
-   mlflow.anthropic.autolog()    # Anthropic SDK
-   mlflow.gemini.autolog()       # Google Gemini (google-genai SDK)
-   mlflow.langchain.autolog()    # LangChain / LangGraph
-   mlflow.litellm.autolog()      # LiteLLM
-   ```
-
-   Add this call once at application startup (e.g., top of `main.py`, `app.py`, or the entry point module). It must execute before any LLM calls are made.
-
-   If the provider is **not** supported by autologging, skip to step 3 (Custom tracing) and use `@mlflow.trace` to manually instrument the relevant functions.
-
-2. **Experiment configuration** — Set the experiment so traces are organized:
-
-   ```python
-   mlflow.set_experiment("my-genai-app")
-   ```
-
-   Or via environment variable: `export MLFLOW_EXPERIMENT_NAME="my-genai-app"`
-
-3. **Custom tracing** (optional) — For functions that aren't automatically traced (custom tools, business logic), use the `@mlflow.trace` decorator:
-
-   ```python
-   @mlflow.trace
-   def my_custom_tool(query: str) -> str:
-       # ... tool logic ...
-       return result
-   ```
-
-**Where to add it:** Find the application's entry point or initialization module and add the autologging call there. Search for the main LLM client instantiation (e.g., `openai.OpenAI()`, `ChatOpenAI()`) to find the right location.
-
-4. **Prompt Registry** (optional) — MLflow can version, store, and load prompts so application code loads a prompt by URI instead of hard-coding the template.
-
-   ```python
-   import mlflow
-
-   # Register a prompt version
-   prompt_version = mlflow.genai.register_prompt(
-       name="my_prompt",
-       template="Answer the user's question: {{question}}",
-   )
-   print(prompt_version.uri)  # prompts:/my_prompt/1
-
-   # Load it back in application code
-   prompt = mlflow.genai.load_prompt("prompts:/my_prompt/1")
-   ```
-
-   **On Databricks (Unity Catalog):** prompts are stored under a UC `catalog.schema`, so `name` is a three-part `catalog.schema.my_prompt` and the workspace must have the Prompt Registry preview enabled (account admin -> Previews -> "Prompt Registry"). On success `register_prompt` logs a workspace UI link and auto-links the active experiment's Prompts tab to `catalog.schema`. If that tab is empty after registering, the active experiment was not auto-linked (older mlflow versions do not set this tag automatically). Set it manually:
-
-   ```python
-   mlflow.set_experiment_tag(
-       "mlflow.promptRegistryLocation",
-       "catalog.schema",  # two-part: catalog.schema (no prompt name)
-   )
-   ```
-
-### Traditional ML Integration
-
-The core integration for ML is **experiment tracking** — capturing parameters, metrics, and models from training runs.
-
-**What to set up:**
-
-1. **Autologging** — If the user's code uses a supported framework, a single line automatically logs parameters, metrics, and models during training. See https://mlflow.org/docs/latest/ml/ for the full list of supported frameworks. If the framework is supported:
-
-   ```python
-   import mlflow
-
-   # Pick the one that matches the user's ML framework:
-   mlflow.sklearn.autolog()      # scikit-learn
-   mlflow.pytorch.autolog()      # PyTorch / PyTorch Lightning
-   mlflow.tensorflow.autolog()   # TensorFlow / Keras
-   mlflow.xgboost.autolog()      # XGBoost
-   mlflow.lightgbm.autolog()     # LightGBM
-   ```
-
-   Add this call once before training starts. It automatically captures `model.fit()` calls, logged metrics, and model artifacts.
-
-   If the framework is **not** supported by autologging, skip to step 3 (Manual logging) and use `mlflow.log_param()`, `mlflow.log_metric()`, and `mlflow.log_artifact()` to log data explicitly.
-
-2. **Experiment configuration** — Set the experiment so runs are organized:
-
-   ```python
-   mlflow.set_experiment("my-ml-experiment")
-   ```
-
-   Or via environment variable: `export MLFLOW_EXPERIMENT_NAME="my-ml-experiment"`
-
-3. **Manual logging** (optional) — For metrics or parameters not captured by autologging:
-
-   ```python
-   with mlflow.start_run():
-       mlflow.log_param("custom_param", value)
-       mlflow.log_metric("custom_metric", value)
-   ```
-
-**Where to add it:** Find the training script or module where `model.fit()` (or equivalent) is called. Add the autologging call before the training loop begins.
-
-## Verification
-
-After integration, verify that MLflow is capturing data correctly:
-
-### GenAI Verification
-
-Follow the [verification workflow in `instrumenting-with-mlflow-tracing`](../instrumenting-with-mlflow-tracing/SKILL.md#verification). Run the instrumented application once, then enforce a 60-second wall-clock deadline for readback: fetch the captured trace ID, or search with a `trace.timestamp_ms` bound from the run start and `max_results=1`. Cancel the verification command when that deadline expires, even if an MLflow call is still waiting or retrying internally. Retry at most once after a concrete, quick fix within the original budget. Stop once the trace and expected spans are confirmed; an additional visual audit is unnecessary.
-
-If execution or readback is blocked by a missing API key, authentication, permissions, or a slow/unavailable SQL warehouse, hand back the verified steps, the unverified result, the observed error, and the specific user action needed. Do not keep rerunning the app or try SQL, raw REST, or alternate authentication paths to finish verification.
-
-### ML Verification
-
-1. Run the training script
-2. Check for runs:
-   ```bash
-   mlflow runs search \
-     --experiment-id <EXPERIMENT_ID> \
-     --max-results 5 \
-     --output json > /tmp/verify_runs.json
-   jq '.runs | length' /tmp/verify_runs.json
-   ```
-3. If runs appear, open the MLflow UI to inspect logged parameters, metrics, and artifacts
+# Set up MLflow
+
+## Inputs
+
+Use the project, requested workflow, and supplied tracking URI/experiment. Inspect the
+existing MLflow configuration before creating anything. Reuse working Databricks-provided
+configuration, including the profile, credentials and experiment; no second setup flow
+is needed. Change the backend only when requested. Never print credentials.
+
+## Workflow
+
+1. **Identify the use case.** Agent/LLM calls imply GenAI; model training implies classic
+   ML. If an experiment is supplied, inspect its `mlflow.experimentKind` tag:
+   `genai_development` or `custom_model_development`. The MLflow repository itself
+   contains both and is not evidence of user intent. Ask only if these signals and the
+   request are inconclusive.
+2. **Verify the selected backend.** Check the configured experiment using the installed
+   MLflow client. Resolve missing configuration; report authentication or connectivity
+   blockers without silently switching to a local server or creating another experiment.
+   For a SageMaker ARN, use `sagemaker-mlflow` when installed.
+3. **Integrate the requested path.** Reuse existing instrumentation/training setup.
+   A request to implement the integration authorizes those edits; a request for an
+   explanation or tutorial does not. Load only the relevant guide below, checking
+   compatibility with the installed MLflow version.
+
+| Path | Integration | Guide |
+|---|---|---|
+| GenAI | Enable the framework's autologging once before calls. Use manual spans only for otherwise unobserved work. | [Tracing quickstart](https://mlflow.org/docs/latest/genai/tracing/quickstart/) |
+| Classic ML | Enable the selected framework's autologging before training, or log parameters, metrics and model artifacts explicitly. | [Tracking quickstart](https://mlflow.org/docs/latest/ml/tracking/quickstart/) |
+| Deep learning | Log training parameters, metrics, checkpoints and the model. | [Deep learning](https://mlflow.org/docs/latest/ml/getting-started/deep-learning/) |
+
+For GenAI instrumentation, use `instrumenting-with-mlflow-tracing` if installed; otherwise
+follow the quickstart and verification contract below. Do not require an LLM API key for
+an introductory example: `@mlflow.trace` around a deterministic mock, with child spans
+for retrieval and response generation, demonstrates persisted inputs/outputs without a
+provider call. Clearly label mock outputs.
+
+## Verify
+
+**GenAI:** execute the app once, flush tracing, and fetch the captured trace ID. If the ID
+is unavailable, search the selected experiment with a `trace.timestamp_ms` lower bound
+from the run start and `max_results=1`. Confirm expected spans and inputs/outputs.
+Enforce a **60-second wall-clock deadline** on readback, including SDK retries; cancel
+when it expires. Retry at most once after a concrete quick fix within the same budget.
+Missing API keys, authentication, permissions or unavailable/slow SQL warehouses are
+blockers: report the observed error, what was verified, what was not, and the needed
+user action. Do not rerun indefinitely or try SQL, raw REST or alternate authentication.
+
+**Classic ML:** run training and read back the specific new run from the selected
+experiment. Confirm logged parameters/metrics and the model artifact. When model
+logging is requested, reload the model and verify predictions on a small held-out input;
+a run ID alone does not establish a working model.
+
+Return the experiment and trace/run ID, the code/configuration changed, and the observed
+result. Do not claim verification from a successful API call without reading its artifacts.
+
+## Read when needed
+
+- Quality evaluation: [evaluation quickstart](https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/).
+- Versioned prompts: [prompt registry](https://mlflow.org/docs/latest/genai/prompt-registry/).
+  On Databricks, use a three-part `catalog.schema.prompt_name` and enable the Prompt
+  Registry preview (account admin → Previews) when required by the workspace. Registration
+  returns a `prompts:/.../version` URI and a workspace UI link. If the active experiment's
+  Prompts tab is empty on older clients, repair its two-part location tag:
+  `mlflow.set_experiment_tag("mlflow.promptRegistryLocation", "catalog.schema")`.
+- Missing or moved documentation: look up the topic in
+  [the official index](https://mlflow.org/docs/latest/llms.txt), then fetch only the relevant
+  page. If unavailable, use installed API signatures and the local recipe; stop when
+  correctness cannot be established rather than inventing a replacement API.
