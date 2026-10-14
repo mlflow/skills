@@ -38,13 +38,11 @@ def get_judges() -> list:
         name="debugged-from-mlflow-trace-before-editing",
         instructions=(
             "Inspect the agent's ordered work in {{ trace }}. Answer 'yes' only if all "
-            "of these conditions hold: (1) it loaded both debug-agent and "
-            "fix-agent-issue; "
-            "(2) it reproduced the reported refund-routing failure through the existing "
-            "instrumented application; (3) it retrieved and inspected the matching MLflow "
+            "of these conditions hold: (1) it reproduced the reported refund-routing failure through the existing "
+            "instrumented application; (2) it retrieved and inspected the matching MLflow "
             "trace before settling on a diagnosis or making its first source-code edit; "
-            "and (4) its diagnosis used evidence "
-            "from that trace, including the failing input and output; (5) it wrote and ran "
+            "and (3) its diagnosis used evidence "
+            "from that trace, including the failing input and output; (4) it wrote and ran "
             "regression tests before the implementation edit, observed the refund test fail, "
             "and reran those tests successfully after the fix with a non-refund regression check. "
             "Require actual tool execution/results, not just a final claim. Do not infer actions "
