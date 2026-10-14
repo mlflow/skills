@@ -10,6 +10,7 @@ skills:
   - build-a-scorer
   - instrumenting-with-mlflow-tracing
 prompt: >-
+  First read .claude/skills/agent-evaluation/SKILL.md and use that workflow.
   Evaluate agent.route_request with MLflow using the configured tracking URI and
   experiment. Do not change the agent or reconfigure the backend. Use these two
   cases: "I need a refund" should return "support", and "hello" should return
