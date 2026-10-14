@@ -178,6 +178,8 @@ def test_port_probe_rejects_active_listener():
     ("Bash", "pip show sagemaker-mlflow", "WARNING: Package(s) not found: sagemaker-mlflow", "yes"),
     ("Bash", "python -c 'import sagemaker_mlflow'", "ModuleNotFoundError: No module named 'sagemaker_mlflow'", "yes"),
     ("Bash", "pip show sagemaker-mlflow", "Name: sagemaker-mlflow\nVersion: 0.2.0", "no"),
+    ("Bash", "pip show sagemaker-mlflow; pip install sagemaker-mlflow", "Package(s) not found: sagemaker-mlflow", "no"),
+    ("Bash", "pip show sagemaker-mlflow; echo 'pip install sagemaker-mlflow' > instructions.txt", "Package(s) not found: sagemaker-mlflow", "yes"),
     ("Bash", "pip show unrelated", "WARNING: Package(s) not found: unrelated", "no"),
     ("Read", "connection.json", "Package(s) not found: sagemaker-mlflow", "no"),
 ])
