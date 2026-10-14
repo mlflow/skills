@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -101,8 +102,16 @@ def get_judges():
                             and re.search(r"ModuleNotFoundError|No module named|Unable to locate credentials|NoCredentialsError|Package\(s\) not found: sagemaker-mlflow", str(s.outputs))
                             for s in trace.data.spans if s.attributes.get("tool_name") == "Bash"
                         ), "No observed failing SageMaker prerequisite check"
-                        commands = "\n".join(str(s.inputs) for s in trace.data.spans if s.attributes.get("tool_name") == "Bash")
-                        assert not re.search(r"(?:pip|uv pip) install.*sagemaker|aws (?:configure|sso login)", commands)
+                        for span in trace.data.spans:
+                            if span.attributes.get("tool_name") != "Bash":
+                                continue
+                            # Quoted remediation in a JSON-writing command is not execution.
+                            words = shlex.split((span.inputs or {}).get("command", ""))
+                            assert not any(
+                                tuple(words[i:i + 2]) in {("pip", "install"), ("pip3", "install"), ("aws", "configure")}
+                                or words[i:i + 3] == ["aws", "sso", "login"]
+                                for i in range(len(words))
+                            ), "Attempted package installation or credential acquisition"
             return Feedback(value="yes", rationale=f"Verified {case} against independent outputs and preserved configuration")
         except Exception as error:
             return Feedback(value="no", rationale=f"{type(error).__name__}: {error}")
