@@ -10,7 +10,7 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use mlflow-agent to choose the right workflow: build a deterministic MLflow scorer named answer_present in scorers.py. Outputs are dictionaries; pass only if answer is a nonempty non-whitespace string, fail for missing, null or empty answers. No LLM is needed. Implement and verify it. No questions.
+  Read .claude/skills/mlflow-agent/SKILL.md (the manually invoked dispatcher) and use it to choose the right workflow: build a deterministic MLflow scorer named answer_present in scorers.py. Outputs are dictionaries; pass only if answer is a nonempty non-whitespace string, fail for missing, null or empty answers. No LLM is needed. Implement and verify it. No questions.
 timeout_seconds: 600
 mlflow_port: 32984
 environment:
