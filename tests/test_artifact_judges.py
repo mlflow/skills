@@ -203,3 +203,38 @@ def test_sagemaker_requires_observed_prerequisite_failure(
             span.set_outputs({"result": output})
     mlflow.flush_trace_async_logging()
     assert get_judges()[0](trace=mlflow.get_trace(trace_id)).value == want
+
+
+@pytest.mark.parametrize("called_skill,failed,matching_session,want", [
+    ("sample-skill", False, True, "yes"),
+    ("sample-skill", True, True, "no"),
+    ("another-skill", False, True, "no"),
+    ("sample-skill", False, False, "no"),
+])
+def test_skill_use_survives_compaction_without_accepting_wrong_or_failed_calls(
+    experiment, tmp_path, monkeypatch, called_skill, failed, matching_session, want
+):
+    import json
+    from judges.skill_usage import get_judges
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    monkeypatch.setenv("EXPECTED_SKILLS", "sample-skill")
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    skill = tmp_path / ".claude/skills/sample-skill/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("---\nname: sample-skill\ndescription: Example\n---\n")
+    logs = tmp_path / "claude-sessions"
+    logs.mkdir()
+    events = [
+        {"message": {"content": [{"type": "tool_use", "id": "call-1", "name": "Skill", "input": {"skill": called_skill}}]}},
+        {"message": {"content": [{"type": "tool_result", "tool_use_id": "call-1", "is_error": failed, "content": "Launching skill"}]}},
+    ]
+    (logs / (("current" if matching_session else "unrelated") + ".jsonl")).write_text(
+        "\n".join(json.dumps(event) for event in events)
+    )
+    with mlflow.start_span(name="compacted-participant") as root:
+        trace_id = root.trace_id
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": "current"})
+    mlflow.flush_trace_async_logging()
+    assert get_judges()[0](trace=mlflow.get_trace(trace_id)).value == want
