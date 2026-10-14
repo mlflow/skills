@@ -159,3 +159,16 @@ def test_alignment_pairs_allow_provenance_but_reject_wrong_labels_and_splits(exp
         with pytest.raises(AssertionError):
             verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
         outcome["pairs"][0][key] = previous
+
+
+def test_port_probe_rejects_active_listener():
+    import socket
+    from utils import is_port_available
+
+    with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+        listener.listen()
+        assert not is_port_available(port)
+    assert is_port_available(port)

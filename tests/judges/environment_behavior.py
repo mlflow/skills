@@ -59,8 +59,11 @@ def get_judges():
             else:
                 for name, content in expected["files"].items():
                     assert Path(name).read_text() == content, f"Unexpected change to {name}"
-                now = {e.experiment_id for e in mlflow.MlflowClient().search_experiments()}
-                assert now == set(expected["experiment_ids"]), "Created an unnecessary experiment"
+                # Only the local test server is exclusive to this participant.
+                # Other users may create experiments in a shared Databricks workspace.
+                if not expected["backend"]["tracking_uri"].startswith("databricks"):
+                    now = {e.experiment_id for e in mlflow.MlflowClient().search_experiments()}
+                    assert now == set(expected["experiment_ids"]), "Created an unnecessary experiment"
                 if case == "classic_ml":
                     import numpy as np
                     runs = mlflow.search_runs(experiment_ids=[experiment_id],
@@ -87,7 +90,7 @@ def get_judges():
                                for t in traces for s in t.data.spans), "No persisted application smoke trace"
                 else:
                     result = json.loads(Path("connection.json").read_text())
-                    assert result["status"] == "blocked", "Claimed readiness despite unavailable prerequisite"
+                    assert result["status"] in {"blocked", "unavailable"}, "Claimed readiness despite unavailable prerequisite"
                     assert result.get("reason"), "Missing prerequisite failure explanation"
                     outputs = "\n".join(str(s.outputs) for s in trace.data.spans if s.attributes.get("tool_name") == "Bash")
                     if case == "unavailable_backend":

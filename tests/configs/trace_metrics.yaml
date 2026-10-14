@@ -7,7 +7,7 @@ judges:
 skills:
 - querying-mlflow-metrics
 - retrieving-mlflow-traces
-prompt: Use querying-mlflow-metrics. Use retrieving-mlflow-traces. Read task.json for the investigation
+prompt: Use querying-mlflow-metrics. Read task.json for the investigation
   scope. Compute metrics across ALL application traces in the inclusive task.json start_time_ms/end_time_ms
   window, without filtering session, status, or environment. Use the skill's real metrics endpoint first.
   If this local server does not implement that endpoint, report its actual HTTP status, then aggregate
@@ -25,4 +25,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 environment:
   TEST_CASE: trace_metrics
-  EXPECTED_SKILLS: querying-mlflow-metrics,retrieving-mlflow-traces
+  EXPECTED_SKILLS: querying-mlflow-metrics

@@ -30,6 +30,8 @@ log = logging.getLogger(__name__)
 # Pre-import modules that scorer threads will need. Without this, concurrent
 # lazy imports of litellm/openai from scorer threads deadlock on Python's
 # import lock (see deadlock-thread-dump-analysis.md).
+# Do not let LiteLLM load an unrelated .env and replace the supplied backend credentials.
+os.environ["LITELLM_MODE"] = "PRODUCTION"
 import litellm  # noqa: F401
 import mlflow.server.jobs.utils  # noqa: F401
 
