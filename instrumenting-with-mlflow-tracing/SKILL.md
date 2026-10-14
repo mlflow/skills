@@ -9,7 +9,7 @@ Use when adding or repairing instrumentation. Reuse working tracing when the tas
 
 ## Inputs
 
-Inspect the application entry point, language/framework, installed SDK version, tracking URI, experiment, and deployment identity. Preserve configured destinations and provider choices. Read [Python](references/python.md) or [TypeScript](references/typescript.md) for the selected runtime.
+Inspect the application entry point, language/framework, installed SDK version, tracking URI, experiment, and deployment identity. Preserve configured destinations and provider choices. An explicitly supplied application destination takes precedence over inherited environment values: the coding assistant's own MLflow telemetry may use a different experiment. Read [Python](references/python.md) or [TypeScript](references/typescript.md) for the selected runtime.
 
 ## Workflow
 
@@ -45,7 +45,7 @@ assert run_start_ms <= trace.info.request_time <= run_end_ms
 assert trace.data.spans, "No spans captured"
 ```
 
-Inspect the returned expected root/graph, model, retrieval and tool spans and their actual inputs/outputs. Confirm they belong to this application's request, not a scorer. Reuse the returned spans and stop after success. An available `agent-evaluation/scripts/validate_tracing_runtime.py` may replace this check under the same deadline; it is not an additional audit.
+Inspect the returned expected root/graph, model, retrieval and tool spans and their actual inputs/outputs. Confirm they belong to this application's request and selected experiment/location, not a scorer or the coding assistant's telemetry experiment. Check returned experiment metadata (or the bound UC location when the trace has no experiment ID), not just trace existence. Reuse the returned spans and stop after success. An available `agent-evaluation/scripts/validate_tracing_runtime.py` may replace this check under the same deadline; it is not an additional audit.
 
 Allow at most one retry after a concrete quick fix **within the original budget**. Stop on missing provider keys, auth/permission errors, warehouse timeouts, or `RESOURCE_EXHAUSTED`/429. Do not launch parallel searches, repeated agent runs, direct UC SQL, raw REST, alternate credentials or warehouse fallbacks to force verification. Report the failing operation/error, captured ID, what succeeded, and what remains unverified; request the specific missing prerequisite without asking for secrets. Pause evaluation if tracing remains unverified.
 
