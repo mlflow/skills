@@ -14,6 +14,7 @@ from mlflow.genai.scorers import scorer
 
 
 def get_judges():
+    experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
     case = os.environ["TEST_CASE"]
     expected = json.loads((Path(os.environ["TEST_WORK_DIR"]) / "environment_expected.json").read_text())
 
@@ -50,7 +51,7 @@ def get_judges():
                 assert now == set(expected["experiment_ids"]), "Created an unnecessary experiment"
                 if case == "existing_backend":
                     traces = mlflow.search_traces(
-                        experiment_ids=[os.environ["MLFLOW_EXPERIMENT_ID"]],
+                        experiment_ids=[experiment_id],
                         filter_string=f"trace.timestamp_ms >= {os.environ['RUN_START_MS']}", return_type="list",
                     )
                     assert any(s.inputs == {"name": "Ada"} and s.outputs == "hello:Ada"

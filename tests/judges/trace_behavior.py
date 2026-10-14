@@ -1,6 +1,7 @@
 """Exact behavioral outcomes checked against private seeds and live MLflow readback."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import math
@@ -61,6 +62,17 @@ def verify_outcome():
         assert isinstance(ids, list) and len(ids) == len(set(ids)), "Missing IDs or duplicate rows"
         outcome = {**outcome, "trace_ids": sorted(ids)}
         expected = {**expected, "trace_ids": sorted(expected["trace_ids"])}
+    # CLI/REST encodes span IDs as protobuf base64; the Python SDK exposes hex.
+    # Both identify the same real span. Normalize only span-ID fields.
+    for key in ("failing_span_id", "root_cause_span_id"):
+        value = outcome.get(key)
+        if isinstance(value, str) and value != expected.get(key):
+            try:
+                raw = base64.b64decode(value, validate=True)
+                if len(raw) == 8:
+                    outcome[key] = raw.hex()
+            except ValueError:
+                pass
     _equal(outcome, expected)
 
     if case == "session_analysis":

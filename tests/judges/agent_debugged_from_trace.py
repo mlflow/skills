@@ -15,10 +15,10 @@ def _is_claude_session_trace(trace) -> bool:
     return bool(metadata.get("mlflow.trace.session"))
 
 
-def _routing_results() -> list[tuple[int, str, str]]:
+def _routing_results(experiment_id: str) -> list[tuple[int, str, str]]:
     run_start_ms = int(os.environ["RUN_START_MS"])
     traces = mlflow.search_traces(
-        locations=[os.environ["MLFLOW_EXPERIMENT_ID"]],
+        locations=[experiment_id],
         filter_string=f"trace.timestamp_ms > {run_start_ms}",
         return_type="list",
     )
@@ -33,6 +33,7 @@ def _routing_results() -> list[tuple[int, str, str]]:
 
 
 def get_judges() -> list:
+    experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
     trace_first_judge = make_judge(
         name="debugged-from-mlflow-trace-before-editing",
         instructions=(
@@ -65,7 +66,7 @@ def get_judges() -> list:
         if not _is_claude_session_trace(trace):
             return None
 
-        results = _routing_results()
+        results = _routing_results(experiment_id)
         refund_outputs = [
             output for _, message, output in results if "refund" in message.lower()
         ]

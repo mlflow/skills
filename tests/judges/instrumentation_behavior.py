@@ -9,11 +9,13 @@ from mlflow.genai.scorers import scorer
 
 
 def get_judges():
+    experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
+    start_ms = os.environ["RUN_START_MS"]
     @scorer(name="instrumentation-behavior")
     def instrumentation_behavior(trace):
         traces = mlflow.search_traces(
-            experiment_ids=[os.environ["MLFLOW_EXPERIMENT_ID"]],
-            filter_string=f"trace.timestamp_ms >= {os.environ['RUN_START_MS']}", return_type="list",
+            experiment_ids=[experiment_id],
+            filter_string=f"trace.timestamp_ms >= {start_ms}", return_type="list",
         )
         if os.environ["TEST_CASE"] == "langgraph":
             tree = ast.parse(Path("agent.py").read_text())

@@ -67,10 +67,11 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
         result = run_command(command, cwd=state.full_project_dir if name != "source_commit" else state.repo_root,
                              env=claude_env(), check=False, timeout=30)
         inventory[name] = {"exit_code": result.returncode, "output": result.stdout.strip()}
-    (state.work_dir / "environment.json").write_text(json.dumps(inventory, indent=2) + "\n")
 
     # Record start time so verify_judges can filter out pre-existing traces
     state.run_start_timestamp_ms = int(time.time() * 1000)
+    inventory["run_start_ms"] = state.run_start_timestamp_ms
+    (state.work_dir / "environment.json").write_text(json.dumps(inventory, indent=2) + "\n")
 
     log.info("Executing Claude Code...")
     log.info(f"Prompt: {config.prompt}")

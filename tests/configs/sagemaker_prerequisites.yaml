@@ -13,8 +13,6 @@ mlflow_port: 32982
 environment:
   TEST_CASE: sagemaker_missing
   EXPECTED_SKILLS: sagemaker-mlflow
-  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
-  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"
   AWS_EC2_METADATA_DISABLED: "true"
   AWS_CONFIG_FILE: /dev/null
   AWS_SHARED_CREDENTIALS_FILE: /dev/null

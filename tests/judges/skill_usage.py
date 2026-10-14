@@ -23,7 +23,9 @@ def get_judges():
                 tool = span.attributes.get("tool_name", "")
                 inputs = json.dumps(span.inputs or {})
                 outputs = str(span.outputs or "")
-                if tool == "Skill" and name in inputs and span.status.status_code != SpanStatusCode.ERROR:
+                if (tool == "Skill" and any(f'"{candidate}"' in inputs for candidate in (name, directory))
+                        and span.status.status_code != SpanStatusCode.ERROR
+                        and "Unknown skill" not in outputs):
                     loaded = True
                 if tool in {"Read", "Bash"} and f"{directory}/SKILL.md" in inputs:
                     loaded |= f"name: {name}" in outputs and "description:" in outputs

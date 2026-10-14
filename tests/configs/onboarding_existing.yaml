@@ -13,5 +13,3 @@ mlflow_port: 32980
 environment:
   TEST_CASE: existing_backend
   EXPECTED_SKILLS: mlflow-onboarding
-  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
-  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"

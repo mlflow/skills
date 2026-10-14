@@ -13,5 +13,3 @@ mlflow_port: 32983
 environment:
   TEST_CASE: docs
   EXPECTED_SKILLS: searching-mlflow-docs
-  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
-  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"

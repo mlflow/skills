@@ -147,7 +147,10 @@ def main():
         }
     assert all(s["tokens"] for s in snapshots.values()), "Server did not persist token usage"
     expected = {
-        "trace_retrieval": {"trace_ids": [records[k]["trace_id"] for k in ["timeout", "second_timeout"]]},
+        "trace_retrieval": {"trace_ids": [trace_id for trace_id, snapshot in snapshots.items()
+            if snapshot["state"] == "ERROR"
+            and snapshot["tags"] == {"environment": "production", "tenant": suffix}
+            and start_ms <= snapshot["time_ms"] <= end_ms]},
         "trace_analysis": {"trace_id": target, "failing_span_id": records["timeout"]["child_span_id"],
                            "root_cause": "tool_timeout", **timeout_inputs},
         "session_analysis": {"session_id": session, "ordered_trace_ids": [first, second, third],

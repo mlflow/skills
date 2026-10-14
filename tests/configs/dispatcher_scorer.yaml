@@ -16,5 +16,3 @@ mlflow_port: 32984
 environment:
   TEST_CASE: dispatcher
   EXPECTED_SKILLS: mlflow-agent,build-a-scorer
-  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
-  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"

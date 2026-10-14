@@ -1,0 +1,24 @@
+# Requires TEST_JUDGE_MODEL and real provider credentials in the launch environment.
+name: scorer-native-builtin-and-domain-judge
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - build-a-scorer
+prompt: >-
+  Use build-a-scorer. Read README.md for the confirmed billing-agent criteria and
+  implementation choices. Inspect available MLflow built-ins, implement the three
+  independent native scorers in quality_suite.py with get_scorers(), and explain
+  the code-versus-built-in-versus-domain-judge choices. Use TEST_JUDGE_MODEL exactly
+  for both model-backed checks. Include a runnable native evaluation example and
+  hand off evaluation. Do not ask for reconfirmation.
+timeout_seconds: 900
+verification_timeout: 300
+mlflow_port: 32965
+tracking_uri: null
+keep_workdir: true
+environment:
+  EXPECTED_SKILLS: build-a-scorer
+  EVALUATION_CASE: model_suite

@@ -8,7 +8,7 @@ skills:
 - analyze-mlflow-chat-session
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
-prompt: Use analyze-mlflow-chat-session. Use analyze-mlflow-trace. Use retrieving-mlflow-traces. Read
+prompt: Use analyze-mlflow-chat-session. Read
   task.json for the investigation scope. Analyze only task.json.session_id. Reconstruct all turns chronologically,
   identify the first incorrect answer and which later turns propagate it, and inspect the responsible
   span. Use the current_policy in task.json as the policy reference. Distinguish session feedback and
@@ -24,4 +24,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 environment:
   TEST_CASE: session_analysis
-  EXPECTED_SKILLS: analyze-mlflow-chat-session,analyze-mlflow-trace,retrieving-mlflow-traces
+  EXPECTED_SKILLS: analyze-mlflow-chat-session

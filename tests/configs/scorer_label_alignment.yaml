@@ -1,0 +1,24 @@
+# Covers real label pairing, not optimizer execution. Full MemAlign additionally
+# needs DSPy, an explicitly approved embedding model, reflection model, and auth.
+name: scorer-human-label-alignment-preparation
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - build-a-scorer
+prompt: >-
+  Use build-a-scorer and read its judge-alignment reference. Read README.md for the
+  confirmed criterion and train/holdout split. Discover the existing MLflow dataset
+  and human feedback and prepare the exact alignment pairing manifest requested
+  there. No embedding model is approved for this fixture; inspect optimizer
+  prerequisites and report them honestly without running or claiming successful MemAlign
+  optimization. Do not ask for input or change existing data.
+timeout_seconds: 600
+mlflow_port: 32964
+tracking_uri: null
+keep_workdir: true
+environment:
+  EXPECTED_SKILLS: build-a-scorer
+  EVALUATION_CASE: alignment
