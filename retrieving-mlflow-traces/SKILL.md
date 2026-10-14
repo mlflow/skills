@@ -1,204 +1,72 @@
 ---
 name: retrieving-mlflow-traces
-description: Retrieves MLflow traces using CLI or Python API. Use when the user asks to get a trace by ID, find traces, filter traces by status/tags/metadata/execution time, query traces, or debug failed traces. Triggers on "get trace", "search traces", "find failed traces", "filter traces by", "traces slower than", "query MLflow traces".
+description: Retrieve MLflow traces by ID or search by run, session, user, status, time, tags, feedback, or span fields. Use for trace lookup and filtering; retrieval alone does not require diagnosis.
 ---
 
-# Retrieving MLflow Traces
+# Retrieve MLflow traces
 
-## Bound Unity Catalog Searches by Time
+## Inputs
 
-When searching traces stored in Unity Catalog, include `trace.timestamp_ms >= <start_time_ms>` in the filter string, with an upper bound when known. This also applies when searching by experiment ID, run ID, session, or other filters: a small result limit does not prevent a scan across the full trace history. In Python, pass the time condition through `filter_string`; `mlflow.search_traces()` has no `start_time` argument.
-
-Use the time window requested by the user or established by the run or incident. For setup verification, record the time immediately before the instrumented run. Do not silently restrict historical investigations to the last hour. If the relevant period cannot be determined, ask for it before starting a broad UC search. The examples below demonstrate individual filters; combine them with the relevant time bounds for UC.
-
-## Keep Setup Verification Brief
-
-For verifying newly added instrumentation, follow the verification workflow in `instrumenting-with-mlflow-tracing`. Enforce a 60-second wall-clock deadline for readback, cancelling the verification command at the deadline even if a call is still retrying internally: make one fetch by a known trace ID, or one time-bounded search with `--max-results 1` (Python: `max_results=1`). Retry at most once after a concrete, quick fix, within the same budget. Stop once one trace and its expected spans are confirmed.
-
-If readback is slow or fails, report what was verified, what remains unverified, and the observed blocker and required user action (such as configuring a missing API key, logging in, obtaining permission, or resolving warehouse availability/capacity). Do not start parallel searches or fall back to direct SQL, raw REST, alternate authentication, or repeated agent runs just to complete setup verification. A dedicated retrieval or debugging request can require broader investigation; preserve the user's scope.
-
-## Single Fetch vs Search
-
-Choose the right approach based on what you have:
-
-| You have... | Use | Command |
-|-------------|-----|---------|
-| **Trace ID** | Single fetch | `mlflow traces get --trace-id <id>` |
-| **Session/user/filters** | Search | `mlflow traces search --experiment-id <id> --filter-string "..."` |
-
-**Single fetch** - Use when you have a specific trace ID (e.g., from UI, logs, or API response):
-```bash
-mlflow traces get --trace-id tr-69f72a3772570019f2f91b75b8b5ded9
-```
-
-**Search** - Use when you need to find traces by criteria (session, user, status, time range, etc.):
-```bash
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`mlflow.trace.session\` = 'session_abc'"
-```
-
----
-
-## Trace Data Structure
-
-- **TraceInfo**: `trace_id`, `status` (OK/ERROR), `timestamp_ms`, `execution_time_ms`, `tags`, `metadata`, `assessments` (human feedback, evaluation results)
-- **Spans**: Tree of operations with `name`, `type`, `attributes`, `start_time`, `end_time`
+Reuse the configured tracking URI, experiment, supplied trace ID or filters, and incident/run time window. Check installed CLI flags with `mlflow traces get --help` or `mlflow traces search --help` for the operation selected.
 
 ## Workflow
 
-1. **Check CLI usage** (required): `mlflow traces search --help`
-2. **Build filter query** using syntax below
-3. **Execute search** with appropriate flags
-4. **Retrieve details** for specific traces if needed
-
-## Prerequisite: Check CLI Usage
+With an ID, fetch directly. Save full JSON to a file before parsing so large output is not lost to tool truncation. `get` already outputs JSON; it needs no `--output` flag.
 
 ```bash
-mlflow traces search --help
+mlflow traces get --trace-id <TRACE_ID> > /tmp/trace.json
 ```
 
-Always run this first to get accurate flags for the installed MLflow version.
-
-## Searching Traces
-
-The `mlflow traces search` command is used to search for traces in an MLflow experiment.
-
-### By Run ID
-
-Filter traces associated with a specific MLflow run:
+Without an ID, search the selected experiment and requested time window:
 
 ```bash
-# All traces for a run
-mlflow traces search --run-id <run_id>
-
-# Failed traces for a run
-mlflow traces search --run-id <run_id> --filter-string "trace.status = 'ERROR'"
-
-# Can combine with experiment-id
-mlflow traces search --experiment-id 1 --run-id <run_id>
+mlflow traces search --experiment-id <EXPERIMENT_ID> \
+  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>" AND trace.timestamp_ms >= <START_MS> AND trace.timestamp_ms <= <END_MS>' \
+  --order-by 'timestamp_ms ASC' --max-results 50 --output json > /tmp/traces.json
 ```
 
-### By Session or User (Common for Debugging)
+Replace placeholders before execution. **Every Unity Catalog search needs `trace.timestamp_ms` bounds**, including experiment/run/session lookups: a small result limit does not bound a table scan. Use the user's historical window or the incident/run timestamps, not a silently substituted last hour. Ask for the period if it cannot be inferred before a broad UC search.
 
-When debugging an issue from the MLflow UI, filter by session or user ID to get all related traces:
+### Filters
 
-```bash
-# All traces for a specific session (use backticks for special characters in key)
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`mlflow.trace.session\` = 'session_abc123'"
+Combine predicates with `AND`; verify operators supported by the installed backend/version.
 
-# All traces for a specific user
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`mlflow.trace.user\` = 'user_456'"
+| Selection | Predicate or flag |
+|---|---|
+| Run | `--run-id <RUN_ID>` (combine with time bounds) |
+| Status | `trace.status = 'ERROR'` (`OK`, `IN_PROGRESS` also available) |
+| Time / latency | `trace.timestamp_ms >= 1700000000000`, `trace.execution_time_ms > 1000` (milliseconds) |
+| Session / user | ``metadata.`mlflow.trace.session` = 'abc'``, ``metadata.`mlflow.trace.user` = 'user1'`` |
+| Tags / metadata | `tag.environment = 'production'`, ``metadata.`user.id` = 'abc'`` |
+| Span | `span.name = 'lookup'`, `span.type = 'RETRIEVER'` |
+| Assessments | `feedback.rating = 'positive'`, `expectation.<name> = <value>` |
+| Text | `trace.text LIKE '%error%'` |
 
-# Failed traces in a session (for root cause analysis)
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`mlflow.trace.session\` = 'session_abc123' AND trace.status = 'ERROR'"
+Backticks quote special characters in field names. In shell commands put the outer expression in **single quotes**, as above, or escape backticks inside double quotes to prevent command substitution. Escape filter values separately; do not interpolate untrusted values as shell syntax. `LIKE`, `ILIKE` and `RLIKE` support pattern matching where permitted; use [search docs](https://mlflow.org/docs/latest/genai/tracing/search-traces.md) for exact field/operator support.
 
-# Session traces ordered by time (to see sequence of events)
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`mlflow.trace.session\` = 'session_abc123'" --order-by "timestamp_ms ASC"
-```
+Use `--include-spans` when details are needed; otherwise fetch selected IDs after search. `--extract-fields` can reduce search output after inspecting the actual schema, but nested span inputs/outputs may be omitted: use the full trace for diagnosis. Follow returned continuation tokens with `--page-token` while keeping filters/order fixed; report a bounded sample as a sample, not all matches.
 
-### By Status
+### Python alternative
 
-```bash
-mlflow traces search --experiment-id 1 --filter-string "trace.status = 'ERROR'"
-mlflow traces search --experiment-id 1 --filter-string "trace.status = 'OK'"
-```
-
-### By Time Range
-
-```bash
-# Timestamps are in milliseconds since epoch
-# Get current time in ms: $(date +%s)000
-# Last hour: $(( $(date +%s)000 - 3600000 ))
-
-mlflow traces search --experiment-id 1 --filter-string "trace.timestamp_ms > $(( $(date +%s)000 - 3600000 ))"
-```
-
-### By Execution Time (Slow Traces)
-
-```bash
-# Traces slower than 1 second
-mlflow traces search --experiment-id 1 --filter-string "trace.execution_time_ms > 1000"
-```
-
-### By Tags and Metadata
-
-```bash
-# By tag
-mlflow traces search --experiment-id 1 --filter-string "tag.environment = 'production'"
-
-# By metadata
-mlflow traces search --experiment-id 1 --filter-string "metadata.user_id = 'user_123'"
-
-# Escape special characters in key names with backticks
-mlflow traces search --experiment-id 1 --filter-string "tag.\`model-name\` = 'gpt-4'"
-mlflow traces search --experiment-id 1 --filter-string "metadata.\`user.id\` = 'abc'"
-```
-
-### By Assessment/Feedback
-
-```bash
-mlflow traces search --experiment-id 1 --filter-string "feedback.rating = 'positive'"
-```
-
-### Full Text Search
-
-```bash
-mlflow traces search --experiment-id 1 --filter-string "trace.text LIKE '%error%'"
-```
-
-### Pagination
-
-Control result count and iterate through pages:
-
-```bash
-# Limit results per page
-mlflow traces search --experiment-id 1 --max-results 50
-
-# Output includes "Next page token: <token>" if more results exist
-# Use --page-token to fetch next page
-mlflow traces search --experiment-id 1 --max-results 50 --page-token "eyJvZmZzZXQiOiA1MH0="
-```
-
-### Output Options
-
-```bash
-# Output format (table or json)
-mlflow traces search --experiment-id 1 --output json
-
-# Include span details in output
-mlflow traces search --experiment-id 1 --include-spans
-
-# Order results
-mlflow traces search --experiment-id 1 --order-by "timestamp_ms DESC"
-```
-
-## Retrieving Single Trace
-
-When you need to retrieve details about a specific trace, use the `mlflow traces get` command.
-
-```bash
-mlflow traces get --trace-id <trace_id>
-```
-
-## Filter Syntax
-
-For detailed syntax, fetch from documentation:
-```
-WebFetch(
-  url: "https://mlflow.org/docs/latest/genai/tracing/search-traces.md",
-  prompt: "Extract the filter syntax table showing supported fields, operators, and examples."
+```python
+trace = mlflow.get_trace(trace_id)
+# Or search when the ID is unknown:
+traces = mlflow.search_traces(
+    locations=[experiment_id],
+    filter_string=f"trace.timestamp_ms >= {start_ms} AND trace.timestamp_ms <= {end_ms}",
+    max_results=50, return_type="list", include_spans=True,
 )
 ```
 
-**Common filters:**
-- `trace.status`: OK, ERROR, IN_PROGRESS
-- `trace.execution_time_ms`, `trace.timestamp_ms`: numeric comparison
-- `metadata.\`mlflow.trace.session\``, `metadata.\`mlflow.trace.user\``: session/user filtering
-- `tag.<key>`, `metadata.<key>`: exact match or pattern
-- `span.name`, `span.type`: exact match or pattern
-- `feedback.<name>`, `expectation.<name>`: assessments
+Check installed signatures; older versions may use `experiment_ids`. `search_traces()` has **no `start_time` keyword**. Use `filter_string` for timestamp predicates.
 
-**Pattern operators:** `LIKE`, `ILIKE` (case-insensitive), `RLIKE` (regex)
+## Verify
 
-## Python API
+Confirm returned IDs, experiment/location, window and filters match the request; distinguish no matches from a failed query or partial page. Return the IDs/output file and any coverage limits. Do not infer quality from status `OK` alone.
 
-For `mlflow.search_traces()`, see: https://mlflow.org/docs/latest/genai/tracing/search-traces.md
+For newly added instrumentation only: enforce a **60-second wall-clock deadline** including flush/readback/internal retries, terminating the command at expiry. Fetch one captured ID or make one run-time-bounded search with `max_results=1`. Inspect expected spans and actual inputs/outputs; retry at most once after a quick concrete fix within the original budget. Stop on auth/provider-key/permission/warehouse blockers and report the failed operation and required prerequisite. No parallel searches, repeated agent runs, direct SQL, raw REST or alternate-auth fallbacks. This setup limit does not replace the scope of a dedicated retrieval/investigation request.
+
+## Read when needed
+
+- Additional search syntax/API options: [official search guide](https://mlflow.org/docs/latest/genai/tracing/search-traces.md), checked against installed help/signatures. Use [llms.txt](https://mlflow.org/docs/latest/llms.txt) only if the page moves; if unavailable, use installed help and stop when correctness is unresolved.
+- When analysis is requested and available: `analyzing-mlflow-trace` (directory `analyze-mlflow-trace`) or `analyzing-mlflow-session` (directory `analyze-mlflow-chat-session`). Retrieval alone stops with the requested evidence.
