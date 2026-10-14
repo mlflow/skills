@@ -78,12 +78,6 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
                     "claude",
                     "-p",
                     config.prompt,
-                    "--append-system-prompt",
-                    f"Application tracking URI: {os.environ['MLFLOW_TRACKING_URI']}. "
-                    f"Application experiment ID: {state.experiment_id}. "
-                    "Use these destinations for application traces and evaluations. "
-                    "Claude's own tracing uses a separate experiment; do not use "
-                    "its .claude/settings.json experiment for application artifacts.",
                     "--dangerously-skip-permissions",
                     "--allowedTools",
                     config.allowed_tools,
