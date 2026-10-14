@@ -13,6 +13,15 @@ from mlflow.entities import Feedback
 from mlflow.genai.scorers import scorer
 
 
+def copied_documentation_blocks(snippet, source):
+    remaining = "\n".join(line for line in snippet.splitlines() if line.strip())
+    for block in re.findall(r"```[^\n]*\n(.*?)```", html.unescape(source), re.S):
+        block = "\n".join(line for line in block.splitlines() if line.strip())
+        if block and (remaining == block or remaining.startswith(block + "\n")):
+            remaining = remaining[len(block):].lstrip("\n")
+    return bool(snippet.strip()) and not remaining
+
+
 def get_judges():
     experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
     case = os.environ["TEST_CASE"]
@@ -42,7 +51,10 @@ def get_judges():
                 snippet = result["code"].strip()
                 assert "mlflow.log_metric" in snippet
                 ast.parse(snippet)
-                assert snippet in html.unescape(source), "Example was not copied from the cited source"
+                # Quickstarts split runnable examples across notebook cells; the
+                # Markdown renderer inserts blank lines. Require complete source
+                # blocks in order, allowing concatenation and blank-line changes.
+                assert copied_documentation_blocks(snippet, source), "Example includes undocumented code"
                 assert any(result["url"] in str(s.inputs) and "log_metric" in str(s.outputs) for s in trace.data.spans), "No source retrieval"
             else:
                 for name, content in expected["files"].items():

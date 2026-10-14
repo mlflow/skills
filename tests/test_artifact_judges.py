@@ -124,3 +124,38 @@ def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monke
     mlflow.set_trace_tag(trace_id, "environment", "staging")
     with pytest.raises(AssertionError):
         verify_outcome()
+
+
+def test_documentation_accepts_complete_cells_but_rejects_invented_code():
+    from judges.environment_behavior import copied_documentation_blocks
+
+    source = 'python\n```\nimport mlflow\n\n```\nNext cell\n```python\nmlflow.log_metric("loss", 1)\n```'
+    example = 'import mlflow\nmlflow.log_metric("loss", 1)'
+    assert copied_documentation_blocks(example, source)
+    assert not copied_documentation_blocks(example.replace('"loss"', '"invented"'), source)
+    assert not copied_documentation_blocks(example + '\nmlflow.log_metric("extra", 2)', source)
+    assert not copied_documentation_blocks('', source)
+
+
+def test_alignment_pairs_allow_provenance_but_reject_wrong_labels_and_splits(experiment, tmp_path, monkeypatch):
+    import json
+    from scripts.setup_evaluation_cases import seed_alignment
+    from judges.evaluation_behavior import verify_behavior
+
+    project = tmp_path / "project"
+    project.mkdir()
+    expected = {"case": "alignment"}
+    seed_alignment(project, expected, experiment.experiment_id)
+    monkeypatch.chdir(project)
+    outcome = dict(expected, criterion="total_correct", status="blocked", prerequisites=["embedding model"])
+    outcome["pairs"] = [dict(pair, source_id="order-expert") for pair in expected["pairs"]]
+    output = project / "outcome.json"
+    output.write_text(json.dumps(outcome))
+    assert verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
+    for key, wrong in [("label", not outcome["pairs"][0]["label"]), ("split", "holdout")]:
+        previous = outcome["pairs"][0][key]
+        outcome["pairs"][0][key] = wrong
+        output.write_text(json.dumps(outcome))
+        with pytest.raises(AssertionError):
+            verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
+        outcome["pairs"][0][key] = previous

@@ -193,7 +193,9 @@ def verify_behavior(expected, work, exp, start):
         assert len(pairs) == len(expected["pairs"]), (
             "Missing or duplicate alignment pairs"
         )
-        assert sorted(pairs, key=lambda p: p["trace_id"]) == sorted(
+        assert all(type(p["label"]) is bool for p in pairs), "Human labels must be boolean"
+        required_pairs = [{key: p[key] for key in ("trace_id", "label", "split")} for p in pairs]
+        assert sorted(required_pairs, key=lambda p: p["trace_id"]) == sorted(
             expected["pairs"], key=lambda p: p["trace_id"]
         ), "Wrong criterion labels or holdout contamination"
         datasets = search_datasets(experiment_ids=[exp])
