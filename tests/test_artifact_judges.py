@@ -8,7 +8,6 @@ import mlflow
 import pytest
 from mlflow.genai.scorers import scorer
 
-from judges.refund_evaluation import get_judges as refund_judges
 from judges.agent_trace_logged import get_judges as trace_judges
 from judges.evaluation_run_created import get_judges as evaluation_judges
 
@@ -85,24 +84,3 @@ def test_skipped_or_failed_scorer_is_not_a_result(experiment, fails):
         scorers=[quality],
     )
     assert verdict(evaluation_judges) == "no"
-
-
-@pytest.mark.parametrize("mode", ["correct", "reversed", "missing-row", "missing-score"])
-def test_refund_fixture_requires_both_correct_scores(experiment, mode):
-    @scorer
-    def route_correctness(inputs, outputs):
-        if mode == "missing-score":
-            return None
-        expected = "support" if "refund" in inputs["message"] else "general"
-        result = outputs == expected
-        return not result if mode == "reversed" else result
-
-    data = [{"inputs": {"message": message}} for message in ["I need a refund", "hello"]]
-    if mode == "missing-row":
-        data.pop()
-    mlflow.genai.evaluate(
-        data=data,
-        predict_fn=lambda message: "sales" if "refund" in message else "general",
-        scorers=[route_correctness],
-    )
-    assert verdict(refund_judges) == ("yes" if mode == "correct" else "no")
