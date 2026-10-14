@@ -1,237 +1,69 @@
-# MLflow Tracing - TypeScript Guide
+# TypeScript / JavaScript tracing
 
-## Contents
-- Quick Start
-- API Reference (Core APIs, Span Manipulation, Auto-Tracing Wrappers, Span Types)
-- Instrumentation Methods (Function Wrapper, Manual Spans)
-- User/Session Tracking
-- Combining Auto-Tracing with Custom Tracing
-- Common Issues
+## Initialize the actual destination
 
----
-
-## Quick Start
-
-### Install and Configure
-
-```bash
-npm install mlflow-tracing
-```
+Reuse the application's configuration. The core package is `mlflow-tracing` (`npm install mlflow-tracing` if missing). Call `init()` before any spans, with an actual experiment ID, not its name:
 
 ```typescript
 import * as mlflow from "mlflow-tracing";
-
-mlflow.init({
-    trackingUri: "http://localhost:5000",
-    experimentId: "my-agent",
-});
+mlflow.init({ trackingUri, experimentId });
 ```
 
-### Enable Tracing
+For Databricks, read [UC setup](databricks.md#typescript) first. Check the installed typings for `traceLocation`; UC requires a provisioned location and its exact catalog, schema and table prefix. Plain `trackingUri`/`experimentId` does not establish UC storage.
+
+## Capture application work
+
+The wrapper captures arguments and returned values, including async results. Adapt the existing function without changing behavior:
 
 ```typescript
-const myFunction = mlflow.trace(
-    (query: string) => {
-        // Your code here
-        return result;
-    },
-    { name: "my_function", spanType: mlflow.SpanType.CHAIN }
+const retrieveDocuments = mlflow.trace(
+  async (query: string) => searchIndex(query),
+  { name: "retrieve_documents", spanType: mlflow.SpanType.RETRIEVER },
 );
 ```
 
----
-
-## API Reference
-
-### Core Tracing APIs
+Use `withSpan` for dynamic names or code without a function boundary; explicitly record both inputs and outputs:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
-
-// Initialize (required before tracing)
-mlflow.init({
-    trackingUri: "http://localhost:5000",
-    experimentId: "my-experiment",
-});
-
-// Function wrapper - creates traced version of a function
-const tracedFn = mlflow.trace(
-    (arg: string) => { return result; },
-    { name: "my_function", spanType: mlflow.SpanType.CHAIN }
-);
-
-// Manual span - for dynamic names or non-function code
 const result = await mlflow.withSpan(
-    { name: "dynamic_span", spanType: mlflow.SpanType.TOOL },
-    async (span) => {
-        span.setInputs({ key: "value" });
-        const result = await doWork();
-        span.setOutputs({ result });
-        return result;
-    }
+  { name: "lookup", spanType: mlflow.SpanType.TOOL },
+  async (span) => {
+    span.setInputs({ query });
+    const result = await lookup(query);
+    span.setOutputs(result);
+    return result;
+  },
 );
-
-// Flush traces before process exit
-await mlflow.flushTraces();
 ```
 
-### Span Manipulation
+Keep actual retrieved content and tool results subject to privacy policy, rather than only counts. Explicit setters override wrapper capture. Useful span types include `AGENT`, `CHAIN`, `LLM`, `TOOL` and `RETRIEVER`; select by the operation's role.
+
+For OpenAI auto-tracing, `tracedOpenAI` comes from the separate `mlflow-openai` package:
 
 ```typescript
-// Get current active span (inside a traced function)
+import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+const openai = tracedOpenAI(new OpenAI());
+```
+
+Use that client in existing application code. An outer `mlflow.trace` may group custom retrieval and auto-traced model calls; do not duplicate spans for operations already covered by the integration.
+
+## Metadata, trace ID and flushing
+
+Within an active traced request:
+
+```typescript
+mlflow.updateCurrentTrace({
+  metadata: { "mlflow.trace.user": userId, "mlflow.trace.session": sessionId },
+});
 const span = mlflow.getCurrentActiveSpan();
 if (span) {
-    span.setInputs({ query });
-    span.setOutputs({ result });
-    span.setAttribute("model", "gpt-4o-mini");
+  traceId = span.traceId; // Save outside the callback for backend readback
 }
-
-// Update current trace metadata/tags
-mlflow.updateCurrentTrace({
-    tags: { environment: "production" },
-    metadata: {
-        "mlflow.trace.user": userId,
-        "mlflow.trace.session": sessionId,
-    },
-    requestPreview: "Custom request summary...",
-    responsePreview: "Custom response summary...",
-});
 ```
 
-### Auto-Tracing Wrappers
+Use real session identifiers. `requestPreview` / `responsePreview` in `updateCurrentTrace` affect display; `setInputs` / `setOutputs` change stored data. Avoid overriding already readable chat previews.
 
-```typescript
-import { tracedOpenAI } from "mlflow-openai";
-import { OpenAI } from "openai";
+After the request completes, `await mlflow.flushTraces()` before process exit. Flush is part of the [60-second readback budget](../SKILL.md#verify). Retrieve the saved trace with the configured backend's CLI/SDK (for example `mlflow traces get --trace-id <id>`), then inspect persisted application inputs, outputs and child spans. A successful flush alone is not proof of persistence.
 
-// Wrap OpenAI client - all calls auto-traced
-const openai = tracedOpenAI(new OpenAI());
-```
-
-### Span Types
-
-```typescript
-mlflow.SpanType.LLM        // LLM inference calls
-mlflow.SpanType.CHAIN      // Multi-step pipelines
-mlflow.SpanType.TOOL       // Tool/function calls
-mlflow.SpanType.AGENT      // Agent orchestration
-mlflow.SpanType.RETRIEVER  // Document retrieval
-mlflow.SpanType.EMBEDDING  // Embedding generation
-mlflow.SpanType.RERANKER   // Result reranking
-mlflow.SpanType.PARSER     // Output parsing
-mlflow.SpanType.UNKNOWN    // Default/other
-```
-
----
-
-## Instrumentation Methods
-
-### Method 1: Function Wrapper (Recommended)
-
-**Prefer wrapper over manual spans** - it auto-captures function name, inputs, and outputs.
-
-```typescript
-const retrieveDocuments = mlflow.trace(
-    (query: string): string[] => {
-        return documents;
-    },
-    { name: "retrieve_documents", spanType: mlflow.SpanType.RETRIEVER }
-);
-
-const searchDatabase = mlflow.trace(
-    (sql: string): Record<string, unknown> => {
-        return results;
-    },
-    { name: "search_database", spanType: mlflow.SpanType.TOOL }
-);
-```
-
-### Method 2: Manual Spans with withSpan
-
-Use when you can't use a function wrapper (dynamic span names, non-function code):
-
-```typescript
-const result = await mlflow.withSpan(
-    { name: `process_${itemId}` },
-    async (span) => {
-        span.setInputs({ query });
-        const result = await process(query);
-        span.setOutputs({ result });
-        return result;
-    }
-);
-```
-
----
-
-## User/Session Tracking
-
-For multi-turn applications, use standard metadata fields `mlflow.trace.user` and `mlflow.trace.session`.
-
-```typescript
-app.post('/chat', async (req, res) => {
-    const userId = req.header('X-User-ID') || 'anonymous';
-    const sessionId = req.header('X-Session-ID') || 'default';
-    const response = await chat(req.body.message, userId, sessionId);
-    res.json({ response });
-});
-
-const chat = mlflow.trace(
-    async (message: string, userId: string, sessionId: string) => {
-        await mlflow.updateCurrentTrace({
-            metadata: {
-                "mlflow.trace.user": userId,
-                "mlflow.trace.session": sessionId,
-            },
-        });
-        return response;
-    },
-    { name: "chat", spanType: mlflow.SpanType.CHAIN }
-);
-```
-
----
-
-## Combining Auto-Tracing with Custom Tracing
-
-```typescript
-import * as mlflow from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
-import { OpenAI } from "openai";
-
-// Wrap OpenAI client for auto-tracing
-const openai = tracedOpenAI(new OpenAI());
-
-const retrieveDocuments = mlflow.trace(
-    async (query: string): Promise<string[]> => {
-        // Your retrieval logic
-        return docs;
-    },
-    { name: "retrieve_documents", spanType: mlflow.SpanType.RETRIEVER }
-);
-
-const ragQuery = mlflow.trace(
-    async (question: string): Promise<string> => {
-        const docs = await retrieveDocuments(question);  // Custom traced function
-
-        const response = await openai.chat.completions.create({  // Auto-traced
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: formatPrompt(docs, question) }],
-        });
-
-        return response.choices[0].message.content || "";
-    },
-    { name: "rag_pipeline", spanType: mlflow.SpanType.CHAIN }
-);
-```
-
----
-
-## Common Issues
-
-**Traces not appearing?**
-1. Verify `mlflow.init()` is called with correct tracking URI
-2. Check experiment ID is set
-
-**Traces not sent before exit?**
-- Call `await mlflow.flushTraces()` before process exit to ensure all spans are sent
+For additional APIs use the TypeScript sections of [manual tracing](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/manual-tracing.md) and installed typings; do not substitute Python API names.
