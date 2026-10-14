@@ -8,7 +8,7 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use agent-evaluation and instrumenting-with-mlflow-tracing. Read README.md for
+  Use agent-evaluation. Reuse existing trace evidence. Read README.md for
   the approved task and criteria. Discover and reuse the existing MLflow dataset
   and registered scorers. Evaluate every precomputed output without rerunning the
   predictor, changing the stored records, or creating a replacement dataset.
@@ -20,5 +20,5 @@ keep_workdir: true
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
-  EXPECTED_SKILLS: agent-evaluation,instrumenting-with-mlflow-tracing
+  EXPECTED_SKILLS: agent-evaluation
   EVALUATION_CASE: precomputed
