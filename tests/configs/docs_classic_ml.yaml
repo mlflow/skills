@@ -1,0 +1,17 @@
+name: docs_classic_ml
+project_dir: agent
+setup_script: tests/scripts/setup_environment_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/environment_behavior.py
+skills:
+  - searching-mlflow-docs
+prompt: >-
+  Use searching-mlflow-docs to find the official MLflow documentation for logging metrics in traditional ML experiment tracking. Save docs.json with url (the official Markdown source actually fetched) and code (one complete verbatim runnable Python example including mlflow.log_metric). No questions.
+timeout_seconds: 600
+mlflow_port: 32983
+environment:
+  TEST_CASE: docs
+  EXPECTED_SKILLS: searching-mlflow-docs
+  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
+  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"

@@ -57,6 +57,18 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
 
     state.log_file = state.work_dir / "claude_output.log"
 
+    inventory = {}
+    for name, command in {
+        "plugins": ["claude", "plugin", "list"],
+        "mcp": ["claude", "mcp", "list"],
+        "claude_version": ["claude", "--version"],
+        "source_commit": ["git", "rev-parse", "HEAD"],
+    }.items():
+        result = run_command(command, cwd=state.full_project_dir if name != "source_commit" else state.repo_root,
+                             env=claude_env(), check=False, timeout=30)
+        inventory[name] = {"exit_code": result.returncode, "output": result.stdout.strip()}
+    (state.work_dir / "environment.json").write_text(json.dumps(inventory, indent=2) + "\n")
+
     # Record start time so verify_judges can filter out pre-existing traces
     state.run_start_timestamp_ms = int(time.time() * 1000)
 
@@ -78,6 +90,12 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
                     "claude",
                     "-p",
                     config.prompt,
+                    "--append-system-prompt",
+                    f"Application tracking URI: {os.environ['MLFLOW_TRACKING_URI']}. "
+                    f"Application experiment ID: {state.experiment_id}. "
+                    "Use these defaults unless the task explicitly specifies another connection. Claude's own "
+                    "tracing settings use a separate experiment, not the application's. "
+                    "Use the installed MLflow skills relevant to the requested task.",
                     "--dangerously-skip-permissions",
                     "--allowedTools",
                     config.allowed_tools,
@@ -126,6 +144,8 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
         "CC_EXPERIMENT_ID": state.cc_tracing_experiment_id,
         "MLFLOW_EXPERIMENT_ID": state.experiment_id,
         "RUN_START_MS": str(state.run_start_timestamp_ms),
+        "TEST_WORK_DIR": str(state.work_dir),
+        "PYTHONPATH": str(state.full_project_dir) + os.pathsep + os.environ.get("PYTHONPATH", ""),
     }
 
     try:
@@ -166,6 +186,8 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
     if isinstance(data, dict) and "error" in data:
         log.error(data["error"])
         return False
+
+    (state.work_dir / "verification.json").write_text(json.dumps(data, indent=2) + "\n")
 
     # Report results
     log.info("Judge Results:")

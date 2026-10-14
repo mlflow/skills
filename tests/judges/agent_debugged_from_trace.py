@@ -18,7 +18,7 @@ def _is_claude_session_trace(trace) -> bool:
 def _routing_results() -> list[tuple[int, str, str]]:
     run_start_ms = int(os.environ["RUN_START_MS"])
     traces = mlflow.search_traces(
-        locations=[os.environ["CC_EXPERIMENT_ID"]],
+        locations=[os.environ["MLFLOW_EXPERIMENT_ID"]],
         filter_string=f"trace.timestamp_ms > {run_start_ms}",
         return_type="list",
     )
@@ -48,6 +48,7 @@ def get_judges() -> list:
             "rationale."
         ),
         feedback_value_type=Literal["yes", "no"],
+            **({"model": os.environ["JUDGE_MODEL"]} if os.environ.get("JUDGE_MODEL") else {}),
         generate_rationale_first=True,
     )
 

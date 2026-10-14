@@ -1,0 +1,23 @@
+name: sagemaker_prerequisites
+project_dir: agent
+setup_script: tests/scripts/setup_environment_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/environment_behavior.py
+skills:
+  - sagemaker-mlflow
+prompt: >-
+  Use sagemaker-mlflow to validate prerequisites for arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example. Check the installed plugin and credentials before connecting; do not install packages or acquire credentials. Write connection.json with status and reason. Do not change the existing project. No questions.
+timeout_seconds: 600
+mlflow_port: 32982
+environment:
+  TEST_CASE: sagemaker_missing
+  EXPECTED_SKILLS: sagemaker-mlflow
+  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
+  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_CONFIG_FILE: /dev/null
+  AWS_SHARED_CREDENTIALS_FILE: /dev/null
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_SESSION_TOKEN: ""

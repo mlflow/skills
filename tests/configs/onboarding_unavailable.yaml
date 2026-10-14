@@ -1,0 +1,17 @@
+name: onboarding_unavailable
+project_dir: agent
+setup_script: tests/scripts/setup_environment_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/environment_behavior.py
+skills:
+  - mlflow-onboarding
+prompt: >-
+  Use mlflow-onboarding to check connectivity using backend.json. Report the actual readiness and blocker in connection.json as status and reason. Do not switch backend, create experiments, or edit project configuration. No questions.
+timeout_seconds: 600
+mlflow_port: 32981
+environment:
+  TEST_CASE: unavailable_backend
+  EXPECTED_SKILLS: mlflow-onboarding
+  MLFLOW_HTTP_REQUEST_TIMEOUT: "2"
+  MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"

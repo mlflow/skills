@@ -1,25 +1,15 @@
-name: "tracing-test"
-project_dir: mlflow-agent
-
+name: tracing_test
+project_dir: agent
 setup_script: tests/scripts/setup_tracing_test.py
 judges:
-  - tests/judges/tracing_skill_invoked.py
-  - tests/judges/agent_ran_code.py
-  - tests/judges/agent_trace_logged.py
-
+  - tests/judges/skill_usage.py
+  - tests/judges/instrumentation_behavior.py
 skills:
   - instrumenting-with-mlflow-tracing
-
-prompt: "Enable tracing on the agent, then run the agent to verify that traces are being logged. Do not ask for input."
-timeout_seconds: 900
-allowed_tools: "Bash,Read,Write,Edit,Grep,Glob,WebFetch"
-
+prompt: >-
+  Use instrumenting-with-mlflow-tracing to add tracing to agent.py. Preserve its behavior, run it, flush and retrieve the resulting application traces to verify their recorded inputs and outputs. No questions.
+timeout_seconds: 600
 mlflow_port: 32939
-tracking_uri: null
-
-test_runs_dir: /tmp
-keep_workdir: true
-
 environment:
-  REPO_URL: ""
-  OPENAI_API_KEY: ""
+  TEST_CASE: python
+  EXPECTED_SKILLS: instrumenting-with-mlflow-tracing

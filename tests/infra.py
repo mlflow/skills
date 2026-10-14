@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -317,6 +318,11 @@ def install_skills(config: TestConfig, state: RuntimeState) -> bool:
         shutil.copytree(src, dst)
         log.info(f"Installed skill: {skill_name} -> {dst}")
 
+    inventory = {
+        str(p.relative_to(skills_dir)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(skills_dir.rglob("*")) if p.is_file()
+    }
+    (state.work_dir / "skill-inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
     return True
 
 
