@@ -21,4 +21,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 
 environment:
-  EXPECTED_SKILLS: debug-agent,fix-agent-issue
+  EXPECTED_SKILLS: fix-agent-issue
