@@ -197,7 +197,7 @@ uv run --with mlflow --with litellm --with pytest --with langgraph --with langch
 
 | Skill/workflow | Scenarios | Observable checks |
 |---|---|---|
-| Onboarding | `onboarding_existing`, `onboarding_unavailable` | Reuse configuration and experiment; persist smoke trace; report a real connection failure without resetting setup |
+| Onboarding | `onboarding_existing`, `onboarding_unavailable`, `onboarding_classic_ml` | Reuse configuration and experiment; persist smoke trace; report a real connection failure without resetting setup; reload an actual sklearn model and verify held-out predictions |
 | Dispatcher | `dispatcher_scorer` | Load the dispatcher and scorer skill; execute a scorer against held-out empty/missing/null/valid answers |
 | Documentation | `docs_classic_ml` | Fetch official Markdown docs; cite a real executable classic-ML example |
 | SageMaker | `sagemaker_prerequisites` | Execute prerequisite checks; stop when plugin/credentials are missing |

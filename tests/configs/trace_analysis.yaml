@@ -7,7 +7,7 @@ judges:
 skills:
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
-prompt: Use analyze-mlflow-trace. Use retrieving-mlflow-traces. Read task.json for the investigation scope.
+prompt: Use analyze-mlflow-trace. Read task.json for the investigation scope.
   Investigate task.json.trace_id. Identify the failing child span and the concrete root cause using its
   inputs and status, distinguishing it from the parent error and successful spans. Write outcome.json
   with trace_id, failing_span_id, root_cause (tool_timeout, retrieval_error, or generation_error), order_id,
@@ -21,4 +21,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 environment:
   TEST_CASE: trace_analysis
-  EXPECTED_SKILLS: analyze-mlflow-trace,retrieving-mlflow-traces
+  EXPECTED_SKILLS: analyze-mlflow-trace

@@ -49,7 +49,24 @@ def get_judges():
                     assert Path(name).read_text() == content, f"Unexpected change to {name}"
                 now = {e.experiment_id for e in mlflow.MlflowClient().search_experiments()}
                 assert now == set(expected["experiment_ids"]), "Created an unnecessary experiment"
-                if case == "existing_backend":
+                if case == "classic_ml":
+                    import numpy as np
+                    runs = mlflow.search_runs(experiment_ids=[experiment_id],
+                        filter_string=f"attributes.start_time >= {os.environ['RUN_START_MS']}",
+                        output_format="list")
+                    candidates = [r for r in runs if r.info.status == "FINISHED"
+                                  and abs(r.data.metrics.get("mse", -1)) < 1e-10
+                                  and r.data.params.get("fit_intercept", "").lower() == "true"]
+                    assert candidates, "No finished training run with exact metric and parameter"
+                    models = mlflow.search_logged_models(experiment_ids=[experiment_id], output_format="list")
+                    verified = False
+                    for model in models:
+                        if model.source_run_id in {r.info.run_id for r in candidates}:
+                            loaded = mlflow.sklearn.load_model(model.model_uri)
+                            np.testing.assert_allclose(loaded.predict([[5], [9]]), [11, 19])
+                            verified = True
+                    assert verified, "No loadable logged sklearn model with correct held-out predictions"
+                elif case == "existing_backend":
                     traces = mlflow.search_traces(
                         experiment_ids=[experiment_id],
                         filter_string=f"trace.timestamp_ms >= {os.environ['RUN_START_MS']}", return_type="list",

@@ -91,7 +91,7 @@ def seed_model_suite(project, expected):
             [True, True, True],
         ),
         (
-            "How can I dispute a duplicate charge?",
+            "Will this duplicate charge be refunded?",
             "Your money is guaranteed to be back tomorrow, without review.",
             [True, True, False],
         ),

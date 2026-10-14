@@ -8,7 +8,7 @@ skills:
 - debug-agent
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
-prompt: 'Use debug-agent. Use analyze-mlflow-trace. Use retrieving-mlflow-traces. Read task.json for the
+prompt: 'Use debug-agent. Read task.json for the
   investigation scope. Diagnose why the order lookup failed using the existing task.json.trace_id. This
   is diagnosis only: read the matching MLflow trace and correlate with agent.py, leave source unchanged,
   do not rerun the application, and do not create tests, scorers, or evaluation runs. Write outcome.json
@@ -24,4 +24,4 @@ test_runs_dir: /tmp
 keep_workdir: true
 environment:
   TEST_CASE: diagnosis_only
-  EXPECTED_SKILLS: debug-agent,analyze-mlflow-trace,retrieving-mlflow-traces
+  EXPECTED_SKILLS: debug-agent,analyze-mlflow-trace

@@ -37,3 +37,15 @@ manifest = {
     "experiment_ids": [e.experiment_id for e in mlflow.MlflowClient().search_experiments()],
 }
 (Path(os.environ["WORK_DIR"]) / "environment_expected.json").write_text(json.dumps(manifest))
+
+if case == "classic_ml":
+    (project / "agent.py").unlink()
+    manifest["files"].pop("agent.py")
+    (project / "train.py").write_text(
+        "from sklearn.linear_model import LinearRegression\n"
+        "from sklearn.metrics import mean_squared_error\n"
+        "x = [[1], [2], [3], [4]]\ny = [3, 5, 7, 9]\n"
+        "model = LinearRegression().fit(x, y)\n"
+        "print(mean_squared_error(y, model.predict(x)))\n"
+    )
+    (Path(os.environ["WORK_DIR"]) / "environment_expected.json").write_text(json.dumps(manifest))

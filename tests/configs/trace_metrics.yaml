@@ -19,7 +19,7 @@ prompt: Use querying-mlflow-metrics. Use retrieving-mlflow-traces. Read task.jso
   not prove native metrics endpoint coverage.
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
-mlflow_port: 32973
+mlflow_port: 32987
 tracking_uri: null
 test_runs_dir: /tmp
 keep_workdir: true

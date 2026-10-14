@@ -49,7 +49,7 @@ def get_judges() -> list:
             "rationale."
         ),
         feedback_value_type=Literal["yes", "no"],
-            **({"model": os.environ["JUDGE_MODEL"]} if os.environ.get("JUDGE_MODEL") else {}),
+        **({"model": os.environ["JUDGE_MODEL"]} if os.environ.get("JUDGE_MODEL") else {}),
         generate_rationale_first=True,
     )
 
