@@ -1,0 +1,20 @@
+name: agent-evaluation-local
+project_dir: agent
+setup_script: tests/scripts/setup_agent_debug_trace_first.py
+judges:
+  - tests/judges/evaluation_run_created.py
+  - tests/judges/agent_trace_logged.py
+  - tests/judges/refund_evaluation.py
+skills:
+  - agent-evaluation
+  - build-a-scorer
+  - instrumenting-with-mlflow-tracing
+prompt: >-
+  Evaluate agent.route_request with MLflow using the configured tracking URI and
+  experiment. Do not change the agent or reconfigure the backend. Use these two
+  cases: "I need a refund" should return "support", and "hello" should return
+  "general". Use a deterministic equality scorer, not an LLM judge. Run a small
+  evaluation and report the actual scores and run ID. Do not ask for input.
+timeout_seconds: 600
+mlflow_port: 32948
+keep_workdir: true
