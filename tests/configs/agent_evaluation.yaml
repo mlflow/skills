@@ -8,8 +8,8 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use agent-evaluation and instrumenting-with-mlflow-tracing to evaluate this agent's
-  output quality. Read README.md for the approved purpose and criteria. Use native
+  Use agent-evaluation to evaluate this agent's output quality. Reuse working
+  tracing. Read README.md for the approved purpose and criteria. Use native
   MLflow datasets, registered scorers, and evaluation. Run the dry run before full
   evaluation, retain row-level outputs and scores, and report failures honestly.
   Do not ask for input. If this is an external repository, preserve its configured
@@ -22,5 +22,5 @@ keep_workdir: true
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
-  EXPECTED_SKILLS: agent-evaluation,instrumenting-with-mlflow-tracing
+  EXPECTED_SKILLS: agent-evaluation
   EVALUATION_CASE: nested
