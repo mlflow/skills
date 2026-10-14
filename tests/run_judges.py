@@ -44,7 +44,8 @@ for i, module_path in enumerate(judge_paths):
     spec = importlib.util.spec_from_file_location(f"judges_{i}", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    judges.extend(module.get_judges())
+    with contextlib.redirect_stdout(sys.stderr):
+        judges.extend(module.get_judges())
 
 log.info(f"Loaded {len(judges)} judge(s)")
 if not judges:

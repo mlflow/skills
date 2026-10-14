@@ -1,0 +1,28 @@
+name: trace-metrics
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- querying-mlflow-metrics
+- retrieving-mlflow-traces
+prompt: Use querying-mlflow-metrics. Use retrieving-mlflow-traces. Read task.json for the investigation
+  scope. Compute metrics across ALL application traces in the inclusive task.json start_time_ms/end_time_ms
+  window, without filtering session, status, or environment. Use the skill's real metrics endpoint first.
+  If this local server does not implement that endpoint, report its actual HTTP status, then aggregate
+  real trace records through MLflow search/get APIs; never fabricate a successful metrics response. Authentication,
+  connection, and server errors are blockers, not evidence of unsupported capabilities. Write outcome.json
+  with trace_count, error_count, input_tokens, output_tokens, total_tokens, avg_total_tokens, metrics_endpoint_http_status
+  (integer), aggregation_method (metrics_endpoint or search_traces_fallback). Explain whether native metrics
+  or a trace-readback fallback was verified. The fallback is allowed for this local-server case; it does
+  not prove native metrics endpoint coverage.
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+mlflow_port: 32987
+tracking_uri: null
+test_runs_dir: /tmp
+keep_workdir: true
+environment:
+  TEST_CASE: trace_metrics
+  EXPECTED_SKILLS: querying-mlflow-metrics,retrieving-mlflow-traces

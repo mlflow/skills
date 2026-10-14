@@ -84,3 +84,43 @@ def test_skipped_or_failed_scorer_is_not_a_result(experiment, fails):
         scorers=[quality],
     )
     assert verdict(evaluation_judges) == "no"
+
+
+@pytest.mark.parametrize("case", ["trace_retrieval", "trace_analysis", "session_analysis", "diagnosis_only"])
+def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monkeypatch, case):
+    import json
+    from scripts.setup_trace_cases import main as seed
+    from judges.trace_behavior import verify_outcome
+
+    project = tmp_path / "project"
+    monkeypatch.setenv("PROJECT_DIR", str(project))
+    monkeypatch.setenv("WORK_DIR", str(tmp_path))
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    monkeypatch.setenv("TEST_CASE", case)
+    seed()
+    monkeypatch.chdir(project)
+    manifest = json.loads((tmp_path / "trace_case_manifest.json").read_text())
+    expected = manifest["expected"]
+    if case == "trace_retrieval":
+        # The unrelated chat session still matches the requested status/tag/time
+        # filter. This assertion catches the original two-result false negative.
+        assert len(expected["trace_ids"]) == 3
+        assert manifest["records"]["unrelated_session"]["trace_id"] in expected["trace_ids"]
+    output = project / "outcome.json"
+    output.write_text(json.dumps(expected))
+    assert verify_outcome()
+    for key in ("failing_span_id", "root_cause_span_id"):
+        if key in expected:
+            import base64
+            encoded = dict(expected, **{key: base64.b64encode(bytes.fromhex(expected[key])).decode()})
+            output.write_text(json.dumps(encoded))
+            assert verify_outcome()
+    output.write_text("{}")
+    with pytest.raises(AssertionError):
+        verify_outcome()
+    output.write_text(json.dumps(expected))
+    # Even a copied correct answer must fail if the underlying evidence changed.
+    trace_id = manifest["records"]["timeout"]["trace_id"]
+    mlflow.set_trace_tag(trace_id, "environment", "staging")
+    with pytest.raises(AssertionError):
+        verify_outcome()

@@ -1,0 +1,24 @@
+name: scorer-deterministic-quality-suite
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - build-a-scorer
+prompt: >-
+  Use build-a-scorer. Read README.md: the user has already confirmed the purpose,
+  all three atomic criteria, implementation choice, edge verdicts, and output
+  contract. Implement quality_suite.py with get_scorers() returning the agreed
+  native deterministic scorers and include a runnable native MLflow evaluate
+  example. Do not ask another confirmation question. Hand off evaluation as the
+  skill instructs; the caller will validate the suite on held-out cases.
+timeout_seconds: 600
+mlflow_port: 32963
+tracking_uri: null
+keep_workdir: true
+environment:
+  MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
+  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
+  EXPECTED_SKILLS: build-a-scorer
+  EVALUATION_CASE: suite

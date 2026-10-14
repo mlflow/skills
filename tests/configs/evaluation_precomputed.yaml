@@ -1,0 +1,24 @@
+name: evaluation-existing-precomputed
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - agent-evaluation
+  - instrumenting-with-mlflow-tracing
+prompt: >-
+  Use agent-evaluation and instrumenting-with-mlflow-tracing. Read README.md for
+  the approved task and criteria. Discover and reuse the existing MLflow dataset
+  and registered scorers. Evaluate every precomputed output without rerunning the
+  predictor, changing the stored records, or creating a replacement dataset.
+  Keep row-level scores and report the failures. Do not ask for input.
+timeout_seconds: 600
+mlflow_port: 32961
+tracking_uri: null
+keep_workdir: true
+environment:
+  MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
+  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
+  EXPECTED_SKILLS: agent-evaluation,instrumenting-with-mlflow-tracing
+  EVALUATION_CASE: precomputed

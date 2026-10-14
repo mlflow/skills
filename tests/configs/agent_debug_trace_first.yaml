@@ -3,6 +3,7 @@ project_dir: routing-agent
 
 setup_script: tests/scripts/setup_agent_debug_trace_first.py
 judges:
+  - tests/judges/skill_usage.py
   - tests/judges/agent_debugged_from_trace.py
 
 skills:
@@ -18,3 +19,6 @@ tracking_uri: null
 
 test_runs_dir: /tmp
 keep_workdir: true
+
+environment:
+  EXPECTED_SKILLS: debug-agent,fix-agent-issue

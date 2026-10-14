@@ -1,0 +1,27 @@
+name: diagnosis-only
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- debug-agent
+- analyze-mlflow-trace
+- retrieving-mlflow-traces
+prompt: 'Use debug-agent. Read task.json for the
+  investigation scope. Diagnose why the order lookup failed using the existing task.json.trace_id. This
+  is diagnosis only: read the matching MLflow trace and correlate with agent.py, leave source unchanged,
+  do not rerun the application, and do not create tests, scorers, or evaluation runs. Write outcome.json
+  with trace_id, failing_span_id, root_cause (tool_timeout, retrieval_error, or generation_error), order_id,
+  timeout_ms, service_latency_ms, source_file (relative path). Report observed versus expected behavior,
+  trace evidence, confidence, and the smallest likely fix in the final response, without implementing
+  it.'
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+mlflow_port: 32974
+tracking_uri: null
+test_runs_dir: /tmp
+keep_workdir: true
+environment:
+  TEST_CASE: diagnosis_only
+  EXPECTED_SKILLS: debug-agent,analyze-mlflow-trace

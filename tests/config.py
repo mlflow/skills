@@ -33,7 +33,7 @@ class TestConfig:
     prompt: str
     timeout_seconds: int = 900
     verification_timeout: int = 300
-    allowed_tools: str = "Bash,Read,Write,Edit,Grep,Glob,WebFetch"
+    allowed_tools: str = "Skill,Bash,Read,Write,Edit,Grep,Glob,WebFetch"
     mlflow_port: int = 5000
     tracking_uri: Optional[str] = None
     test_runs_dir: Path = field(default_factory=lambda: Path("/tmp"))

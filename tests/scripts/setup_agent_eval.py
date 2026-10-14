@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 import subprocess
 
 
 def main() -> None:
-    repo_url = os.environ["REPO_URL"]
-    project_dir = os.environ["PROJECT_DIR"]
+    # Keep the original external-project path; no model/config substitutions.
+    repo_url = os.environ.get("REPO_URL", "")
+    if repo_url:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", repo_url, os.environ["PROJECT_DIR"]],
+            check=True,
+        )
+        (Path(os.environ["WORK_DIR"]) / "evaluation_expected.json").write_text(
+            json.dumps({"case": "external"})
+        )
+    else:
+        from setup_evaluation_cases import main as setup
 
-    subprocess.run(
-        ["git", "clone", "--depth", "1", repo_url, project_dir],
-        check=True,
-    )
+        setup()
 
 
 if __name__ == "__main__":
