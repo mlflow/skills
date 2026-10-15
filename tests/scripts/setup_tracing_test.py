@@ -6,7 +6,10 @@ from pathlib import Path
 project = Path(os.environ["PROJECT_DIR"])
 project.mkdir(parents=True, exist_ok=True)
 if os.environ.get("REPO_URL"):
-    subprocess.run(["git", "clone", os.environ["REPO_URL"], str(project)], check=True)
+    subprocess.run(
+        ["git", "clone", "--depth", "1", os.environ["REPO_URL"], str(project)],
+        check=True, timeout=120,
+    )
 elif os.environ.get("TEST_CASE") == "typescript":
     (project / "agent.ts").write_text('''function normalize(message: string): string {
     return message.toLowerCase();

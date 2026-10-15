@@ -8,21 +8,7 @@ import mlflow
 import pytest
 from mlflow.genai.scorers import scorer
 
-from judges.agent_trace_logged import get_judges as trace_judges
 from judges.evaluation_run_created import get_judges as evaluation_judges
-
-
-@pytest.fixture
-def experiment(tmp_path, monkeypatch):
-    previous_uri = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
-    experiment_id = mlflow.create_experiment("application", artifact_location=str(tmp_path / "artifacts"))
-    experiment = mlflow.set_experiment(experiment_id=experiment_id)
-    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment.experiment_id)
-    monkeypatch.setenv("RUN_START_MS", str(int(time.time() * 1000)))
-    yield experiment
-    mlflow.end_run()
-    mlflow.set_tracking_uri(previous_uri)
 
 
 def verdict(factory):
@@ -31,7 +17,6 @@ def verdict(factory):
 
 
 def test_empty_experiment(experiment):
-    assert verdict(trace_judges) == "no"
     assert verdict(evaluation_judges) == "no"
 
 
@@ -39,18 +24,6 @@ def test_plain_run_with_unrelated_metric(experiment):
     with mlflow.start_run():
         mlflow.log_metric("accuracy", 1)
     assert verdict(evaluation_judges) == "no"
-
-
-def test_trace_requires_data_and_current_attempt(experiment, monkeypatch):
-    with mlflow.start_span(name="empty"):
-        pass
-    assert verdict(trace_judges) == "no"
-    with mlflow.start_span(name="application") as span:
-        span.set_inputs({"question": "hello"})
-        span.set_outputs({"answer": "hello"})
-    assert verdict(trace_judges) == "yes"
-    monkeypatch.setenv("RUN_START_MS", str(int(time.time() * 1000) + 1))
-    assert verdict(trace_judges) == "no"
 
 
 @pytest.mark.parametrize("score", [0, False, 1, True])
@@ -65,7 +38,6 @@ def test_real_evaluation_accepts_zero_and_false(experiment, monkeypatch, score):
         scorers=[quality],
     )
     assert verdict(evaluation_judges) == "yes"
-    assert verdict(trace_judges) == "yes"
     monkeypatch.setenv("RUN_START_MS", str(int(time.time() * 1000) + 1))
     assert verdict(evaluation_judges) == "no"
 
@@ -240,3 +212,31 @@ def test_skill_use_survives_compaction_without_accepting_wrong_or_failed_calls(
         mlflow.update_current_trace(metadata={"mlflow.trace.session": "current"})
     mlflow.flush_trace_async_logging()
     assert get_judges()[0](trace=mlflow.get_trace(trace_id)).value == want
+
+
+def test_optional_inventory_timeout_does_not_abort_participant(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    from types import SimpleNamespace
+    import test_skill
+
+    def inventory(command, **kwargs):
+        if command[1:3] == ["mcp", "list"]:
+            raise subprocess.TimeoutExpired(command, 30)
+        return subprocess.CompletedProcess(command, 0, stdout="available")
+
+    executions = []
+    def participant(command, **kwargs):
+        executions.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(test_skill, "run_command", inventory)
+    monkeypatch.setattr(test_skill.subprocess, "run", participant)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:1")
+    state = SimpleNamespace(work_dir=tmp_path, full_project_dir=tmp_path, repo_root=tmp_path,
+                            experiment_id="1")
+    config = SimpleNamespace(prompt="test", timeout_seconds=1, allowed_tools="Skill")
+    assert test_skill.run_claude_code(config, state)
+    assert len(executions) == 1 and executions[0][:2] == ["claude", "-p"]
+    recorded = json.loads((tmp_path / "environment.json").read_text())
+    assert recorded["mcp"]["error"] == "Inventory command timed out after 30 seconds"

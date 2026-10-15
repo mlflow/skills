@@ -186,30 +186,30 @@ We welcome contributions! Here's how to help:
 
 ### Testing skill behavior
 
-The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks both a successful skill read and an observable task outcome. Merely mentioning an API or reporting success does not pass.
+The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks a successful native skill invocation or complete skill read, plus an observable task outcome. Explicitly named skills test execution after selection, not automatic skill discovery. Merely mentioning an API or reporting success does not pass.
 
-Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
+Validated with MLflow 3.17.1. Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
 
 ```sh
-uv run --with mlflow --with litellm --with pytest --with langgraph --with langchain-core \
+uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
   python tests/test_skill.py tests/configs/agent_evaluation.yaml
 ```
 
 | Skill/workflow | Scenarios | Observable checks |
 |---|---|---|
 | Onboarding | `onboarding_existing`, `onboarding_unavailable`, `onboarding_classic_ml` | Reuse configuration and experiment; persist smoke trace; report a real connection failure without resetting setup; reload an actual sklearn model and verify held-out predictions |
-| Dispatcher | `dispatcher_scorer` | Load the dispatcher and scorer skill; execute a scorer against held-out empty/missing/null/valid answers |
-| Documentation | `docs_classic_ml` | Fetch official Markdown docs; cite a real executable classic-ML example |
+| Dispatcher | `dispatcher_scorer` | Load the dispatcher and scorer skill; execute a native scorer against held-out empty/missing/null/valid answers |
+| Documentation | `docs_classic_ml` | Fetch official Markdown docs; verify the provenance and syntax of a classic-ML example |
 | SageMaker | `sagemaker_prerequisites` | Execute prerequisite checks; stop when plugin/credentials are missing |
-| Instrumentation | `tracing_test`, `tracing_typescript`, `langgraph_autolog_guidance` | Persist exact Python/TypeScript inputs and outputs; real graph/tool/model spans without redundant tracing |
+| Instrumentation | `tracing_test`, `tracing_typescript`, `langgraph_autolog_guidance` | Rerun the delivered entrypoint and require fresh Python/TypeScript inputs and outputs; native graph/model spans without redundant tracing |
 | Trace retrieval | `trace_retrieval` | Exact matching IDs amid time, status and tag distractors |
 | Single-trace diagnosis | `trace_analysis` | Identify the actual failing child span and its timeout inputs |
 | Session diagnosis | `session_analysis` | Ordered turns, first incorrect answer, propagation, evidence, and failed-scorer exclusion |
 | Aggregate metrics | `trace_metrics` | Exact counts and token sums from the real metrics endpoint; distinguish unsupported endpoints from other failures |
 | Diagnosis versus repair | `diagnosis_only`, `agent_debug_trace_first` | Diagnosis preserves source; repair follows trace evidence and verifies refund/general routing |
-| Evaluation | `agent_evaluation`, `evaluation_precomputed`, `evaluation_dry_run` | Nested predictor kwargs; exact six-row scores and mean; reuse dataset/scorer; never rerun precomputed outputs; stop after failed dry run |
+| Evaluation | `agent_evaluation`, `evaluation_precomputed`, `evaluation_dry_run` | Nested predictor kwargs; exact six-row scores and mean; reuse dataset/scorer; never rerun precomputed outputs; verify a scored dry run precedes full evaluation; stop after a failed three-row dry run |
 | Scorer design | `scorer_deterministic_suite`, `scorer_model_criteria` | Execute independent criteria on private malformed/near-miss cases; code, built-in and domain judges; preserve model selection |
-| Judge alignment | `scorer_label_alignment`, `scorer_memalign` | Criterion-specific human labels and train/holdout splits; missing-provider blocker; real MemAlign plus private held-out agreement |
+| Judge alignment | `scorer_label_alignment`, `scorer_memalign` | Criterion-specific human labels and train/holdout splits; missing-provider blocker; saved native MemAlign training IDs, participant holdout comparison, and separate verifier holdouts |
 
 Model-backed scenarios require working provider credentials. Set `TEST_JUDGE_MODEL` for `scorer_model_criteria`; for `scorer_memalign`, also set `TEST_EMBEDDING_MODEL` and add `--with dspy`. The repair scenario's existing LLM judge accepts `JUDGE_MODEL`. No credentials or private endpoint names belong in scenario files. Each run retains `environment.json`, `skill-inventory.json`, `verification.json`, participant transcripts, generated files, and the local MLflow store in its printed work directory. Setup failures and skill failures both return nonzero, with different exit codes.
 
@@ -220,7 +220,7 @@ for config in tests/configs/*.yaml; do
   case "$config" in
     *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*) continue ;;
   esac
-  uv run --with mlflow --with litellm --with pytest --with langgraph --with langchain-core \
+  uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
     python tests/test_skill.py "$config" || exit 1
 done
 ```
@@ -228,10 +228,11 @@ done
 Supporting verifier regression checks run without Claude or model calls:
 
 ```sh
-uv run --with mlflow --with pytest pytest -q tests/test_artifact_judges.py
+uv run --with mlflow==3.17.1 --with pytest --with langgraph --with langchain-core --with dspy \
+  pytest -q tests/test_*judges.py
 ```
 
-These scenarios are behavioral regression coverage, not a claim of exhaustive platform coverage or a baseline-versus-treatment comparison. Live SageMaker connection, Databricks UC storage/Review App/online monitoring, GEPA prompt optimization, distributed tracing, and every supported framework still require dedicated environments and scenarios. A successful local run does not verify those integrations. The repository currently has no CI workflow that launches the paid Claude scenarios automatically.
+Expected answers are stored outside the project but remain accessible on the same machine; this is not an adversarial sandbox. Investigation grading also requires observed MLflow retrieval. These scenarios are behavioral regression coverage, not a claim of exhaustive platform coverage or a baseline-versus-treatment comparison. Live SageMaker connection, Databricks UC storage/Review App/online monitoring, GEPA prompt optimization, distributed tracing, and every supported framework still require dedicated environments and scenarios. A successful local run does not verify those integrations. The repository currently has no CI workflow that launches the paid Claude scenarios automatically.
 
 ### Creating a New Skill
 

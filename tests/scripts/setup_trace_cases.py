@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Seed real MLflow traces; keep the answer manifest outside the participant project."""
+"""Seed real MLflow traces. The answer manifest is separate, but participant-accessible."""
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -13,6 +14,10 @@ from urllib.request import Request, urlopen
 
 import mlflow
 from mlflow.entities import AssessmentError, SpanStatus, SpanStatusCode
+
+# Setup scripts run directly, with only scripts/ on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from judges.trace_behavior import diagnosis_state
 
 SOURCE = '''import mlflow
 
@@ -132,7 +137,7 @@ def main():
                         error=AssessmentError("JUDGE_TIMEOUT", "Evaluator timed out; not an application failure"))
     end_ms = int(time.time() * 1000) + 1
 
-    # Independent private snapshots let judges detect fabricated IDs and changed evidence.
+    # Seed snapshots detect fabricated IDs and changed evidence; they are not a security boundary.
     snapshots = {}
     for row in records.values():
         trace = mlflow.get_trace(row["trace_id"])
@@ -183,6 +188,8 @@ def main():
                 "start_ms": start_ms, "end_ms": end_ms, "records": records,
                 "snapshots": snapshots, "expected": expected[case],
                 "source_sha256": hashlib.sha256(SOURCE.encode()).hexdigest()}
+    if case == "diagnosis_only":
+        manifest["diagnosis_state"] = diagnosis_state(experiment_id, project)
     if case == "trace_metrics":
         manifest["metrics_probe"] = metrics_probe(mlflow.get_tracking_uri(), experiment_id, start_ms, end_ms)
         print("Real metrics endpoint HTTP status:", manifest["metrics_probe"]["http_status"])

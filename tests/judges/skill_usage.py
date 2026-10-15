@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 
 import yaml
@@ -39,6 +40,25 @@ def tool_calls(trace):
                                item.get("is_error", False))
 
 
+def output_text(value):
+    """Unwrap both exported span outputs and native transcript content blocks."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(output_text(v) for v in value.values())
+    if isinstance(value, list):
+        return "\n".join(output_text(v) for v in value)
+    return ""
+
+
+def read_lines(text):
+    # Read/cat -n add line numbers; whitespace and chunk boundaries are immaterial.
+    return {
+        " ".join(re.sub(r"^\s*\d+(?:→|\t|[|:])", "", line).split())
+        for line in text.splitlines() if line.strip()
+    } - {""}
+
+
 def get_judges():
     required = os.environ["EXPECTED_SKILLS"].split(",")
 
@@ -46,27 +66,27 @@ def get_judges():
     def required_skills_loaded(trace):
         if not trace.info.trace_metadata.get("mlflow.trace.session"):
             return None
+        calls = list(tool_calls(trace))
         missing = []
         for directory in required:
             content = (Path(".claude/skills") / directory / "SKILL.md").read_text()
             name = yaml.safe_load(content.split("---", 2)[1])["name"]
             loaded = False
-            for tool, raw_inputs, raw_outputs, failed in tool_calls(trace):
-                inputs = json.dumps(raw_inputs)
-                outputs = str(raw_outputs)
-                if (tool == "Skill" and any(f'"{candidate}"' in inputs for candidate in (name, directory))
-                        and not failed
-                        and "Unknown skill" not in outputs):
+            observed = set()
+            for tool, inputs, outputs, failed in calls:
+                if failed:
+                    continue
+                text = output_text(outputs)
+                if (tool == "Skill" and inputs.get("skill", "").split(":")[-1] in {name, directory}
+                        and "Unknown skill" not in text):
                     loaded = True
-                if not failed and tool in {"Read", "Bash"} and f"{directory}/SKILL.md" in inputs:
-                    loaded |= f"name: {name}" in outputs and "description:" in outputs
-                if loaded:
-                    break
-            if not loaded:
+                if tool in {"Read", "Bash"} and f"{directory}/SKILL.md" in json.dumps(inputs):
+                    observed.update(read_lines(text))
+            if not loaded and not read_lines(content) <= observed:
                 missing.append(directory)
         return Feedback(
             value="no" if missing else "yes",
-            rationale=f"Missing skill reads: {missing}" if missing else f"Loaded: {required}",
+            rationale=f"Missing full skill reads: {missing}" if missing else f"Loaded: {required}",
         )
 
     return [required_skills_loaded]

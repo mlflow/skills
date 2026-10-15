@@ -14,6 +14,7 @@ def main() -> None:
         subprocess.run(
             ["git", "clone", "--depth", "1", repo_url, os.environ["PROJECT_DIR"]],
             check=True,
+            timeout=120,
         )
         (Path(os.environ["WORK_DIR"]) / "evaluation_expected.json").write_text(
             json.dumps({"case": "external"})

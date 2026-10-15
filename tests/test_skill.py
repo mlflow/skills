@@ -64,9 +64,13 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
         "claude_version": ["claude", "--version"],
         "source_commit": ["git", "rev-parse", "HEAD"],
     }.items():
-        result = run_command(command, cwd=state.full_project_dir if name != "source_commit" else state.repo_root,
-                             env=claude_env(), check=False, timeout=30)
-        inventory[name] = {"exit_code": result.returncode, "output": result.stdout.strip()}
+        try:
+            result = run_command(command, cwd=state.full_project_dir if name != "source_commit" else state.repo_root,
+                                 env=claude_env(), check=False, timeout=30)
+            inventory[name] = {"exit_code": result.returncode, "output": result.stdout.strip()}
+        except subprocess.TimeoutExpired:
+            inventory[name] = {"error": "Inventory command timed out after 30 seconds"}
+            log.warning("Could not collect %s inventory: timed out", name)
 
     # Record start time so verify_judges can filter out pre-existing traces
     state.run_start_timestamp_ms = int(time.time() * 1000)

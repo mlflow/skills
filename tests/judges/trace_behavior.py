@@ -1,18 +1,96 @@
-"""Exact behavioral outcomes checked against private seeds and live MLflow readback."""
+"""Check outcomes and observed retrieval against seeds and live MLflow readback.
+
+The manifest is accessible to the participant; these are behavioral checks, not isolation.
+"""
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import mlflow
 from mlflow.entities import Feedback
-from mlflow.genai.scorers import scorer
+from mlflow.genai.scorers import list_scorers, scorer
+
+from judges.environment_behavior import commands, python_source
+from judges.skill_usage import output_text, tool_calls
+
+
+def diagnosis_state(experiment_id, project):
+    files = {}
+    for path in project.rglob("*.py"):
+        relative = path.relative_to(project)
+        if any(p.startswith(".") or p in {"node_modules", "__pycache__", "venv"}
+               for p in relative.parts):
+            continue
+        if path.name.startswith(("test", "scorer")) or path.name.endswith("_test.py"):
+            files[str(relative)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {
+        "files": files,
+        "runs": sorted(r.info.run_id for r in mlflow.search_runs(
+            experiment_ids=[experiment_id], run_view_type=mlflow.entities.ViewType.ALL,
+            output_format="list")),
+        "scorers": sorted([s.name, s.scorer_version] for s in list_scorers(experiment_id=experiment_id)),
+    }
+
+
+def verify_retrieval(trace, manifest):
+    assert trace is not None, "Missing participant retrieval evidence"
+    events = list(tool_calls(trace))
+    evidence = ""
+    metrics_evidence = False
+    for tool, inputs, outputs, failed in events:
+        if tool != "Bash" or failed:
+            continue
+        command = inputs.get("command", "")
+        for words in commands(command):
+            if "--help" in words or "-h" in words:
+                continue
+            cli = (words[0] == "mlflow" or words[1:3] == ["-m", "mlflow"])
+            query = cli and any(words[i:i + 2] in (["traces", "get"], ["traces", "search"])
+                                for i in range(len(words)))
+            query |= words[0] in {"curl", "wget"} and any("/mlflow/traces" in w for w in words)
+            source = python_source(words, command)
+            if source:
+                calls = {getattr(n.func, "attr", getattr(n.func, "id", ""))
+                         for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Call)}
+                query |= "mlflow" in source and bool(calls & {"get_trace", "search_traces"})
+                query |= "/mlflow/traces" in source and bool(calls & {"urlopen", "get", "post"})
+            if query:
+                text = output_text(outputs)
+                # CLI output redirected to a file is often inspected in a subsequent Read.
+                for read_tool, read_inputs, read_outputs, read_failed in events:
+                    path = read_inputs.get("file_path", "")
+                    if read_tool == "Read" and not read_failed and path and (
+                        path in command or any(Path(w.split("=", 1)[-1]).name == Path(path).name
+                                               for w in words)
+                    ):
+                        text += output_text(read_outputs)
+                evidence += text
+                # CLI tables, JSON, and SDK aggregation prints differ in formatting.
+                # Match numeric results, while verify_outcome checks the exact server totals.
+                if manifest["case"] == "trace_metrics":
+                    numbers = {float(n.replace(",", "")) for n in re.findall(
+                        r"-?\d[\d,]*(?:\.\d+)?(?:[eE][+-]?\d+)?", text)}
+                    metrics_evidence |= manifest["expected"]["total_tokens"] in numbers and (
+                        "/mlflow/traces/metrics" in command + source
+                        or manifest["expected"].get("trace_count") in numbers)
+    expected = manifest["expected"]
+    required = expected.get("trace_ids", expected.get("ordered_trace_ids", [expected.get("trace_id")]))
+    if manifest["case"] == "trace_metrics":
+        if metrics_evidence:
+            return
+        required = [next((tid for tid in manifest["snapshots"] if tid in evidence), None)]
+    assert evidence and all(tid and tid in evidence for tid in required), (
+        "No successful MLflow retrieval with the required trace IDs in session tool results"
+    )
 
 
 def _equal(actual, expected, path="outcome"):
@@ -43,7 +121,7 @@ def _snapshot(trace):
     }
 
 
-def verify_outcome():
+def verify_outcome(participant_trace=None):
     """Raises on missing/incorrect answers or missing/modified server evidence."""
     manifest = json.loads((Path(os.environ["TEST_WORK_DIR"]) / "trace_case_manifest.json").read_text())
     outcome = json.loads(Path("outcome.json").read_text())
@@ -57,6 +135,8 @@ def verify_outcome():
 
     expected = manifest["expected"]
     case = manifest["case"]
+    if case == "diagnosis_only" and isinstance(outcome.get("source_file"), str):
+        outcome["source_file"] = str(Path(outcome["source_file"]))
     if case == "trace_retrieval":
         ids = outcome.get("trace_ids")
         assert isinstance(ids, list) and len(ids) == len(set(ids)), "Missing IDs or duplicate rows"
@@ -74,6 +154,9 @@ def verify_outcome():
             except ValueError:
                 pass
     _equal(outcome, expected)
+    # Direct callers can check artifact integrity alone; the scorer also requires session evidence.
+    if participant_trace is not None:
+        verify_retrieval(participant_trace, manifest)
 
     if case == "session_analysis":
         # The errored scorer on turn one must never become the first application failure.
@@ -92,7 +175,9 @@ def verify_outcome():
         # An existing usable trace is provided: rerunning/editing the application is unnecessary.
         found = client.search_traces(experiment_ids=[manifest["experiment_id"]], max_results=100)
         assert {t.info.trace_id for t in found} == set(traces), "Diagnosis created extra application traces"
-        assert not list(Path.cwd().glob("test*.py")), "Diagnosis-only request created tests"
+        state = diagnosis_state(manifest["experiment_id"], Path.cwd())
+        _equal(state, manifest["diagnosis_state"], "Diagnosis-only state")
+        assert state["files"] == manifest["diagnosis_state"]["files"], "Diagnosis created tests or scorers"
 
     if case == "trace_metrics":
         payload = {"experiment_ids": [manifest["experiment_id"]], "view_type": 1,
@@ -129,7 +214,10 @@ def get_judges():
         # Runner supplies participant traces, isolated from the seeded application experiment.
         # Never silently skip a missing outcome or a failed server query.
         try:
-            rationale = verify_outcome()
+            assert trace is not None, "Missing participant session"
+            if not trace.info.trace_metadata.get("mlflow.trace.session"):
+                return None
+            rationale = verify_outcome(trace)
             return Feedback(value="yes", rationale=rationale)
         except Exception as error:
             return Feedback(value="no", rationale=f"{type(error).__name__}: {error}")

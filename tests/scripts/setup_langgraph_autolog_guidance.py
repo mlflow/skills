@@ -25,7 +25,7 @@ class State(TypedDict):
 
 
 def lookup_weather(city: str) -> str:
-    """A trivial tool the graph can call."""
+    """Custom application helper, not a registered LangChain tool; a span here is useful."""
     return f"It is 72F and sunny in {city}."
 
 

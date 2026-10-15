@@ -39,6 +39,7 @@ manifest = {
 (Path(os.environ["WORK_DIR"]) / "environment_expected.json").write_text(json.dumps(manifest))
 
 if case == "classic_ml":
+    manifest["training_data"] = {"x": [[1], [2], [3], [4]], "y": [3, 5, 7, 9]}
     (project / "agent.py").unlink()
     manifest["files"].pop("agent.py")
     (project / "train.py").write_text(

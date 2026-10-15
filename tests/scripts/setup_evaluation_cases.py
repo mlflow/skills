@@ -168,6 +168,10 @@ def main() -> None:
                 "Do not claim improved agreement unless measured. Do not change the application. "
                 "The verifier will also call your function on separate labeled traces and compare "
                 "actual held-out outputs. Do not execute code when alignment.py is imported."
+                " Register the original base and trained judge as base_total_correct and "
+                "total_correct in the application experiment (keep the aligned judge name unchanged). Run one native evaluation "
+                "with both registered scorers on the two holdout inputs/outputs and report its run ID. "
+                "Keep the trained judge's native memory so its training trace IDs can be verified."
             )
     elif case == "suite":
         # Held-out values exercise independent failures, nulls, and near misses.
@@ -205,6 +209,13 @@ def main() -> None:
                     "verdicts": verdicts,
                 }
             )
+        # A constant USD/43 check must fail even if it handles malformed outputs.
+        for outputs, verdicts in [
+            ({"total": 17, "currency": "EUR", "status": "complete"}, [True, True, True]),
+            ({"total": 43, "currency": "USD", "status": "complete"}, [False, False, True]),
+        ]:
+            heldout.append({"inputs": {"order_id": "held-out-eur"}, "outputs": outputs,
+                            "expectations": {"total": 17, "currency": "EUR"}, "verdicts": verdicts})
         expected["heldout"] = heldout
         (project / "README.md").write_text(
             "Order assistant: users need a completed order with the correct total and currency.\n"
@@ -220,7 +231,9 @@ def main() -> None:
         body = (
             'raise RuntimeError("Predictor must not run: outputs already captured")'
             if case == "precomputed"
-            else 'raise PermissionError("ORDER_BACKEND_TOKEN missing; retrieval unavailable")'
+            else 'if request["id"] != "order-0":\n'
+            '        raise PermissionError("ORDER_BACKEND_TOKEN missing; retrieval unavailable")\n'
+            '    return {"total": sum(request["items"]) * context["multiplier"] + context["offset"]}'
             if case == "dry_run"
             else 'total = sum(request["items"]) * context["multiplier"] + context["offset"]\n'
             '    return {"total": total + (1 if request["id"] in {"order-4", "order-5"} else 0)}'
@@ -244,7 +257,7 @@ def main() -> None:
             "Order assistant: app.predict(*, request, context) calculates order totals. "
             "The exact_total native scorer is already registered; use it unchanged. "
             "These criteria and dataset selection are approved; no questions or data generation needed. "
-            "Evaluate the supplied six records (or the existing dataset). Do not fix or replace app.py.\n"
+            f"Evaluate the supplied {len(records)} records (or the existing dataset). Do not fix or replace app.py.\n"
             + (
                 "Use orders.json to create one native MLflow evaluation dataset. The last two outputs "
                 "are intentionally wrong; report their failing scores.\n"
@@ -257,13 +270,16 @@ def main() -> None:
                 else ""
             )
             + (
-                "The backend credentials are unavailable and cannot be repaired here. Perform the required "
-                "small dry run, then report the blocker in outcome.json as "
+                "Only order-0 is available from the local cache. All other rows require unavailable "
+                "backend credentials and cannot be repaired here. Dry-run order-0, order-1, order-2 "
+                "in that order (dataset row order is not guaranteed), then report the blocker in outcome.json as "
                 '{"status":"blocked","full_evaluation_started":false,"reason":"..."}. '
                 "Do not retry the full dataset or simulate successful retrieval.\n"
                 if case == "dry_run"
                 else ""
             )
+            + ("Run a separate evaluation on three rows before the full six-row evaluation.\n"
+               if case == "nested" else "")
         )
     (work / "evaluation_expected.json").write_text(json.dumps(expected, indent=2))
 

@@ -53,7 +53,7 @@ def _runs(exp, start):
 def _verify_suite(expected, work):
     assert Path("quality_suite.py").is_file(), "Missing runnable quality_suite.py"
     # A separate process avoids nested evaluation in the harness's scorer threads.
-    # The participant never receives held-out labels; only this verifier reads them.
+    # Pass inputs/expectations, not the verifier's expected verdicts, to candidate code.
     code = """import importlib.util, json, mlflow, sys
 spec = importlib.util.spec_from_file_location("participant_quality_suite", "quality_suite.py")
 module = importlib.util.module_from_spec(spec)
@@ -77,20 +77,25 @@ if expected["case"] == "model_suite":
 from mlflow.genai.scorers import Scorer
 assert all(isinstance(s, Scorer) for s in scorers)
 rows = json.load(open(sys.argv[1]))["heldout"]
-for r in rows:
-    r.pop("verdicts")
 experiment = mlflow.create_experiment("heldout-suite-" + __import__("uuid").uuid4().hex)
 mlflow.set_experiment(experiment_id=experiment)
 result = mlflow.genai.evaluate(data=rows, scorers=scorers)
 json.dump({"run_id": result.run_id, "experiment_id": experiment}, open(sys.argv[2], "w"))
 """
     result_path = work / "suite_validation_run.json"
+    input_path = work / "suite_validation_input.json"
+    input_path.write_text(json.dumps({
+        "case": expected["case"],
+        "names": expected.get("names", ["total_correct", "currency_correct", "task_completed"]),
+        "model": expected.get("model"),
+        "heldout": [{k: v for k, v in row.items() if k != "verdicts"} for row in expected["heldout"]],
+    }))
     result = subprocess.run(
         [
             sys.executable,
             "-c",
             code,
-            str(work / "evaluation_expected.json"),
+            str(input_path),
             str(result_path),
         ],
         capture_output=True,
@@ -140,6 +145,31 @@ json.dump({"run_id": result.run_id, "experiment_id": experiment}, open(sys.argv[
     return "Participant suite ran on all held-out rows; exact feedback and aggregate metrics matched."
 
 
+def _verify_alignment_data(expected, exp):
+    datasets = search_datasets(experiment_ids=[exp])
+    assert len(datasets) == 1 and datasets[0].dataset_id == expected["dataset_id"]
+    rows = get_dataset(dataset_id=expected["dataset_id"]).to_df().to_dict("records")
+    assert len(rows) == len(expected["pairs"])
+    for pair in expected["pairs"]:
+        assert any(
+            r["inputs"] == {"trace_id": pair["trace_id"]}
+            and r["expectations"] == {"split": pair["split"]}
+            for r in rows
+        )
+        trace = mlflow.get_trace(pair["trace_id"])
+        human = [
+            a
+            for a in trace.info.assessments
+            if a.name == "total_correct"
+            and str(a.source.source_type) == "HUMAN"
+            and a.source.source_id == "order-expert"
+        ]
+        assert len(human) == 1 and human[0].error is None and human[0].valid
+        assert human[0].feedback.value is pair["label"], (
+            "Pair does not match real human feedback"
+        )
+
+
 def verify_behavior(expected, work, exp, start):
     case = expected["case"]
     if case == "alignment_live":
@@ -147,6 +177,37 @@ def verify_behavior(expected, work, exp, start):
         from mlflow.entities import AssessmentSource
         from mlflow.genai.judges import make_judge
         from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
+
+        # Check the participant's saved native result before exercising its helper
+        # on new data. Verifier-created training alone cannot prove the smoke run.
+        _verify_alignment_data(expected, exp)
+        registered = {s.name: s for s in list_scorers(experiment_id=exp)}
+        assert set(registered) == {"base_total_correct", "total_correct"}, (
+            "Missing registered base/aligned judges from the participant's smoke run"
+        )
+        saved = registered["total_correct"]
+        assert isinstance(saved, MemoryAugmentedJudge), "Saved scorer is not a native MemAlign judge"
+        memory = saved.model_dump()["memory_augmented_judge_data"]
+        train_ids = {p["trace_id"] for p in expected["pairs"] if p["split"] == "train"}
+        assert set(memory["episodic_trace_ids"]) == train_ids, "Wrong alignment training split"
+        assert saved.model == registered["base_total_correct"].model == expected["model"]
+        holdouts = [mlflow.get_trace(p["trace_id"]) for p in expected["pairs"] if p["split"] == "holdout"]
+        compared = False
+        for run in _runs(exp, start):
+            if run.info.status != "FINISHED":
+                continue
+            evaluated = mlflow.search_traces(experiment_ids=[exp], run_id=run.info.run_id, return_type="list")
+            matched = set()
+            for trace in evaluated:
+                for index, historical in enumerate(holdouts):
+                    original = _roots(historical)[0]
+                    if any(root.inputs == original.inputs and root.outputs == original.outputs
+                           for root in _roots(trace)):
+                        for name in registered:
+                            _feedback(trace, name, start)
+                        matched.add(index)
+            compared |= len(matched) == len(holdouts)
+        assert compared, "Missing native base/aligned comparison on the heldout rows"
 
         spec = importlib.util.spec_from_file_location("candidate_alignment", "alignment.py")
         module = importlib.util.module_from_spec(spec)
@@ -198,53 +259,17 @@ def verify_behavior(expected, work, exp, start):
         assert sorted(required_pairs, key=lambda p: p["trace_id"]) == sorted(
             expected["pairs"], key=lambda p: p["trace_id"]
         ), "Wrong criterion labels or holdout contamination"
-        datasets = search_datasets(experiment_ids=[exp])
-        assert len(datasets) == 1 and datasets[0].dataset_id == expected["dataset_id"]
-        rows = get_dataset(dataset_id=expected["dataset_id"]).to_df().to_dict("records")
-        assert len(rows) == len(pairs)
-        for pair in pairs:
-            assert any(
-                r["inputs"] == {"trace_id": pair["trace_id"]}
-                and r["expectations"] == {"split": pair["split"]}
-                for r in rows
-            )
-            trace = mlflow.get_trace(pair["trace_id"])
-            human = [
-                a
-                for a in trace.info.assessments
-                if a.name == "total_correct"
-                and str(a.source.source_type) == "HUMAN"
-                and a.source.source_id == "order-expert"
-            ]
-            assert len(human) == 1 and human[0].error is None and human[0].valid
-            assert human[0].feedback.value is pair["label"], (
-                "Pair does not match real human feedback"
-            )
+        _verify_alignment_data(expected, exp)
         return "All exact criterion/human-label pairs and disjoint splits match real MLflow records; optimization explicitly blocked."
     if case in {"suite", "model_suite"}:
         return _verify_suite(expected, work)
-    runs = _runs(exp, start)
     if case == "external":
-        # External repositories define their own data/model contract. This mode is
-        # deliberately a smoke check, not claimed as nested-kwargs coverage.
-        for run in runs:
-            if run.info.status == "FINISHED" and run.data.metrics:
-                traces = mlflow.search_traces(
-                    experiment_ids=[exp], run_id=run.info.run_id, return_type="list"
-                )
-                if any(
-                    a.feedback is not None
-                    and a.error is None
-                    and a.valid
-                    and a.create_time_ms >= start
-                    and a.feedback.value is not None
-                    for t in traces
-                    for a in t.info.assessments
-                ):
-                    return "External repository smoke check: finished evaluation with feedback (fixture coverage not applicable)."
-        raise AssertionError(
-            "External repository produced no finished scored evaluation"
-        )
+        # Reuse the generic smoke oracle exercised by the verifier controls.
+        from judges.evaluation_run_created import get_judges
+        result = get_judges()[0](trace=None)
+        assert result.value == "yes", result.rationale
+        return "External repository smoke check: " + result.rationale
+    runs = _runs(exp, start)
     assert (
         hashlib.sha256(Path("app.py").read_bytes()).hexdigest()
         == expected["app_sha256"]
@@ -283,16 +308,18 @@ def verify_behavior(expected, work, exp, start):
     if case == "precomputed":
         assert not calls, "Precomputed evaluation reran predictor"
     if case == "dry_run":
-        assert 1 <= len(calls) <= 4, (
+        assert 3 <= len(calls) <= 4, (
             f"Dry run made {len(calls)} calls (3 rows plus optional validation call allowed)"
         )
-        assert len({json.dumps(c, sort_keys=True) for c in calls}) <= 3, (
-            "Full evaluation started"
-        )
+        assert {json.dumps(c, sort_keys=True) for c in calls} == {
+            json.dumps(r["inputs"], sort_keys=True) for r in expected["records"][:3]
+        }, "Expected only the first three dry-run inputs; full evaluation started or dry run incomplete"
         assert any(str(t.info.state).upper().endswith("ERROR") for t in traces) or any(
             r.info.status == "FAILED" for r in runs
         ), "No real failed trace/evaluation run"
         for t in traces:
+            if any(root.inputs == expected["records"][0]["inputs"] for root in _roots(t)):
+                continue  # The cached first row succeeds; backend-dependent rows must not.
             assert not any(
                 a.feedback
                 and a.feedback.value in (True, 1, "yes")
@@ -305,12 +332,13 @@ def verify_behavior(expected, work, exp, start):
             and outcome.get("full_evaluation_started") is False
         )
         assert outcome.get("reason"), "Missing blocker explanation"
-        return "Real predictor failed; at most three distinct inputs attempted; no successful scores/full evaluation."
+        return "Exactly three dry-run inputs attempted; backend-dependent rows failed; no full evaluation."
     if case == "nested":
         assert all(any(c == r["inputs"] for c in calls) for r in expected["records"]), (
             "Not all nested inputs reached predictor"
         )
-    # Require one complete evaluation run, not a union of scattered smoke tests.
+    # Validate bounded and complete runs independently, including their ordering.
+    dry_runs, full_runs = [], []
     for run in runs:
         if run.info.status != "FINISHED":
             continue
@@ -331,14 +359,20 @@ def verify_behavior(expected, work, exp, start):
                         f"Wrong score for row {i}"
                     )
                     matched.add(i)
+        if len(matched) == 3:
+            assert abs(run.data.metrics.get("exact_total/mean", -1) - sum(i < 4 for i in matched) / 3) < 1e-9
+            dry_runs.append(run)
         if len(matched) == len(expected["records"]):
             assert abs(run.data.metrics.get("exact_total/mean", -1) - 4 / 6) < 1e-9, (
                 "Wrong/missing aggregate score"
             )
-            return "Complete native evaluation persisted all six exact outputs, four passing/two failing scores, and mean."
-    raise AssertionError(
-        "No single finished evaluation contains every required row and score"
-    )
+            full_runs.append(run)
+    assert full_runs, "No single finished evaluation contains every required row and score"
+    if case == "nested":
+        assert any(d.info.end_time <= f.info.start_time for d in dry_runs for f in full_runs), (
+            "Missing separately scored three-row dry run before full evaluation"
+        )
+    return "Complete native evaluation persisted all six outputs and exact scores; required dry-run ordering verified."
 
 
 def get_judges() -> list:
