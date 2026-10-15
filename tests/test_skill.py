@@ -16,7 +16,7 @@ This script:
 11. Cleans up
 
 Usage:
-    python tests/test_skill.py tests/configs/agent_evaluation.yaml
+    python tests/test_skill.py tests/configs/evals/agent_evaluation.yaml
 """
 
 from __future__ import annotations

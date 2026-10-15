@@ -186,13 +186,29 @@ We welcome contributions! Here's how to help:
 
 ### Testing skill behavior
 
+The test code has two layers: live scenarios exercise skills through Claude; local verifier tests check that the graders accept valid work and reject broken work.
+
+```text
+tests/
+  configs/
+    setup/       # Onboarding, docs, backend prerequisites
+    tracing/     # Instrumentation, retrieval, diagnosis, metrics
+    evals/       # Evaluation, scorers, alignment, verified repair
+  judges/        # Graders used by live scenarios
+  scripts/       # Scenario setup and seeded application data
+  verifiers/     # Local regression tests for graders and harness
+  test_skill.py  # Existing YAML scenario runner
+```
+
+Config paths for setup scripts and judges remain relative to the repository root. Run live scenarios from the repository root using their grouped paths below; the former flat config paths have moved.
+
 The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks a successful native skill invocation or complete skill read, plus an observable task outcome. Explicitly named skills test execution after selection, not automatic skill discovery. Merely mentioning an API or reporting success does not pass.
 
 Validated with MLflow 3.17.1. Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
 
 ```sh
 uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
-  python tests/test_skill.py tests/configs/agent_evaluation.yaml
+  python tests/test_skill.py tests/configs/evals/agent_evaluation.yaml
 ```
 
 | Skill/workflow | Scenarios | Observable checks |
@@ -216,7 +232,7 @@ Model-backed scenarios require working provider credentials. Set `TEST_JUDGE_MOD
 To run the local scenarios sequentially, excluding those needing a model provider:
 
 ```sh
-for config in tests/configs/*.yaml; do
+for config in tests/configs/*/*.yaml; do
   case "$config" in
     *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*) continue ;;
   esac
@@ -225,11 +241,20 @@ for config in tests/configs/*.yaml; do
 done
 ```
 
-Supporting verifier regression checks run without Claude or model calls:
+Verifier tests run without Claude or model calls. They exercise real local MLflow state where needed; they are not additional skill-execution results:
+
+| Module in `tests/verifiers/` | What it checks |
+|---|---|
+| `test_environment.py` | Native dispatcher scorers, real prerequisite probes, preserved training data, retrieval evidence, and diagnosis-only side effects |
+| `test_evaluation.py` | Dry-run ordering and bounds, expectation-relative scoring, and saved MemAlign training evidence |
+| `test_instrumentation.py` | Complete skill loading, fresh traces from the delivered app, valid SDK inputs, and LangGraph instrumentation |
+| `test_artifact.py` | Shared artifact integrity and harness regressions |
+
+Run all verifier checks:
 
 ```sh
 uv run --with mlflow==3.17.1 --with pytest --with langgraph --with langchain-core --with dspy \
-  pytest -q tests/test_*judges.py
+  pytest -q tests/verifiers
 ```
 
 Expected answers are stored outside the project but remain accessible on the same machine; this is not an adversarial sandbox. Investigation grading also requires observed MLflow retrieval. These scenarios are behavioral regression coverage, not a claim of exhaustive platform coverage or a baseline-versus-treatment comparison. Live SageMaker connection, Databricks UC storage/Review App/online monitoring, GEPA prompt optimization, distributed tracing, and every supported framework still require dedicated environments and scenarios. A successful local run does not verify those integrations. The repository currently has no CI workflow that launches the paid Claude scenarios automatically.

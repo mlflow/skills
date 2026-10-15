@@ -1,6 +1,6 @@
 """Exercise outcome judges against a real local MLflow store, without an LLM.
 
-Run: uv run --with mlflow --with pytest pytest -q tests/test_artifact_judges.py
+Run: uv run --with mlflow --with pytest pytest -q tests/verifiers/test_artifact.py
 """
 import time
 
