@@ -96,6 +96,30 @@ def test_python_prerequisite_scripts_and_heredoc(tmp_path, monkeypatch):
         verify_prerequisite(session(bash(command, "NoCredentialsError")), "sagemaker_missing", "unused")
 
 
+def test_bundled_sagemaker_probe_output(tmp_path, monkeypatch, capsys):
+    import builtins
+    import runpy
+    import sys
+
+    script = Path(__file__).resolve().parents[1] / "sagemaker-mlflow/scripts/verify_connection.py"
+    original = builtins.__import__
+    def missing_plugin(name, *args, **kwargs):
+        if name == "sagemaker_mlflow":
+            raise ImportError(name)
+        return original(name, *args, **kwargs)
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", [str(script), "arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example"])
+    with monkeypatch.context() as patch:
+        patch.setattr(builtins, "__import__", missing_plugin)
+        with pytest.raises(SystemExit) as stopped:
+            runpy.run_path(str(script), run_name="__main__")
+    assert stopped.value.code == 1
+    output = capsys.readouterr().out
+    verify_prerequisite(session(bash(f"python {script}", output)), "sagemaker_missing", "unused")
+    with pytest.raises(AssertionError):
+        verify_prerequisite(session(bash(f"echo '{output}'", output)), "sagemaker_missing", "unused")
+
+
 @pytest.mark.parametrize("changed", [False, True])
 def test_classic_ml_checks_actual_fit_data(tmp_path, monkeypatch, changed):
     monkeypatch.chdir(tmp_path)
