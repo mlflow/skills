@@ -263,12 +263,6 @@ def verify_behavior(expected, work, exp, start):
         return "All exact criterion/human-label pairs and disjoint splits match real MLflow records; optimization explicitly blocked."
     if case in {"suite", "model_suite"}:
         return _verify_suite(expected, work)
-    if case == "external":
-        # Reuse the generic smoke oracle exercised by the verifier controls.
-        from judges.evaluation_run_created import get_judges
-        result = get_judges()[0](trace=None)
-        assert result.value == "yes", result.rationale
-        return "External repository smoke check: " + result.rationale
     runs = _runs(exp, start)
     assert (
         hashlib.sha256(Path("app.py").read_bytes()).hexdigest()
