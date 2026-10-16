@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -65,6 +66,10 @@ def check_prerequisites(config: TestConfig, state: RuntimeState) -> bool:
         state.use_external_server = True
         log.info(f"Using external MLflow server: {config.tracking_uri}")
     else:
+        if config.mlflow_port is None:
+            with socket.socket() as listener:
+                listener.bind(("127.0.0.1", 0))
+                config.mlflow_port = listener.getsockname()[1]
         if not is_port_available(config.mlflow_port):
             log.error(f"Port {config.mlflow_port} is already in use")
             log.error("Set mlflow_port in YAML to use a different port")

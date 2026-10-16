@@ -6,10 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - mlflow-onboarding
-prompt: >-
-  Check connectivity using backend.json with a two-second request timeout and no retries for this probe. Report the actual readiness and blocker in connection.json as status and reason. Do not switch backend, create experiments, or edit project configuration. No questions.
+prompt: "Check the backend in backend.json. Save its status and the reason in connection.json; don't change the configuration."
 timeout_seconds: 600
-mlflow_port: 32981
 environment:
   TEST_CASE: unavailable_backend
-  EXPECTED_SKILLS: mlflow-onboarding

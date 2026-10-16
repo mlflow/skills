@@ -6,13 +6,10 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - sagemaker-mlflow
-prompt: >-
-  Validate prerequisites for arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example. Check the installed plugin and credentials before connecting; do not install packages or acquire credentials. Write connection.json with status and reason. Do not change the existing project. No questions.
+prompt: "Can this project connect to arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example? Save the status and reason in connection.json. Don't install anything or get new credentials."
 timeout_seconds: 600
-mlflow_port: 32982
 environment:
   TEST_CASE: sagemaker_missing
-  EXPECTED_SKILLS: sagemaker-mlflow
   AWS_EC2_METADATA_DISABLED: "true"
   AWS_CONFIG_FILE: /dev/null
   AWS_SHARED_CREDENTIALS_FILE: /dev/null

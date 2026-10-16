@@ -8,16 +8,10 @@ judges:
 skills:
   - build-a-scorer
   - agent-evaluation
-prompt: >-
-  Read README.md and
-  implement and run the approved native MemAlign alignment workflow.
-  Preserve train/holdout separation and report measured agreement honestly.
-timeout_seconds: 900
+required_skills: [build-a-scorer]
+prompt: "Align our order-total judge with the expert feedback and compare it with the original."
 verification_timeout: 600
-mlflow_port: 32966
-keep_workdir: true
 environment:
-  EXPECTED_SKILLS: build-a-scorer
   EVALUATION_CASE: alignment_live
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"

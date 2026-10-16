@@ -6,10 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - searching-mlflow-docs
-prompt: >-
-  Find the official MLflow documentation for logging metrics in traditional ML experiment tracking. Save docs.json with url (the official Markdown source actually fetched) and code (a runnable Python example including mlflow.log_metric, copied from complete code blocks on that page; concatenating cells and removing blank lines is allowed). No questions.
+prompt: "Find the official MLflow docs for logging training metrics. Save the Markdown URL and a runnable example as url and code in docs.json."
 timeout_seconds: 600
-mlflow_port: 32983
 environment:
   TEST_CASE: docs
-  EXPECTED_SKILLS: searching-mlflow-docs

@@ -9,10 +9,8 @@ skills:
   - build-a-scorer
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
-prompt: >-
-  Build a deterministic MLflow scorer named answer_present in scorers.py. Outputs are dictionaries; pass only if answer is a nonempty non-whitespace string, fail for missing, null or empty answers. No LLM is needed. Implement and verify it. No questions.
+required_skills: [mlflow-agent, build-a-scorer]
+prompt: "Add an MLflow scorer called answer_present in scorers.py. It should fail for missing, null, empty, or whitespace-only answers."
 timeout_seconds: 600
-mlflow_port: 32984
 environment:
   TEST_CASE: dispatcher
-  EXPECTED_SKILLS: mlflow-agent,build-a-scorer

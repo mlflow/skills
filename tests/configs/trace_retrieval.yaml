@@ -6,16 +6,8 @@ judges:
 - tests/judges/trace_behavior.py
 skills:
 - retrieving-mlflow-traces
-prompt: Read task.json for the investigation scope. Find every ERROR trace
-  for tenant task.json.tenant tagged environment=production within the inclusive start_time_ms/end_time_ms
-  window in task.json. Exclude all status, time, and tag distractors. Write outcome.json with trace_ids
-  (all and only the matching IDs, no duplicates). Read actual server data; do not change the traces.
+prompt: "Find the failed production traces for the tenant and time window in task.json. Save their IDs in outcome.json."
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
-mlflow_port: 32970
-tracking_uri: null
-test_runs_dir: /tmp
-keep_workdir: true
 environment:
   TEST_CASE: trace_retrieval
-  EXPECTED_SKILLS: retrieving-mlflow-traces

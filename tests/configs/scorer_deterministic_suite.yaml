@@ -6,18 +6,9 @@ judges:
   - tests/judges/evaluation_behavior.py
 skills:
   - build-a-scorer
-prompt: >-
-  Read README.md: the user has already confirmed the purpose,
-  all three atomic criteria, implementation choice, edge verdicts, and output
-  contract. Implement quality_suite.py with get_scorers() returning the agreed
-  native deterministic scorers and include a runnable native MLflow evaluate
-  example. Do not ask another confirmation question. Hand off evaluation; the caller will validate the suite on held-out cases.
+prompt: "Build the order-quality scorers described in README.md."
 timeout_seconds: 600
-mlflow_port: 32963
-tracking_uri: null
-keep_workdir: true
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
-  EXPECTED_SKILLS: build-a-scorer
   EVALUATION_CASE: suite

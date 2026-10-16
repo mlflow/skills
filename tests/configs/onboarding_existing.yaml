@@ -6,10 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - mlflow-onboarding
-prompt: >-
-  Verify this existing GenAI project is ready. backend.json and .env are already configured. Reuse them and run agent.py to verify a persisted application trace. Do not replace the configuration or create an experiment. No questions.
+prompt: "Check that this project's existing MLflow setup works. Keep the configuration as it is."
 timeout_seconds: 600
-mlflow_port: 32980
 environment:
   TEST_CASE: existing_backend
-  EXPECTED_SKILLS: mlflow-onboarding

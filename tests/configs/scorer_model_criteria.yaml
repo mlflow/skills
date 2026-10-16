@@ -7,17 +7,6 @@ judges:
   - tests/judges/evaluation_behavior.py
 skills:
   - build-a-scorer
-prompt: >-
-  Read README.md for the confirmed billing-agent criteria and
-  implementation choices. Inspect available MLflow built-ins, implement the three
-  independent native scorers in quality_suite.py with get_scorers(), and explain
-  the code-versus-built-in-versus-domain-judge choices. Both model-backed checks must retain the exact TEST_JUDGE_MODEL setting. Include a runnable native evaluation example and
-  hand off evaluation. Do not ask for reconfirmation.
-timeout_seconds: 900
-verification_timeout: 300
-mlflow_port: 32965
-tracking_uri: null
-keep_workdir: true
+prompt: "Build the billing-assistant quality checks described in README.md."
 environment:
-  EXPECTED_SKILLS: build-a-scorer
   EVALUATION_CASE: model_suite
