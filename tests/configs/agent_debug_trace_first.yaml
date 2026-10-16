@@ -16,4 +16,3 @@ allowed_tools: "Skill,Bash,Read,Write,Edit,Grep,Glob"
 
 
 
-environment:
