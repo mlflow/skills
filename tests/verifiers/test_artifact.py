@@ -240,3 +240,46 @@ def test_optional_inventory_timeout_does_not_abort_participant(tmp_path, monkeyp
     assert len(executions) == 1 and executions[0][:2] == ["claude", "-p"]
     recorded = json.loads((tmp_path / "environment.json").read_text())
     assert recorded["mcp"]["error"] == "Inventory command timed out after 30 seconds"
+
+
+@pytest.mark.parametrize("required,wanted", [(None, "primary,helper"), (["primary"], "primary")])
+def test_required_skills_default_and_verifier_only_override(tmp_path, monkeypatch, required, wanted):
+    import json
+    from types import SimpleNamespace
+    import test_skill
+    from config import TestConfig, RuntimeState
+
+    config = TestConfig(name="test", project_dir="project", setup_script="setup.py",
+                        judges=[], skills=["primary", "helper"], prompt="Evaluate my app.",
+                        required_skills=required)
+    state = RuntimeState(work_dir=tmp_path, full_project_dir=tmp_path, repo_root=tmp_path)
+    observed = {}
+    def run(command, **kwargs):
+        observed.update(kwargs["env"])
+        return SimpleNamespace(stdout=json.dumps([{
+            "pass": True, "scorer": "test", "trace_id": "test", "value": "yes"
+        }]), stderr="")
+    monkeypatch.delenv("EXPECTED_SKILLS", raising=False)
+    monkeypatch.setattr(test_skill, "run_command", run)
+    monkeypatch.setattr(test_skill.time, "sleep", lambda _: None)
+    assert test_skill.verify_judges(config, state)
+    assert observed["EXPECTED_SKILLS"] == wanted
+    assert "EXPECTED_SKILLS" not in test_skill.claude_env()
+
+
+def test_local_port_is_selected_but_external_server_needs_none(tmp_path):
+    from config import TestConfig, RuntimeState
+    from infra import check_prerequisites
+    from utils import is_port_available
+
+    (tmp_path / "setup.py").touch()
+    config = TestConfig(name="test", project_dir="project", setup_script="setup.py",
+                        judges=[], skills=[], prompt="Evaluate my app.")
+    assert config.mlflow_port is None
+    assert check_prerequisites(config, RuntimeState(repo_root=tmp_path))
+    assert config.mlflow_port > 0 and is_port_available(config.mlflow_port)
+    config.mlflow_port = None
+    config.tracking_uri = "http://example.test:5000"
+    state = RuntimeState(repo_root=tmp_path)
+    assert check_prerequisites(config, state)
+    assert state.use_external_server and config.mlflow_port is None

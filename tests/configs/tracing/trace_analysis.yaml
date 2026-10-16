@@ -7,18 +7,9 @@ judges:
 skills:
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
-prompt: Read task.json for the investigation scope.
-  Investigate task.json.trace_id. Identify the failing child span and the concrete root cause using its
-  inputs and status, distinguishing it from the parent error and successful spans. Write outcome.json
-  with trace_id, failing_span_id, root_cause (tool_timeout, retrieval_error, or generation_error), order_id,
-  timeout_ms, service_latency_ms. Values must come from the actual trace. Explain the diagnosis in your
-  final response; leave source unchanged.
+required_skills: [analyze-mlflow-trace]
+prompt: "Why did the trace in task.json fail? Save the diagnosis in outcome.json."
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
-mlflow_port: 32971
-tracking_uri: null
-test_runs_dir: /tmp
-keep_workdir: true
 environment:
   TEST_CASE: trace_analysis
-  EXPECTED_SKILLS: analyze-mlflow-trace

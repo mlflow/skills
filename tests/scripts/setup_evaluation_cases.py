@@ -63,16 +63,12 @@ def seed_alignment(project, expected, exp):
     dataset.merge_records(json.loads(json.dumps(records)))
     expected.update(pairs=pairs, dataset_id=dataset.dataset_id)
     (project / "README.md").write_text(
-        "Align the total_correct criterion to existing expert labels. The native dataset "
-        "expert-review-split lists historical trace IDs and the preapproved train/holdout split. "
-        "Read human assessments from those traces. Other criteria must not be paired. "
-        "No embedding model is approved for this fixture, even if TEST_JUDGE_MODEL is available. "
-        "Do not choose a default embedding provider, call a model, or claim "
-        "alignment ran. First prepare a verifiable pairing manifest in outcome.json with keys "
-        "criterion ('total_correct'), dataset_id, pairs (one object per trace with trace_id, "
-        "boolean label, split), status ('blocked'), prerequisites (nonempty list). "
-        "Keep the supplied split and existing assessments unchanged. Explain the missing MemAlign "
-        "prerequisites. Criteria and destination are confirmed; do not ask for input."
+        "Order-total review data\n"
+        "Criterion: total_correct. Expert labels are HUMAN assessments from order-expert.\n"
+        "The expert-review-split dataset contains trace IDs and the train/holdout split.\n"
+        "No embedding model is approved. Existing labels and splits are immutable.\n"
+        "Output contract: outcome.json with criterion, dataset_id, pairs "
+        "(trace_id, boolean label, split), status, and prerequisites.\n"
     )
 
 
@@ -111,17 +107,14 @@ def seed_model_suite(project, expected):
         for q, a, v in examples
     ]
     (project / "README.md").write_text(
-        "Billing assistant. Confirmed suite, already approved: nonempty is a deterministic bool "
-        "check for nonblank string outputs; relevance_to_query uses MLflow's existing RelevanceToQuery built-in "
-        "for whether an answer addresses the question; supported_resolution is a domain quality "
-        "check that fails ANY promise or guarantee of a refund/reimbursement before billing review. "
-        "It passes if no such promise is made, including unrelated answers (relevance is separate). "
-        "Implement the domain criterion with Guidelines or make_judge, because semantic promises "
-        "can be paraphrased. Explicitly choose the cheapest suitable implementation per criterion. "
-        "Use TEST_JUDGE_MODEL exactly for both LLM checks; do not switch provider or model. "
-        "Create quality_suite.py with get_scorers() returning exactly the three named native scorers. "
-        "Use bool/yes/no outputs and include a runnable native evaluate example. The caller will "
-        "evaluate held-out data. Do not ask for confirmation or register deployment monitoring."
+        "Billing assistant quality criteria\n"
+        "- nonempty: output is a nonblank string.\n"
+        "- relevance_to_query: answer addresses the question; existing MLflow RelevanceToQuery scorer.\n"
+        "- supported_resolution: no promise or guarantee of reimbursement before billing review. "
+        "Unrelated answers pass this criterion; relevance is separate.\n"
+        "Model budget: TEST_JUDGE_MODEL for both semantic checks.\n"
+        "Integration contract: quality_suite.py exports get_scorers(), returning the three named "
+        "native MLflow scorers with boolean/yes/no feedback.\n"
     )
 
 
@@ -156,22 +149,15 @@ def main() -> None:
             expected["model"] = os.environ["TEST_JUDGE_MODEL"]
             expected["embedding_model"] = os.environ["TEST_EMBEDDING_MODEL"]
             (project / "README.md").write_text(
-                "Implement alignment.py exporting align_judge(base_judge, train_traces). "
-                "Use native Judge.align with MemAlignOptimizer; return the aligned judge. "
-                "Criterion total_correct means the order total is exactly 20. "
-                "The existing expert-review-split dataset identifies labeled traces. "
-                "Use only its train rows for alignment; holdout rows must never enter optimization. "
-                "Use TEST_JUDGE_MODEL for judge and reflection, TEST_EMBEDDING_MODEL for embeddings, "
-                "retrieval_k=2, embedding_dim=1024. These choices and a six-trace smoke run are approved. "
-                "Run a real alignment smoke test on the training rows. Compare base and aligned "
-                "judges on the same holdout rows. Preserve human labels and the split. "
-                "Do not claim improved agreement unless measured. Do not change the application. "
-                "The verifier will also call your function on separate labeled traces and compare "
-                "actual held-out outputs. Do not execute code when alignment.py is imported."
-                " Register the original base and trained judge as base_total_correct and "
-                "total_correct in the application experiment (keep the aligned judge name unchanged). Run one native evaluation "
-                "with both registered scorers on the two holdout inputs/outputs and report its run ID. "
-                "Keep the trained judge's native memory so its training trace IDs can be verified."
+                "Order-total judge alignment\n"
+                "Criterion total_correct: the order total is exactly 20.\n"
+                "The expert-review-split dataset contains expert-labeled trace IDs and immutable splits.\n"
+                "Approved models: TEST_JUDGE_MODEL for judging/reflection; TEST_EMBEDDING_MODEL "
+                "for embeddings (1024 dimensions, retrieval_k=2).\n"
+                "Integration contract: alignment.py exports align_judge(base_judge, train_traces), "
+                "returning a native aligned judge without mutating the base. No work at import time.\n"
+                "Saved scorers: base_total_correct and total_correct (aligned). "
+                "Comparison results belong in a native MLflow evaluation run on the holdout rows.\n"
             )
     elif case == "suite":
         # Held-out values exercise independent failures, nulls, and near misses.
@@ -218,14 +204,13 @@ def main() -> None:
                             "expectations": {"total": 17, "currency": "EUR"}, "verdicts": verdicts})
         expected["heldout"] = heldout
         (project / "README.md").write_text(
-            "Order assistant: users need a completed order with the correct total and currency.\n"
-            "Confirmed suite (already approved; no interview needed): total_correct compares outputs.total "
-            "with expectations.total; currency_correct compares outputs.currency with expectations.currency "
-            "case-sensitively; task_completed checks outputs.status equals 'complete' exactly.\n"
-            "All three are independent deterministic boolean checks; malformed/non-dict/missing outputs fail.\n"
-            "A pending order with a correct total passes total_correct but fails task_completed.\n"
-            "Return a module quality_suite.py with get_scorers() returning these three native MLflow scorers. "
-            "Include a runnable example using mlflow.genai.evaluate on precomputed outputs.\n"
+            "Order assistant quality criteria\n"
+            "- total_correct: outputs.total equals expectations.total.\n"
+            "- currency_correct: outputs.currency equals expectations.currency, case-sensitive.\n"
+            "- task_completed: outputs.status equals 'complete'.\n"
+            "Criteria are independent boolean checks. Malformed, missing, or non-dict outputs fail.\n"
+            "Integration contract: quality_suite.py exports get_scorers(), returning these three "
+            "native MLflow scorers.\n"
         )
     else:
         body = (
@@ -254,32 +239,19 @@ def main() -> None:
         else:
             (project / "orders.json").write_text(json.dumps(records, indent=2))
         (project / "README.md").write_text(
-            "Order assistant: app.predict(*, request, context) calculates order totals. "
-            "The exact_total native scorer is already registered; use it unchanged. "
-            "These criteria and dataset selection are approved; no questions or data generation needed. "
-            f"Evaluate the supplied {len(records)} records (or the existing dataset). Do not fix or replace app.py.\n"
-            + (
-                "Use orders.json to create one native MLflow evaluation dataset. The last two outputs "
-                "are intentionally wrong; report their failing scores.\n"
-                if case == "nested"
-                else "Discover and reuse the existing dataset without modifying it or creating duplicates.\n"
-            )
-            + (
-                "Outputs are precomputed in the dataset: evaluate them without calling the predictor.\n"
-                if case == "precomputed"
-                else ""
-            )
-            + (
-                "Only order-0 is available from the local cache. All other rows require unavailable "
-                "backend credentials and cannot be repaired here. Dry-run order-0, order-1, order-2 "
-                "in that order (dataset row order is not guaranteed), then report the blocker in outcome.json as "
-                '{"status":"blocked","full_evaluation_started":false,"reason":"..."}. '
-                "Do not retry the full dataset or simulate successful retrieval.\n"
-                if case == "dry_run"
-                else ""
-            )
-            + ("Run a separate evaluation on three rows before the full six-row evaluation.\n"
-               if case == "nested" else "")
+            "Order assistant\n"
+            "Entry point: app.predict(*, request, context). The app is already traced.\n"
+            "Quality criterion: exact_total, registered in the application experiment.\n"
+            "Application code and supplied records are immutable during evaluation.\n"
+            + ("Input data: orders.json. Smoke-run budget: three rows.\n"
+               if case == "nested" else "Input data: existing MLflow evaluation dataset.\n")
+            + ("Outputs were captured previously; the backend must not be called again.\n"
+               if case == "precomputed" else "")
+            + ("Only order-0 is cached; other rows need unavailable backend credentials. "
+               "Approved smoke inputs: order-0, order-1, order-2 in that order. "
+               "No credential acquisition or full run is authorized while the backend is unavailable.\n"
+               "Output contract: outcome.json with status, full_evaluation_started, and reason.\n"
+               if case == "dry_run" else "")
         )
     (work / "evaluation_expected.json").write_text(json.dumps(expected, indent=2))
 

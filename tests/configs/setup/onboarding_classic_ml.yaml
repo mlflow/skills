@@ -7,14 +7,8 @@ judges:
 skills:
   - mlflow-onboarding
   - searching-mlflow-docs
-prompt: >-
-  Integrate MLflow into this traditional sklearn training project.
-  Read train.py and backend.json. Reuse the existing tracking server and experiment.
-  Preserve the training data and model behavior, log mse and fit_intercept=True,
-  and log the fitted sklearn model. Run training and verify you can reload the
-  logged model. Do not add GenAI tracing or evaluation. No questions.
+required_skills: [mlflow-onboarding]
+prompt: "Add MLflow tracking to train.py: log mse, fit_intercept, and the fitted model. Keep the existing data and backend."
 timeout_seconds: 600
-mlflow_port: 32986
 environment:
   TEST_CASE: classic_ml
-  EXPECTED_SKILLS: mlflow-onboarding

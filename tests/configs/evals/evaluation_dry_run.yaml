@@ -7,19 +7,10 @@ judges:
 skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
-prompt: >-
-  Evaluate the already-instrumented order
-  assistant. Read README.md for approved criteria and operational constraints.
-  Discover the existing dataset and scorer, attempt the required dry run, and
-  honor its decision gate before any full evaluation. Save a machine-readable
-  outcome.json explaining the disposition and whether full evaluation started.
-  Do not ask for input or invent credentials.
+required_skills: [agent-evaluation]
+prompt: "Evaluate the order assistant. If the backend isn't ready, stop and explain the blocker in outcome.json."
 timeout_seconds: 600
-mlflow_port: 32962
-tracking_uri: null
-keep_workdir: true
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
-  EXPECTED_SKILLS: agent-evaluation
   EVALUATION_CASE: dry_run

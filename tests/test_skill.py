@@ -16,7 +16,7 @@ This script:
 11. Cleans up
 
 Usage:
-    python tests/test_skill.py tests/configs/evals/agent_evaluation.yaml
+    python tests/test_skill.py tests/configs/evals/evaluation_nested.yaml
 """
 
 from __future__ import annotations
@@ -145,6 +145,7 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
     run_judges_script = str(Path(__file__).parent / "run_judges.py")
     env = {
         "JUDGE_PATHS": json.dumps(judge_paths),
+        "EXPECTED_SKILLS": ",".join(config.skills if config.required_skills is None else config.required_skills),
         "CC_EXPERIMENT_ID": state.cc_tracing_experiment_id,
         "MLFLOW_EXPERIMENT_ID": state.experiment_id,
         "RUN_START_MS": str(state.run_start_timestamp_ms),

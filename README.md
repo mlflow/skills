@@ -208,8 +208,20 @@ Validated with MLflow 3.17.1. Requires an authenticated `claude` CLI, Git, Node/
 
 ```sh
 uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
-  python tests/test_skill.py tests/configs/evals/agent_evaluation.yaml
+  python tests/test_skill.py tests/configs/evals/evaluation_nested.yaml
 ```
+
+The original general evaluation scenario remains `agent_evaluation.yaml`: it clones `REPO_URL` and checks datasets, registered scorers, evaluation results, application traces, and both evaluation/tracing skill reads. Run it with `REPO_URL=<repository-url>` as a CLI override. The separate `evaluation_nested.yaml` is a deterministic local regression fixture.
+
+| Config field | Meaning |
+|---|---|
+| `skills` | Installed skills; all are required to load by default. |
+| `required_skills` | Optional subset when other installed skills are only helpers. Sent to the verifier, not the participant. |
+| `judges` | Checks of the participant's actions and actual application results. |
+| `tracking_uri` | Optional external server. Omit for a fresh local server. |
+| `mlflow_port` | Optional fixed-port override. Omit to select a free local port. |
+
+Default timeouts, `keep_workdir: true`, and `test_runs_dir: /tmp` need not be repeated. Fixtures contain application context, data, and artifact interfaces; prompts are short user requests. Specialized regression cases still have explicit operational constraints, such as approved smoke inputs and an unavailable backend.
 
 | Skill/workflow | Scenarios | Observable checks |
 |---|---|---|
@@ -223,7 +235,7 @@ uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --wit
 | Session diagnosis | `session_analysis` | Ordered turns, first incorrect answer, propagation, evidence, and failed-scorer exclusion |
 | Aggregate metrics | `trace_metrics` | Exact counts and token sums from the real metrics endpoint; distinguish unsupported endpoints from other failures |
 | Diagnosis versus repair | `diagnosis_only`, `agent_debug_trace_first` | Diagnosis preserves source; repair follows trace evidence and verifies refund/general routing |
-| Evaluation | `agent_evaluation`, `evaluation_precomputed`, `evaluation_dry_run` | Nested predictor kwargs; exact six-row scores and mean; reuse dataset/scorer; never rerun precomputed outputs; verify a scored dry run precedes full evaluation; stop after a failed three-row dry run |
+| Evaluation | `evaluation_nested`, `evaluation_precomputed`, `evaluation_dry_run` | Nested predictor kwargs; exact six-row scores and mean; reuse dataset/scorer; never rerun precomputed outputs; verify a scored dry run precedes full evaluation; stop after a failed three-row dry run |
 | Scorer design | `scorer_deterministic_suite`, `scorer_model_criteria` | Execute independent criteria on private malformed/near-miss cases; code, built-in and domain judges; preserve model selection |
 | Judge alignment | `scorer_label_alignment`, `scorer_memalign` | Criterion-specific human labels and train/holdout splits; missing-provider blocker; saved native MemAlign training IDs, participant holdout comparison, and separate verifier holdouts |
 
@@ -234,23 +246,14 @@ To run the local scenarios sequentially, excluding those needing a model provide
 ```sh
 for config in tests/configs/*/*.yaml; do
   case "$config" in
-    *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*) continue ;;
+    *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*|*agent_evaluation*) continue ;;
   esac
   uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
     python tests/test_skill.py "$config" || exit 1
 done
 ```
 
-Verifier tests run without Claude or model calls. They exercise real local MLflow state where needed; they are not additional skill-execution results:
-
-| Module in `tests/verifiers/` | What it checks |
-|---|---|
-| `test_environment.py` | Native dispatcher scorers, real prerequisite probes, preserved training data, retrieval evidence, and diagnosis-only side effects |
-| `test_evaluation.py` | Dry-run ordering and bounds, expectation-relative scoring, and saved MemAlign training evidence |
-| `test_instrumentation.py` | Complete skill loading, fresh traces from the delivered app, valid SDK inputs, and LangGraph instrumentation |
-| `test_artifact.py` | Shared artifact integrity and harness regressions |
-
-Run all verifier checks:
+Supporting verifier regression checks run without Claude or model calls:
 
 ```sh
 uv run --with mlflow==3.17.1 --with pytest --with langgraph --with langchain-core --with dspy \

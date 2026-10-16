@@ -6,10 +6,7 @@ judges:
   - tests/judges/instrumentation_behavior.py
 skills:
   - instrumenting-with-mlflow-tracing
-prompt: >-
-  Add TypeScript MLflow tracing to agent.ts. Preserve its behavior, execute it, flush and retrieve the resulting application traces to verify their inputs and outputs. No questions.
+prompt: "Add MLflow tracing to agent.ts and check that it works."
 timeout_seconds: 600
-mlflow_port: 32985
 environment:
   TEST_CASE: typescript
-  EXPECTED_SKILLS: instrumenting-with-mlflow-tracing

@@ -31,10 +31,11 @@ class TestConfig:
     judges: list[str]
     skills: list[str]
     prompt: str
+    required_skills: Optional[list[str]] = None
     timeout_seconds: int = 900
     verification_timeout: int = 300
     allowed_tools: str = "Skill,Bash,Read,Write,Edit,Grep,Glob,WebFetch"
-    mlflow_port: int = 5000
+    mlflow_port: Optional[int] = None
     tracking_uri: Optional[str] = None
     test_runs_dir: Path = field(default_factory=lambda: Path("/tmp"))
     keep_workdir: bool = True

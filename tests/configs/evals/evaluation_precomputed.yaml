@@ -7,18 +7,10 @@ judges:
 skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
-prompt: >-
-  Reuse existing trace evidence. Read README.md for
-  the approved task and criteria. Discover and reuse the existing MLflow dataset
-  and registered scorers. Evaluate every precomputed output without rerunning the
-  predictor, changing the stored records, or creating a replacement dataset.
-  Keep row-level scores and report the failures. Do not ask for input.
+required_skills: [agent-evaluation]
+prompt: "Evaluate the saved order-assistant outputs and tell me what failed. Don't rerun the app."
 timeout_seconds: 600
-mlflow_port: 32961
-tracking_uri: null
-keep_workdir: true
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
   MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
-  EXPECTED_SKILLS: agent-evaluation
   EVALUATION_CASE: precomputed
