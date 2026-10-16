@@ -6,7 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - searching-mlflow-docs
-prompt: "Find the official MLflow docs for logging training metrics. Save the Markdown URL and a runnable example copied verbatim as url and code in docs.json."
+prompt: "Find an official runnable mlflow.log_metric example. Copy its code and Markdown URL into docs.json as code and url."
 timeout_seconds: 600
 environment:
   TEST_CASE: docs
