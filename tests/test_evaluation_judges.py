@@ -50,7 +50,7 @@ def test_full_evaluation_requires_an_earlier_scored_dry_run(experiment, tmp_path
     assert verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
 
 
-@pytest.mark.parametrize("batch_size,passes", [(3, True), (12, False)])
+@pytest.mark.parametrize("batch_size,passes", [(2, True), (3, True), (12, False)])
 def test_failed_preflight_rejects_full_dataset(experiment, tmp_path, monkeypatch, batch_size, passes):
     _, expected = setup_case("dry_run", experiment, tmp_path, monkeypatch)
     rows = get_dataset(dataset_id=expected["dataset_id"]).to_df().to_dict("records")

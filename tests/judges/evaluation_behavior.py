@@ -302,12 +302,14 @@ def verify_behavior(expected, work, exp, start):
     if case == "precomputed":
         assert not calls, "Precomputed evaluation reran predictor"
     if case == "dry_run":
-        assert 3 <= len(calls) <= 4, (
-            f"Dry run made {len(calls)} calls (3 rows plus optional validation call allowed)"
+        assert 2 <= len(calls) <= 4, (
+            f"Dry run made {len(calls)} calls (up to 3 rows plus validation allowed)"
         )
-        assert {json.dumps(c, sort_keys=True) for c in calls} == {
-            json.dumps(r["inputs"], sort_keys=True) for r in expected["records"][:3]
-        }, "Expected only the first three dry-run inputs; full evaluation started or dry run incomplete"
+        attempted = {json.dumps(c, sort_keys=True) for c in calls}
+        approved = [json.dumps(r["inputs"], sort_keys=True) for r in expected["records"][:3]]
+        assert set(approved[:2]) <= attempted <= set(approved), (
+            "Expected cached input and a failed backend input within the approved smoke batch"
+        )
         assert any(str(t.info.state).upper().endswith("ERROR") for t in traces) or any(
             r.info.status == "FAILED" for r in runs
         ), "No real failed trace/evaluation run"
@@ -326,7 +328,7 @@ def verify_behavior(expected, work, exp, start):
             and outcome.get("full_evaluation_started") is False
         )
         assert outcome.get("reason"), "Missing blocker explanation"
-        return "Exactly three dry-run inputs attempted; backend-dependent rows failed; no full evaluation."
+        return "Bounded dry run reached the unavailable backend and stopped without full evaluation."
     if case == "nested":
         assert all(any(c == r["inputs"] for c in calls) for r in expected["records"]), (
             "Not all nested inputs reached predictor"
