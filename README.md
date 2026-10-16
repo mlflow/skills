@@ -186,7 +186,7 @@ We welcome contributions! Here's how to help:
 
 ### Testing skill behavior
 
-The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks a successful native skill invocation or complete skill read, plus an observable task outcome. Explicitly named skills test execution after selection, not automatic skill discovery. Merely mentioning an API or reporting success does not pass.
+The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks a successful native skill invocation or complete skill read, plus an observable task outcome. Task-only prompts test discovery among the skills installed for each scenario. The dispatcher case explicitly invokes mlflow-agent because it disables automatic model invocation; that case tests manual routing. Merely mentioning an API or reporting success does not pass.
 
 Validated with MLflow 3.17.1. Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
 

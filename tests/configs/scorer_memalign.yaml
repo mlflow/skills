@@ -9,7 +9,7 @@ skills:
   - build-a-scorer
   - agent-evaluation
 prompt: >-
-  Use build-a-scorer and its judge-alignment reference. Read README.md and
+  Read README.md and
   implement and run the approved native MemAlign alignment workflow.
   Preserve train/holdout separation and report measured agreement honestly.
 timeout_seconds: 900

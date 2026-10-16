@@ -8,7 +8,7 @@ skills:
   - mlflow-onboarding
   - searching-mlflow-docs
 prompt: >-
-  Use mlflow-onboarding to integrate MLflow into this traditional sklearn training project.
+  Integrate MLflow into this traditional sklearn training project.
   Read train.py and backend.json. Reuse the existing tracking server and experiment.
   Preserve the training data and model behavior, log mse and fit_intercept=True,
   and log the fitted sklearn model. Run training and verify you can reload the

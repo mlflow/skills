@@ -99,8 +99,7 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
                     f"Application tracking URI: {os.environ['MLFLOW_TRACKING_URI']}. "
                     f"Application experiment ID: {state.experiment_id}. "
                     "Use these defaults unless the task explicitly specifies another connection. Claude's own "
-                    "tracing settings use a separate experiment, not the application's. "
-                    "Use the installed MLflow skills relevant to the requested task.",
+                    "tracing settings use a separate experiment, not the application's.",
                     "--dangerously-skip-permissions",
                     "--allowedTools",
                     config.allowed_tools,

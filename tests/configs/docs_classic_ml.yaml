@@ -7,7 +7,7 @@ judges:
 skills:
   - searching-mlflow-docs
 prompt: >-
-  Use searching-mlflow-docs to find the official MLflow documentation for logging metrics in traditional ML experiment tracking. Save docs.json with url (the official Markdown source actually fetched) and code (a runnable Python example including mlflow.log_metric, copied from complete code blocks on that page; concatenating cells and removing blank lines is allowed). No questions.
+  Find the official MLflow documentation for logging metrics in traditional ML experiment tracking. Save docs.json with url (the official Markdown source actually fetched) and code (a runnable Python example including mlflow.log_metric, copied from complete code blocks on that page; concatenating cells and removing blank lines is allowed). No questions.
 timeout_seconds: 600
 mlflow_port: 32983
 environment:

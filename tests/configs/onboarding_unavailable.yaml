@@ -7,7 +7,7 @@ judges:
 skills:
   - mlflow-onboarding
 prompt: >-
-  Use mlflow-onboarding to check connectivity using backend.json with a two-second request timeout and no retries for this probe. Report the actual readiness and blocker in connection.json as status and reason. Do not switch backend, create experiments, or edit project configuration. No questions.
+  Check connectivity using backend.json with a two-second request timeout and no retries for this probe. Report the actual readiness and blocker in connection.json as status and reason. Do not switch backend, create experiments, or edit project configuration. No questions.
 timeout_seconds: 600
 mlflow_port: 32981
 environment:

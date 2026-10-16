@@ -8,7 +8,7 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use agent-evaluation to evaluate the already-instrumented order
+  Evaluate the already-instrumented order
   assistant. Read README.md for approved criteria and operational constraints.
   Discover the existing dataset and scorer, attempt the required dry run, and
   honor its decision gate before any full evaluation. Save a machine-readable

@@ -8,7 +8,7 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use agent-evaluation. Reuse existing trace evidence. Read README.md for
+  Reuse existing trace evidence. Read README.md for
   the approved task and criteria. Discover and reuse the existing MLflow dataset
   and registered scorers. Evaluate every precomputed output without rerunning the
   predictor, changing the stored records, or creating a replacement dataset.

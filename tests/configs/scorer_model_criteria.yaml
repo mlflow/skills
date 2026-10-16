@@ -8,7 +8,7 @@ judges:
 skills:
   - build-a-scorer
 prompt: >-
-  Use build-a-scorer. Read README.md for the confirmed billing-agent criteria and
+  Read README.md for the confirmed billing-agent criteria and
   implementation choices. Inspect available MLflow built-ins, implement the three
   independent native scorers in quality_suite.py with get_scorers(), and explain
   the code-versus-built-in-versus-domain-judge choices. Use TEST_JUDGE_MODEL exactly
