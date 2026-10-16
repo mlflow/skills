@@ -329,3 +329,17 @@ def test_retrieval_redirect_inspected_with_python(tmp_path, monkeypatch, path, p
     else:
         with pytest.raises(AssertionError):
             verify_retrieval(trace, manifest)
+
+
+@pytest.mark.parametrize("reader", ["jq .", "cat"])
+@pytest.mark.parametrize("path,passes", [("/tmp/traces.json", True), ("/tmp/other.json", False)])
+def test_retrieval_redirect_inspected_with_shell_reader(tmp_path, monkeypatch, reader, path, passes):
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    manifest = {"case": "trace_analysis", "expected": {"trace_id": "tr-example"}}
+    trace = session(bash("mlflow traces search --experiment-id 1 > /tmp/traces.json", ""),
+                    bash(f"{reader} {path}", "tr-example"))
+    if passes:
+        verify_retrieval(trace, manifest)
+    else:
+        with pytest.raises(AssertionError):
+            verify_retrieval(trace, manifest)

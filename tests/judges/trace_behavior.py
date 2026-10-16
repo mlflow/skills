@@ -71,6 +71,8 @@ def verify_retrieval(trace, manifest):
                     if read_tool == "Bash":
                         read_command = read_inputs.get("command", "")
                         for read_words in commands(read_command):
+                            if read_words[0] in {"jq", "cat"}:
+                                paths.extend(read_words[1:])
                             read_source = python_source(read_words, read_command)
                             if read_source:
                                 paths.extend(n.args[0].value for n in ast.walk(ast.parse(read_source))
