@@ -7,7 +7,7 @@ judges:
 skills:
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Add MLflow tracing to the existing LangGraph app in agent.py. Use the existing deterministic model, preserve its graph, run the app and retrieve a persisted trace to verify graph, node and model spans. No questions.
+  Add MLflow tracing to the existing LangGraph app in agent.py. Keep the existing deterministic model and graph, run the app and retrieve a persisted trace to verify graph, node and model spans. No questions.
 timeout_seconds: 600
 mlflow_port: 32941
 environment:

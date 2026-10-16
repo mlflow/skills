@@ -9,7 +9,7 @@ skills:
 - retrieving-mlflow-traces
 prompt: Read task.json for the investigation
   scope. Compute metrics across ALL application traces in the inclusive task.json start_time_ms/end_time_ms
-  window, without filtering session, status, or environment. Use the MLflow metrics endpoint first.
+  window, without filtering session, status, or environment. Query the MLflow metrics endpoint first.
   If this local server does not implement that endpoint, report its actual HTTP status, then aggregate
   real trace records through MLflow search/get APIs; never fabricate a successful metrics response. Authentication,
   connection, and server errors are blockers, not evidence of unsupported capabilities. Write outcome.json
