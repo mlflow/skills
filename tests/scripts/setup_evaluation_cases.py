@@ -23,7 +23,7 @@ import mlflow
 
 @mlflow.trace
 def predict(*, request, context):
-    with Path("predict_calls.jsonl").open("a") as f:
+    with Path(__file__).with_name("predict_calls.jsonl").open("a") as f:
         f.write(json.dumps({"request": request, "context": context}) + "\\n")
     MODE_BODY
 """

@@ -183,6 +183,20 @@ def main():
             "output_fields": list(expected[case])}
     if case == "trace_metrics":
         task["output_fields"] += ["metrics_endpoint_http_status", "aggregation_method"]
+    # Artifact schema, not a diagnosis or instructions for retrieving the evidence.
+    task["output_contract"] = {
+        "file": "outcome.json",
+        "root_cause": ["tool_timeout", "retrieval_error", "generation_error"],
+        "source_file": "path relative to the project",
+        "document_id": "ID of the incorrectly applied document",
+        "ignored_assessment_names": "names of assessments whose scorers failed",
+        "metrics_endpoint_http_status": "integer HTTP status from the metrics request",
+        "aggregation_method": ["metrics_endpoint", "search_traces_fallback"],
+    }
+    task["output_contract"] = {
+        key: value for key, value in task["output_contract"].items()
+        if key == "file" or key in task["output_fields"]
+    }
     (project / "task.json").write_text(json.dumps(task, indent=2))
     manifest = {"case": case, "experiment_id": experiment_id, "tracking_uri": mlflow.get_tracking_uri(),
                 "start_ms": start_ms, "end_ms": end_ms, "records": records,

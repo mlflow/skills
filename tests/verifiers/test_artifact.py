@@ -146,17 +146,19 @@ def test_port_probe_rejects_active_listener():
     assert is_port_available(port)
 
 
-@pytest.mark.parametrize("tool,command,output,want", [
-    ("Bash", "pip show sagemaker-mlflow", "WARNING: Package(s) not found: sagemaker-mlflow", "yes"),
-    ("Bash", "python -c 'import sagemaker_mlflow'", "ModuleNotFoundError: No module named 'sagemaker_mlflow'", "yes"),
-    ("Bash", "pip show sagemaker-mlflow", "Name: sagemaker-mlflow\nVersion: 0.2.0", "no"),
-    ("Bash", "pip show sagemaker-mlflow; pip install sagemaker-mlflow", "Package(s) not found: sagemaker-mlflow", "no"),
-    ("Bash", "pip show sagemaker-mlflow; echo 'pip install sagemaker-mlflow' > instructions.txt", "Package(s) not found: sagemaker-mlflow", "yes"),
-    ("Bash", "pip show unrelated", "WARNING: Package(s) not found: unrelated", "no"),
-    ("Read", "connection.json", "Package(s) not found: sagemaker-mlflow", "no"),
+@pytest.mark.parametrize("tool,command,output,want,status", [
+    ('Bash', 'pip show sagemaker-mlflow', 'WARNING: Package(s) not found: sagemaker-mlflow', 'yes', 'blocked'),
+    ('Bash', "python -c 'import sagemaker_mlflow'", "ModuleNotFoundError: No module named 'sagemaker_mlflow'", 'yes', 'blocked'),
+    ('Bash', 'pip show sagemaker-mlflow', 'Name: sagemaker-mlflow\nVersion: 0.2.0', 'no', 'blocked'),
+    ('Bash', 'pip show sagemaker-mlflow; pip install sagemaker-mlflow', 'Package(s) not found: sagemaker-mlflow', 'no', 'blocked'),
+    ('Bash', "pip show sagemaker-mlflow; echo 'pip install sagemaker-mlflow' > instructions.txt", 'Package(s) not found: sagemaker-mlflow', 'yes', 'blocked'),
+    ('Bash', 'pip show unrelated', 'WARNING: Package(s) not found: unrelated', 'no', 'blocked'),
+    ('Read', 'connection.json', 'Package(s) not found: sagemaker-mlflow', 'no', 'blocked'),
+    ('Bash', 'pip show sagemaker-mlflow', 'Package(s) not found: sagemaker-mlflow', 'yes', 'failed'),
+    ('Bash', 'pip show sagemaker-mlflow', 'Package(s) not found: sagemaker-mlflow', 'no', 'ready'),
 ])
 def test_sagemaker_requires_observed_prerequisite_failure(
-    experiment, tmp_path, monkeypatch, tool, command, output, want
+    experiment, tmp_path, monkeypatch, tool, command, output, want, status
 ):
     import json
     from judges.environment_behavior import get_judges
@@ -168,7 +170,7 @@ def test_sagemaker_requires_observed_prerequisite_failure(
         "files": {}, "backend": {"tracking_uri": mlflow.get_tracking_uri()},
         "experiment_ids": [e.experiment_id for e in mlflow.MlflowClient().search_experiments()],
     }))
-    (tmp_path / "connection.json").write_text(json.dumps({"status": "blocked", "reason": "missing plugin"}))
+    (tmp_path / "connection.json").write_text(json.dumps({"status": status, "reason": "missing plugin"}))
     with mlflow.start_span(name="participant") as root:
         trace_id = root.trace_id
         mlflow.update_current_trace(metadata={"mlflow.trace.session": "prerequisite-check"})

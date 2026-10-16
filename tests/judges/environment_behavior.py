@@ -196,7 +196,7 @@ def get_judges():
                                for t in traces for s in t.data.spans), "No persisted application smoke trace"
                 else:
                     result = json.loads(Path("connection.json").read_text())
-                    assert result["status"] in {"blocked", "unavailable"}, "Claimed readiness despite unavailable prerequisite"
+                    assert result["status"] in {"blocked", "unavailable", "failed"}, "Claimed readiness despite unavailable prerequisite"
                     assert result.get("reason"), "Missing prerequisite failure explanation"
                     verify_prerequisite(trace, case, expected["backend"]["tracking_uri"])
             return Feedback(value="yes", rationale=f"Verified {case} against independent outputs and preserved configuration")
