@@ -90,7 +90,7 @@ def verify_prerequisite(trace, case, uri):
                     for n in nodes)
                 probe |= words[:3] == ["aws", "sts", "get-caller-identity"]
                 observed |= probe and bool(re.search(
-                    r"ModuleNotFoundError|No module named|Unable to locate credentials|NoCredentialsError|Package\(s\) not found: sagemaker-mlflow"
+                    r"ModuleNotFoundError|No module named|Unable to locate credentials|NoCredentialsError|Package\(s\) not found: (?:[\w.-]+, )*sagemaker-mlflow(?:,|\s|$)"
                     r"|\[x\] sagemaker-mlflow plugin \(or its boto3 dependency\) not installed"
                     r"|\[x\] AWS credentials missing or expired:",
                     str(outputs)))

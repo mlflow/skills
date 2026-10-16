@@ -294,3 +294,23 @@ def test_classic_ml_setup_and_judge(experiment, tmp_path, monkeypatch):
     run_command([sys.executable, "train.py"], timeout=60)
     result = get_judges()[0](trace=session())
     assert result.value == "yes", result.rationale
+
+
+@pytest.mark.parametrize("missing,passes", [
+    ("sagemaker-mlflow", True),
+    ("boto3, mlflow, sagemaker-mlflow", True),
+    ("sagemaker-mlflow, boto3", True),
+    ("boto3, mlflow", False),
+    ("sagemaker-mlflow-extra", False),
+])
+def test_multi_package_prerequisite_diagnostic(tmp_path, monkeypatch, missing, passes):
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    output = f"WARNING: Package(s) not found: {missing}"
+    trace = session(bash("pip show sagemaker-mlflow mlflow boto3", output))
+    if passes:
+        verify_prerequisite(trace, "sagemaker_missing", "unused")
+    else:
+        with pytest.raises(AssertionError):
+            verify_prerequisite(trace, "sagemaker_missing", "unused")
+    with pytest.raises(AssertionError):
+        verify_prerequisite(session(bash(f"echo '{output}'", output)), "sagemaker_missing", "unused")
