@@ -11,8 +11,7 @@ prompt: >-
   Read README.md for the confirmed billing-agent criteria and
   implementation choices. Inspect available MLflow built-ins, implement the three
   independent native scorers in quality_suite.py with get_scorers(), and explain
-  the code-versus-built-in-versus-domain-judge choices. Use TEST_JUDGE_MODEL exactly
-  for both model-backed checks. Include a runnable native evaluation example and
+  the code-versus-built-in-versus-domain-judge choices. Both model-backed checks must retain the exact TEST_JUDGE_MODEL setting. Include a runnable native evaluation example and
   hand off evaluation. Do not ask for reconfirmation.
 timeout_seconds: 900
 verification_timeout: 300

@@ -9,8 +9,8 @@ skills:
   - instrumenting-with-mlflow-tracing
 prompt: >-
   Evaluate this agent's output quality. Reuse working
-  tracing. Read README.md for the approved purpose and criteria. Use native
-  MLflow datasets, registered scorers, and evaluation. Run the dry run before full
+  tracing. Read README.md for the approved purpose and criteria. Evaluate with native
+  MLflow datasets and registered scorers. Run the dry run before full
   evaluation, retain row-level outputs and scores, and report failures honestly.
   Do not ask for input. If this is an external repository, preserve its configured
   scorer model and follow its own entry point and data contracts.

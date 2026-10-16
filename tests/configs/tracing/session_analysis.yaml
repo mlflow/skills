@@ -11,7 +11,7 @@ skills:
 prompt: Read
   task.json for the investigation scope. Analyze only task.json.session_id. Reconstruct all turns chronologically,
   identify the first incorrect answer and which later turns propagate it, and inspect the responsible
-  span. Use the current_policy in task.json as the policy reference. Distinguish session feedback and
+  span. The policy reference is current_policy in task.json. Distinguish session feedback and
   failed evaluator assessments from turn-level application failures. Write outcome.json with session_id,
   ordered_trace_ids, first_bad_trace_id, propagated_trace_ids, root_cause_span_id, document_id (the incorrectly
   used document), observed_refund_days, expected_refund_days, ignored_assessment_names (only assessments
