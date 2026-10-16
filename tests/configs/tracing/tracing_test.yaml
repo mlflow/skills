@@ -7,7 +7,7 @@ judges:
 skills:
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use instrumenting-with-mlflow-tracing to add tracing to the existing application (agent.py in the bundled fixture). Preserve its behavior, run it, flush and retrieve the resulting application traces to verify their recorded inputs and outputs. For an external repository, save the application launch command as a JSON argv array in tracing-command.json so verification can rerun it. No questions.
+  Add MLflow tracing to the existing application (agent.py in the bundled fixture). Preserve its behavior, run it, flush and retrieve the resulting application traces to verify their recorded inputs and outputs. For an external repository, save the application launch command as a JSON argv array in tracing-command.json so verification can rerun it. No questions.
 timeout_seconds: 600
 mlflow_port: 32939
 environment:

@@ -8,7 +8,7 @@ skills:
   - agent-evaluation
   - instrumenting-with-mlflow-tracing
 prompt: >-
-  Use agent-evaluation to evaluate this agent's output quality. Reuse working
+  Evaluate this agent's output quality. Reuse working
   tracing. Read README.md for the approved purpose and criteria. Use native
   MLflow datasets, registered scorers, and evaluation. Run the dry run before full
   evaluation, retain row-level outputs and scores, and report failures honestly.

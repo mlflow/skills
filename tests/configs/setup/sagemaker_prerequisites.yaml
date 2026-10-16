@@ -7,7 +7,7 @@ judges:
 skills:
   - sagemaker-mlflow
 prompt: >-
-  Use sagemaker-mlflow to validate prerequisites for arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example. Check the installed plugin and credentials before connecting; do not install packages or acquire credentials. Write connection.json with status and reason. Do not change the existing project. No questions.
+  Validate prerequisites for arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example. Check the installed plugin and credentials before connecting; do not install packages or acquire credentials. Write connection.json with status and reason. Do not change the existing project. No questions.
 timeout_seconds: 600
 mlflow_port: 32982
 environment:

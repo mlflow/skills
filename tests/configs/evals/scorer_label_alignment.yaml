@@ -9,7 +9,7 @@ judges:
 skills:
   - build-a-scorer
 prompt: >-
-  Use build-a-scorer and read its judge-alignment reference. Read README.md for the
+  Read README.md for the
   confirmed criterion and train/holdout split. Discover the existing MLflow dataset
   and human feedback and prepare the exact alignment pairing manifest requested
   there. No embedding model is approved for this fixture; inspect optimizer
