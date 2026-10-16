@@ -67,11 +67,20 @@ def verify_retrieval(trace, manifest):
                 text = output_text(outputs)
                 # CLI output redirected to a file is often inspected in a subsequent Read.
                 for read_tool, read_inputs, read_outputs, read_failed in events:
-                    path = read_inputs.get("file_path", "")
-                    if read_tool == "Read" and not read_failed and path and (
-                        path in command or any(Path(w.split("=", 1)[-1]).name == Path(path).name
-                                               for w in words)
-                    ):
+                    paths = [read_inputs.get("file_path", "")] if read_tool == "Read" else []
+                    if read_tool == "Bash":
+                        read_command = read_inputs.get("command", "")
+                        for read_words in commands(read_command):
+                            read_source = python_source(read_words, read_command)
+                            if read_source:
+                                paths.extend(n.args[0].value for n in ast.walk(ast.parse(read_source))
+                                             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                                             and n.func.id == "open" and n.args
+                                             and isinstance(n.args[0], ast.Constant)
+                                             and isinstance(n.args[0].value, str))
+                    if not read_failed and any(path and any(
+                        Path(w.split("=", 1)[-1]).absolute() == Path(path).absolute()
+                        for w in words) for path in paths):
                         text += output_text(read_outputs)
                 evidence += text
                 # CLI tables, JSON, and SDK aggregation prints differ in formatting.

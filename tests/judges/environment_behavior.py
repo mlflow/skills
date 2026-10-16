@@ -14,7 +14,7 @@ import mlflow
 from mlflow.entities import Feedback
 from mlflow.genai.scorers import Scorer, scorer
 
-from judges.skill_usage import tool_calls
+from judges.skill_usage import output_text, tool_calls
 from utils import run_command
 
 
@@ -80,7 +80,7 @@ def verify_prerequisite(trace, case, uri):
                     calls & {"urlopen", "get", "post", "search_experiments", "get_experiment"})
                 observed |= target and probe and bool(re.search(
                     r"ConnectionError|Connection refused|Failed to establish|Max retries|Failed to connect",
-                    str(outputs), re.I))
+                    output_text(outputs), re.I))
             else:
                 probe = ("show" in words and "sagemaker-mlflow" in words
                          and (words[0] in {"pip", "pip3"} or words[1:3] == ["-m", "pip"]))
@@ -93,7 +93,7 @@ def verify_prerequisite(trace, case, uri):
                     r"ModuleNotFoundError|No module named|Unable to locate credentials|NoCredentialsError|Package\(s\) not found: (?:[\w.-]+, )*sagemaker-mlflow(?:,|\s|$)"
                     r"|\[x\] sagemaker-mlflow plugin \(or its boto3 dependency\) not installed"
                     r"|\[x\] AWS credentials missing or expired:",
-                    str(outputs)))
+                    output_text(outputs)))
     assert observed, "No observed failing prerequisite probe for the configured backend"
 
 
