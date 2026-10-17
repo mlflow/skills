@@ -376,10 +376,11 @@ def get_judges() -> list:
                 "Explain that evaluation stopped because backend credentials are unavailable; "
                 "do not claim a completed full evaluation."
                 if expected["case"] == "dry_run" else
-                "Identify criterion total_correct and dataset " + expected["dataset_id"]
-                + "; report these exact expert-label pairings and train/holdout assignments: "
+                "Identify criterion total_correct and the expert-review-split dataset; "
+                "report correct expert-label pairings and train/holdout assignments: "
                 + json.dumps(expected["pairs"])
-                + ". Explain that alignment is blocked without an approved embedding model; "
+                + ". Accept order IDs or trace IDs, resolving their correspondence from fetched evidence. "
+                "Explain that alignment is blocked without an approved embedding model; "
                 "do not claim optimization completed."
             )
             try:
