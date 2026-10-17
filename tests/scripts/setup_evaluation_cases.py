@@ -67,6 +67,7 @@ def seed_alignment(project, expected, exp):
         "Criterion: total_correct. Expert labels are HUMAN assessments from order-expert.\n"
         "The expert-review-split dataset contains trace IDs and the train/holdout split.\n"
         "No embedding model is approved. Existing labels and splits are immutable.\n"
+        "Label export columns: trace_id, label (true/false), split.\n"
     )
 
 

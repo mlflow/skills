@@ -136,13 +136,17 @@ def get_judges():
                     value = result.value if isinstance(result, Feedback) else result
                     assert type(value) is bool and value == want, f"Wrong score for {output}: {value}"
             elif case == "docs":
+                assert any(
+                    not failed and tool in {"WebFetch", "Bash"}
+                    and re.search(r"https://mlflow\.org/docs/", json.dumps(inputs))
+                    and "mlflow.log_metric" in output_text(outputs)
+                    for tool, inputs, outputs, failed in tool_calls(trace)
+                ), "No retrieved official documentation for mlflow.log_metric"
                 verify_response(trace, (
                     "The final answer must provide a correct, runnable Python example using "
                     "mlflow.log_metric, including necessary imports and setup, and cite official "
-                    "MLflow documentation at https://mlflow.org/docs/. Inspect the actual fetched "
-                    "documentation in tool inputs and outputs: require successful retrieval of "
-                    "official documentation supporting the example, not just a URL or a claim "
-                    "that it was read. The example may adapt the documentation; exact copying "
+                    "MLflow documentation at https://mlflow.org/docs/. The example may adapt "
+                    "the documentation; exact copying "
                     "and a Markdown URL suffix are not required."
                 ))
             else:
@@ -183,7 +187,7 @@ def get_judges():
                     verify_response(trace, (
                         "The final answer must explain that the requested backend connection "
                         "is blocked or unavailable and identify the prerequisite failure "
-                        "supported by the actual probe tool results. It must not claim the "
+                        "(missing SageMaker plugin/credentials or an unreachable tracking server). It must not claim the "
                         "connection is ready or successful."
                     ))
             return Feedback(value="yes", rationale=f"Verified {case} against independent outputs and preserved configuration")
