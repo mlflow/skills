@@ -12,5 +12,4 @@ prompt: "Evaluate the saved order-assistant outputs and tell me what failed. Don
 timeout_seconds: 600
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
-  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
   EVALUATION_CASE: precomputed

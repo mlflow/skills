@@ -9,7 +9,7 @@ skills:
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
 required_skills: [analyze-mlflow-chat-session]
-prompt: "Where did the conversation in task.json go wrong? Save the findings in outcome.json."
+prompt: "Where did the conversation in task.json go wrong?"
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
 environment:

@@ -11,5 +11,4 @@ required_skills: [agent-evaluation]
 prompt: "Evaluate my order assistant and tell me which examples it gets wrong."
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
-  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
   EVALUATION_CASE: nested

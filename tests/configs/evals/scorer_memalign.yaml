@@ -13,5 +13,3 @@ prompt: "Align our order-total judge with the expert feedback and compare it wit
 verification_timeout: 600
 environment:
   EVALUATION_CASE: alignment_live
-  MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
-  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"

@@ -245,10 +245,10 @@ def test_diagnosis_preserves_native_and_recursive_state(experiment, tmp_path, mo
     seed_traces()
     monkeypatch.chdir(project)
     manifest = json.loads((tmp_path / "trace_case_manifest.json").read_text())
-    Path("outcome.json").write_text(json.dumps(manifest["expected"]))
     trace_id = manifest["expected"]["trace_id"]
     participant = session(bash(f"mlflow traces get --trace-id {trace_id}", trace_id))
-    assert verify_outcome(participant)
+    assert verify_outcome()
+    verify_retrieval(participant, manifest)
     if addition in {"test", "scorer_file"}:
         path = Path("tests/test_order.py" if addition == "test" else "quality/scorers.py")
         path.parent.mkdir()
@@ -263,12 +263,12 @@ def test_diagnosis_preserves_native_and_recursive_state(experiment, tmp_path, mo
             return True
         quality.register(experiment_id=experiment.experiment_id)
     if addition == "none":
-        assert verify_outcome(participant)
+        assert verify_outcome()
         with pytest.raises(AssertionError, match="retrieval"):
-            verify_outcome(session(bash("cat ../trace_case_manifest.json", trace_id)))
+            verify_retrieval(session(bash("cat ../trace_case_manifest.json", trace_id)), manifest)
     else:
         with pytest.raises(AssertionError, match="Diagnosis"):
-            verify_outcome(participant)
+            verify_outcome()
 
 
 def test_classic_ml_setup_and_judge(experiment, tmp_path, monkeypatch):
@@ -343,3 +343,30 @@ def test_retrieval_redirect_inspected_with_shell_reader(tmp_path, monkeypatch, r
     else:
         with pytest.raises(AssertionError):
             verify_retrieval(trace, manifest)
+
+
+@pytest.mark.parametrize("value,error,passes", [
+    ("yes", None, True), ("no", None, False), (None, None, False),
+    ("yes", "provider failed", False),
+])
+def test_response_verdict(monkeypatch, value, error, passes):
+    from judges.response import verify_response
+
+    trace = object()
+
+    def make_judge(**kwargs):
+        assert "{{ trace }}" in kwargs["instructions"]
+        assert "Explain the failed connection" in kwargs["instructions"]
+
+        def judge(**args):
+            assert args["trace"] is trace
+            return SimpleNamespace(value=value, error=error, rationale="test assessment")
+
+        return judge
+
+    monkeypatch.setattr("judges.response.make_judge", make_judge)
+    if passes:
+        verify_response(trace, "Explain the failed connection")
+    else:
+        with pytest.raises(AssertionError):
+            verify_response(trace, "Explain the failed connection")

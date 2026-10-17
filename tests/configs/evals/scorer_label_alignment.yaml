@@ -8,7 +8,7 @@ judges:
   - tests/judges/evaluation_behavior.py
 skills:
   - build-a-scorer
-prompt: "Prepare our expert feedback for judge alignment. Save the pairings and any blockers in outcome.json."
+prompt: "Prepare our expert feedback for judge alignment. Explain any blockers."
 timeout_seconds: 600
 environment:
   EVALUATION_CASE: alignment

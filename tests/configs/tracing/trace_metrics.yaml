@@ -8,7 +8,7 @@ skills:
 - querying-mlflow-metrics
 - retrieving-mlflow-traces
 required_skills: [querying-mlflow-metrics]
-prompt: "How much token usage and how many errors did we have during the time window in task.json? Save the numbers in outcome.json."
+prompt: "How much token usage and how many errors did we have during the time window in task.json?"
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
 environment:

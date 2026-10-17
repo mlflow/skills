@@ -6,7 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - mlflow-onboarding
-prompt: "Check the backend in backend.json. Save its status and the reason in connection.json; don't change the configuration."
+prompt: "Check the backend in backend.json and explain whether it is available and why; don't change the configuration."
 timeout_seconds: 600
 environment:
   TEST_CASE: unavailable_backend

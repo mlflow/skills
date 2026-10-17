@@ -5,7 +5,6 @@ The manifest is accessible to the participant; these are behavioral checks, not 
 from __future__ import annotations
 
 import ast
-import base64
 import hashlib
 import json
 import math
@@ -21,6 +20,7 @@ from mlflow.genai.scorers import list_scorers, scorer
 
 from judges.environment_behavior import commands, python_source
 from judges.skill_usage import output_text, tool_calls
+from judges.response import verify_response
 
 
 def diagnosis_state(experiment_id, project):
@@ -133,9 +133,8 @@ def _snapshot(trace):
 
 
 def verify_outcome(participant_trace=None):
-    """Raises on missing/incorrect answers or missing/modified server evidence."""
+    """Verify backend integrity and, when supplied, participant retrieval and response."""
     manifest = json.loads((Path(os.environ["TEST_WORK_DIR"]) / "trace_case_manifest.json").read_text())
-    outcome = json.loads(Path("outcome.json").read_text())
     client = mlflow.MlflowClient(tracking_uri=manifest["tracking_uri"])
     traces = {}
     for trace_id, expected in manifest["snapshots"].items():
@@ -146,28 +145,10 @@ def verify_outcome(participant_trace=None):
 
     expected = manifest["expected"]
     case = manifest["case"]
-    if case == "diagnosis_only" and isinstance(outcome.get("source_file"), str):
-        outcome["source_file"] = str(Path(outcome["source_file"]))
-    if case == "trace_retrieval":
-        ids = outcome.get("trace_ids")
-        assert isinstance(ids, list) and len(ids) == len(set(ids)), "Missing IDs or duplicate rows"
-        outcome = {**outcome, "trace_ids": sorted(ids)}
-        expected = {**expected, "trace_ids": sorted(expected["trace_ids"])}
-    # CLI/REST encodes span IDs as protobuf base64; the Python SDK exposes hex.
-    # Both identify the same real span. Normalize only span-ID fields.
-    for key in ("failing_span_id", "root_cause_span_id"):
-        value = outcome.get(key)
-        if isinstance(value, str) and value != expected.get(key):
-            try:
-                raw = base64.b64decode(value, validate=True)
-                if len(raw) == 8:
-                    outcome[key] = raw.hex()
-            except ValueError:
-                pass
-    _equal(outcome, expected)
-    # Direct callers can check artifact integrity alone; the scorer also requires session evidence.
+    # Direct callers check backend integrity without needing a participant response.
     if participant_trace is not None:
         verify_retrieval(participant_trace, manifest)
+        verify_response(participant_trace, manifest["response_requirements"])
 
     if case == "session_analysis":
         # The errored scorer on turn one must never become the first application failure.
@@ -205,25 +186,22 @@ def verify_outcome(participant_trace=None):
             status = error.code
             body = error.read().decode()
         assert status == manifest["metrics_probe"]["http_status"], "Metrics capability changed during test"
-        _equal(outcome.get("metrics_endpoint_http_status"), status)
         if status == 200:
-            _equal(outcome.get("aggregation_method"), "metrics_endpoint")
             points = body.get("data_points", [])
             assert len(points) == 1, "Metrics endpoint returned absent or unexpected aggregate rows"
             _equal(float(points[0]["values"]["SUM"]), float(expected["total_tokens"]))
         else:
             # Unsupported endpoints are a capability boundary, never successful native metrics coverage.
             assert status in (404, 405, 501), f"Unexpected API failure, not an unsupported endpoint: {body}"
-            _equal(outcome.get("aggregation_method"), "search_traces_fallback")
             return f"Exact real trace aggregation verified; native metrics endpoint unsupported (HTTP {status})."
-    return f"{case}: exact outcome and {len(traces)} seeded traces verified via MLflow API."
+    return f"{case}: {len(traces)} seeded traces verified via MLflow API."
 
 
 def get_judges():
     @scorer(name="trace-behavior-outcome")
     def trace_behavior_outcome(trace) -> Feedback:
         # Runner supplies participant traces, isolated from the seeded application experiment.
-        # Never silently skip a missing outcome or a failed server query.
+        # Never silently skip a missing response or a failed server query.
         try:
             assert trace is not None, "Missing participant session"
             if not trace.info.trace_metadata.get("mlflow.trace.session"):
