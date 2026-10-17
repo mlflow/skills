@@ -98,8 +98,8 @@ def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monke
         verify_outcome()
 
 
-@pytest.mark.parametrize("accepted", [True, False])
-def test_documentation_grades_response_and_retrieved_evidence(experiment, tmp_path, monkeypatch, accepted):
+@pytest.mark.parametrize("accepted,official", [(True, True), (False, True), (True, False)])
+def test_documentation_grades_response_and_retrieved_evidence(experiment, tmp_path, monkeypatch, accepted, official):
     from unittest.mock import Mock
     from judges import environment_behavior
 
@@ -116,22 +116,25 @@ def test_documentation_grades_response_and_retrieved_evidence(experiment, tmp_pa
         mlflow.update_current_trace(metadata={"mlflow.trace.session": "docs-check"})
         root.set_outputs(f"Example:\n{example}\nSource: {url}")
         with mlflow.start_span(name="tool", attributes={"tool_name": "WebFetch"}) as span:
-            span.set_inputs({"url": url})
+            span.set_inputs({"url": url if official else "https://example.com/docs"})
             span.set_outputs({"result": 'import mlflow\nmlflow.log_metric("accuracy", 0.9)'})
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(trace_id)
-    assert environment_behavior.get_judges()[0](trace=trace).value == ("yes" if accepted else "no")
+    assert environment_behavior.get_judges()[0](trace=trace).value == ("yes" if accepted and official else "no")
+    if not official:
+        grade.assert_not_called()
+        return
     grade.assert_called_once()
     passed_trace, requirements = grade.call_args.args
     assert passed_trace.info.trace_id == trace_id
     assert passed_trace.data.spans[0].outputs == root.outputs
     assert passed_trace.data.spans[1].inputs == {"url": url}
-    assert "runnable" in requirements and "actual fetched" in requirements
-    assert "successful retrieval" in requirements
+    assert "runnable" in requirements and "MLflow documentation" in requirements
     assert not (tmp_path / "docs.json").exists()
 
 
 def test_alignment_preserves_native_labels_and_splits(experiment, tmp_path, monkeypatch):
+    import csv
     from scripts.setup_evaluation_cases import seed_alignment
     from judges.evaluation_behavior import verify_behavior
 
@@ -140,13 +143,23 @@ def test_alignment_preserves_native_labels_and_splits(experiment, tmp_path, monk
     expected = {"case": "alignment"}
     seed_alignment(project, expected, experiment.experiment_id)
     monkeypatch.chdir(project)
+    pairs = [dict(p) for p in expected["pairs"]]
+
+    def export():
+        with (project / "labels.csv").open("w") as stream:
+            writer = csv.DictWriter(stream, fieldnames=["trace_id", "label", "split"])
+            writer.writeheader()
+            writer.writerows(pairs)
+
+    export()
     assert verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
-    for key, wrong in [("label", not expected["pairs"][0]["label"]), ("split", "holdout")]:
-        previous = expected["pairs"][0][key]
-        expected["pairs"][0][key] = wrong
+    for key, wrong in [("label", not pairs[0]["label"]), ("split", "holdout")]:
+        previous = pairs[0][key]
+        pairs[0][key] = wrong
+        export()
         with pytest.raises(AssertionError):
             verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
-        expected["pairs"][0][key] = previous
+        pairs[0][key] = previous
 
 
 def test_port_probe_rejects_active_listener():
@@ -191,7 +204,7 @@ def test_sagemaker_requires_observed_prerequisite_failure(
     def grade(trace, requirements):
         graded.append(trace)
         assert trace.data.spans[0].outputs == answer
-        assert "actual probe tool results" in requirements
+        assert "prerequisite failure" in requirements
         assert status != "ready", "Claimed readiness despite missing plugin"
     monkeypatch.setattr(environment_behavior, "verify_response", grade)
     with mlflow.start_span(name="participant") as root:

@@ -352,14 +352,15 @@ def test_retrieval_redirect_inspected_with_shell_reader(tmp_path, monkeypatch, r
 def test_response_verdict(monkeypatch, value, error, passes):
     from judges.response import verify_response
 
-    trace = object()
+    trace = SimpleNamespace(data=SimpleNamespace(spans=[
+        SimpleNamespace(parent_id=None, outputs="Connection failed: missing credentials.")]))
 
     def make_judge(**kwargs):
-        assert "{{ trace }}" in kwargs["instructions"]
+        assert "{{ outputs }}" in kwargs["instructions"]
         assert "Explain the failed connection" in kwargs["instructions"]
 
         def judge(**args):
-            assert args["trace"] is trace
+            assert args["outputs"] == trace.data.spans[0].outputs
             return SimpleNamespace(value=value, error=error, rationale="test assessment")
 
         return judge

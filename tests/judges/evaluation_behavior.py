@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
@@ -248,8 +249,16 @@ def verify_behavior(expected, work, exp, start):
         (work / "alignment-verification.json").write_text(json.dumps(comparison, indent=2))
         return "Native MemAlign result executed on four private holdouts; base preserved and exact expert agreement checked."
     if case == "alignment":
+        with Path("labels.csv").open() as stream:
+            rows = list(csv.DictReader(stream))
+        assert all(row["label"].lower() in {"true", "false"} for row in rows)
+        pairs = [{"trace_id": row["trace_id"], "label": row["label"].lower() == "true",
+                  "split": row["split"]} for row in rows]
+        assert sorted(pairs, key=lambda p: p["trace_id"]) == sorted(
+            expected["pairs"], key=lambda p: p["trace_id"]
+        ), "Wrong expert labels or train/holdout assignments"
         _verify_alignment_data(expected, exp)
-        return "Expert feedback and disjoint splits preserved in real MLflow records."
+        return "Prepared labels and splits match native expert feedback and the unchanged dataset."
     if case in {"suite", "model_suite"}:
         return _verify_suite(expected, work)
     runs = _runs(exp, start)
@@ -376,10 +385,6 @@ def get_judges() -> list:
                 "Explain that evaluation stopped because backend credentials are unavailable; "
                 "do not claim a completed full evaluation."
                 if expected["case"] == "dry_run" else
-                "Identify criterion total_correct and the expert-review-split dataset; "
-                "report correct expert-label pairings and train/holdout assignments: "
-                + json.dumps(expected["pairs"])
-                + ". Accept order IDs or trace IDs, resolving their correspondence from fetched evidence. "
                 "Explain that alignment is blocked without an approved embedding model; "
                 "do not claim optimization completed."
             )
