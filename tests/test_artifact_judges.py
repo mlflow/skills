@@ -63,6 +63,8 @@ def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monke
     import json
     from scripts.setup_trace_cases import main as seed
     from judges.trace_behavior import verify_outcome
+    from unittest.mock import Mock
+    from test_environment_judges import session, bash
 
     project = tmp_path / "project"
     monkeypatch.setenv("PROJECT_DIR", str(project))
@@ -78,39 +80,58 @@ def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monke
         # filter. This assertion catches the original two-result false negative.
         assert len(expected["trace_ids"]) == 3
         assert manifest["records"]["unrelated_session"]["trace_id"] in expected["trace_ids"]
-    output = project / "outcome.json"
-    output.write_text(json.dumps(expected))
     assert verify_outcome()
-    for key in ("failing_span_id", "root_cause_span_id"):
-        if key in expected:
-            import base64
-            encoded = dict(expected, **{key: base64.b64encode(bytes.fromhex(expected[key])).decode()})
-            output.write_text(json.dumps(encoded))
-            assert verify_outcome()
-    output.write_text("{}")
-    with pytest.raises(AssertionError):
-        verify_outcome()
-    output.write_text(json.dumps(expected))
-    # Even a copied correct answer must fail if the underlying evidence changed.
+    task = json.loads((project / "task.json").read_text())
+    assert "output_fields" not in task and "output_contract" not in task
+    participant = session(bash("mlflow traces search --experiment-id 1", " ".join(manifest["snapshots"])))
+    response = Mock()
+    monkeypatch.setattr("judges.trace_behavior.verify_response", response)
+    assert verify_outcome(participant)
+    response.assert_called_once_with(participant, manifest["response_requirements"])
+    response.side_effect = AssertionError("Incorrect final response")
+    with pytest.raises(AssertionError, match="Incorrect final response"):
+        verify_outcome(participant)
+    # The backend must remain intact even without an answer artifact.
     trace_id = manifest["records"]["timeout"]["trace_id"]
     mlflow.set_trace_tag(trace_id, "environment", "staging")
     with pytest.raises(AssertionError):
         verify_outcome()
 
 
-def test_documentation_accepts_complete_cells_but_rejects_invented_code():
-    from judges.environment_behavior import copied_documentation_blocks
+@pytest.mark.parametrize("accepted", [True, False])
+def test_documentation_grades_response_and_retrieved_evidence(experiment, tmp_path, monkeypatch, accepted):
+    from unittest.mock import Mock
+    from judges import environment_behavior
 
-    source = 'python\n```\nimport mlflow\n\n```\nNext cell\n```python\nmlflow.log_metric("loss", 1)\n```'
-    example = 'import mlflow\nmlflow.log_metric("loss", 1)'
-    assert copied_documentation_blocks(example, source)
-    assert not copied_documentation_blocks(example.replace('"loss"', '"invented"'), source)
-    assert not copied_documentation_blocks(example + '\nmlflow.log_metric("extra", 2)', source)
-    assert not copied_documentation_blocks('', source)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TEST_CASE", "docs")
+    monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
+    (tmp_path / "environment_expected.json").write_text("{}")
+    grade = Mock(side_effect=None if accepted else AssertionError("Unsupported example"))
+    monkeypatch.setattr(environment_behavior, "verify_response", grade)
+    url = "https://mlflow.org/docs/latest/ml/tracking/quickstart/"
+    example = 'import mlflow\nwith mlflow.start_run():\n    mlflow.log_metric("loss", 0.5)'
+    with mlflow.start_span(name="participant") as root:
+        trace_id = root.trace_id
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": "docs-check"})
+        root.set_outputs(f"Example:\n{example}\nSource: {url}")
+        with mlflow.start_span(name="tool", attributes={"tool_name": "WebFetch"}) as span:
+            span.set_inputs({"url": url})
+            span.set_outputs({"result": 'import mlflow\nmlflow.log_metric("accuracy", 0.9)'})
+    mlflow.flush_trace_async_logging()
+    trace = mlflow.get_trace(trace_id)
+    assert environment_behavior.get_judges()[0](trace=trace).value == ("yes" if accepted else "no")
+    grade.assert_called_once()
+    passed_trace, requirements = grade.call_args.args
+    assert passed_trace.info.trace_id == trace_id
+    assert passed_trace.data.spans[0].outputs == root.outputs
+    assert passed_trace.data.spans[1].inputs == {"url": url}
+    assert "runnable" in requirements and "actual fetched" in requirements
+    assert "successful retrieval" in requirements
+    assert not (tmp_path / "docs.json").exists()
 
 
-def test_alignment_pairs_allow_provenance_but_reject_wrong_labels_and_splits(experiment, tmp_path, monkeypatch):
-    import json
+def test_alignment_preserves_native_labels_and_splits(experiment, tmp_path, monkeypatch):
     from scripts.setup_evaluation_cases import seed_alignment
     from judges.evaluation_behavior import verify_behavior
 
@@ -119,18 +140,13 @@ def test_alignment_pairs_allow_provenance_but_reject_wrong_labels_and_splits(exp
     expected = {"case": "alignment"}
     seed_alignment(project, expected, experiment.experiment_id)
     monkeypatch.chdir(project)
-    outcome = dict(expected, criterion="total_correct", status="blocked", prerequisites=["embedding model"])
-    outcome["pairs"] = [dict(pair, source_id="order-expert") for pair in expected["pairs"]]
-    output = project / "outcome.json"
-    output.write_text(json.dumps(outcome))
     assert verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
-    for key, wrong in [("label", not outcome["pairs"][0]["label"]), ("split", "holdout")]:
-        previous = outcome["pairs"][0][key]
-        outcome["pairs"][0][key] = wrong
-        output.write_text(json.dumps(outcome))
+    for key, wrong in [("label", not expected["pairs"][0]["label"]), ("split", "holdout")]:
+        previous = expected["pairs"][0][key]
+        expected["pairs"][0][key] = wrong
         with pytest.raises(AssertionError):
             verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
-        outcome["pairs"][0][key] = previous
+        expected["pairs"][0][key] = previous
 
 
 def test_port_probe_rejects_active_listener():
@@ -154,31 +170,44 @@ def test_port_probe_rejects_active_listener():
     ('Bash', "pip show sagemaker-mlflow; echo 'pip install sagemaker-mlflow' > instructions.txt", 'Package(s) not found: sagemaker-mlflow', 'yes', 'blocked'),
     ('Bash', 'pip show unrelated', 'WARNING: Package(s) not found: unrelated', 'no', 'blocked'),
     ('Read', 'connection.json', 'Package(s) not found: sagemaker-mlflow', 'no', 'blocked'),
-    ('Bash', 'pip show sagemaker-mlflow', 'Package(s) not found: sagemaker-mlflow', 'yes', 'failed'),
     ('Bash', 'pip show sagemaker-mlflow', 'Package(s) not found: sagemaker-mlflow', 'no', 'ready'),
 ])
 def test_sagemaker_requires_observed_prerequisite_failure(
     experiment, tmp_path, monkeypatch, tool, command, output, want, status
 ):
     import json
-    from judges.environment_behavior import get_judges
+    from judges import environment_behavior
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TEST_CASE", "sagemaker_missing")
     monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
     (tmp_path / "environment_expected.json").write_text(json.dumps({
-        "files": {}, "backend": {"tracking_uri": mlflow.get_tracking_uri()},
+        "files": {"backend.json": "original configuration"}, "backend": {"tracking_uri": mlflow.get_tracking_uri()},
         "experiment_ids": [e.experiment_id for e in mlflow.MlflowClient().search_experiments()],
     }))
-    (tmp_path / "connection.json").write_text(json.dumps({"status": status, "reason": "missing plugin"}))
+    (tmp_path / "backend.json").write_text("original configuration")
+    answer = "The connection is ready." if status == "ready" else "Connection blocked: missing SageMaker plugin."
+    graded = []
+    def grade(trace, requirements):
+        graded.append(trace)
+        assert trace.data.spans[0].outputs == answer
+        assert "actual probe tool results" in requirements
+        assert status != "ready", "Claimed readiness despite missing plugin"
+    monkeypatch.setattr(environment_behavior, "verify_response", grade)
     with mlflow.start_span(name="participant") as root:
         trace_id = root.trace_id
+        root.set_outputs(answer)
         mlflow.update_current_trace(metadata={"mlflow.trace.session": "prerequisite-check"})
         with mlflow.start_span(name="tool", attributes={"tool_name": tool}) as span:
             span.set_inputs({"command": command})
             span.set_outputs({"result": output})
     mlflow.flush_trace_async_logging()
-    assert get_judges()[0](trace=mlflow.get_trace(trace_id)).value == want
+    assert environment_behavior.get_judges()[0](trace=mlflow.get_trace(trace_id)).value == want
+    if want == "yes" or status == "ready":
+        assert len(graded) == 1
+    else:
+        assert not graded
+    assert not (tmp_path / "connection.json").exists()
 
 
 @pytest.mark.parametrize("called_skill,failed,matching_session,want", [

@@ -8,7 +8,7 @@ skills:
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
 required_skills: [analyze-mlflow-trace]
-prompt: "Why did the trace in task.json fail? Save the diagnosis in outcome.json."
+prompt: "Why did the trace in task.json fail?"
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
 environment:

@@ -13,4 +13,3 @@ skills:
 prompt: "Evaluate the output quality of my agent. Do not ask for input."
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
-  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"

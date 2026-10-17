@@ -176,31 +176,41 @@ def main():
         "total_tokens": sum(u["total_tokens"] for u in usage),
     }
     expected["trace_metrics"]["avg_total_tokens"] = expected["trace_metrics"]["total_tokens"] / len(in_window)
+    diagnosis = (
+        f"Explain that trace {target} failed in lookup_order because its 5 ms timeout was "
+        "shorter than the 40 ms service latency. Identify the tool timeout as the cause, "
+        "rather than blaming answer generation. Accept equivalent wording; no span ID is required."
+    )
+    response_requirements = {
+        "trace_retrieval": (
+            "Report exactly these failed production trace IDs for the requested tenant and time window, "
+            f"with no missing or extra IDs: {expected['trace_retrieval']['trace_ids']}. Order does not matter."
+        ),
+        "trace_analysis": diagnosis,
+        "diagnosis_only": diagnosis + " Locate the timeout setting in agent.py; explain without claiming to fix it.",
+        "session_analysis": (
+            f"Explain the conversation's progression: {first} correctly used the 30-day policy; "
+            f"{second} was the first bad turn, retrieving retired document {document_id} and answering "
+            f"90 days instead of 30; {third} propagated that mistake by reusing the earlier answer. "
+            "Distinguish the broken_judge evaluator failure from the actual application error. "
+            "Identify the relevant trace IDs exactly; accept equivalent explanations and any format."
+        ),
+        "trace_metrics": (
+            f"Report {expected['trace_metrics']['total_tokens']} total tokens and "
+            f"{expected['trace_metrics']['error_count']} errors in the requested time window. "
+            f"If reporting a breakdown or averages, it must agree with {expected['trace_metrics']}. "
+            "No HTTP status, method label, or particular output format is required."
+        ),
+    }
     (project / "agent.py").write_text(SOURCE)
     task = {"case": case, "start_time_ms": start_ms, "end_time_ms": end_ms,
             "tenant": suffix, "session_id": session, "trace_id": target,
-            "current_policy": "Refund window is 30 days for all items including gifts.",
-            "output_fields": list(expected[case])}
-    if case == "trace_metrics":
-        task["output_fields"] += ["metrics_endpoint_http_status", "aggregation_method"]
-    # Artifact schema, not a diagnosis or instructions for retrieving the evidence.
-    task["output_contract"] = {
-        "file": "outcome.json",
-        "root_cause": ["tool_timeout", "retrieval_error", "generation_error"],
-        "source_file": "path relative to the project",
-        "document_id": "ID of the incorrectly applied document",
-        "ignored_assessment_names": "names of assessments whose scorers failed",
-        "metrics_endpoint_http_status": "integer HTTP status from the metrics request",
-        "aggregation_method": ["metrics_endpoint", "search_traces_fallback"],
-    }
-    task["output_contract"] = {
-        key: value for key, value in task["output_contract"].items()
-        if key == "file" or key in task["output_fields"]
-    }
+            "current_policy": "Refund window is 30 days for all items including gifts."}
     (project / "task.json").write_text(json.dumps(task, indent=2))
     manifest = {"case": case, "experiment_id": experiment_id, "tracking_uri": mlflow.get_tracking_uri(),
                 "start_ms": start_ms, "end_ms": end_ms, "records": records,
                 "snapshots": snapshots, "expected": expected[case],
+                "response_requirements": response_requirements[case],
                 "source_sha256": hashlib.sha256(SOURCE.encode()).hexdigest()}
     if case == "diagnosis_only":
         manifest["diagnosis_state"] = diagnosis_state(experiment_id, project)

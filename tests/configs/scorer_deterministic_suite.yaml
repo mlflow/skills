@@ -9,6 +9,4 @@ skills:
 prompt: "Build the order-quality scorers described in README.md."
 timeout_seconds: 600
 environment:
-  MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
-  MLFLOW_ALLOW_PICKLE_DESERIALIZATION: "true"
   EVALUATION_CASE: suite

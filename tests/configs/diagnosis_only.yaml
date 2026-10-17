@@ -9,7 +9,7 @@ skills:
 - analyze-mlflow-trace
 - retrieving-mlflow-traces
 required_skills: [debug-agent]
-prompt: "Why did the order lookup in task.json fail? Save the diagnosis to outcome.json. Don't change the app."
+prompt: "Why did the order lookup in task.json fail? Don't change the app."
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
 environment:

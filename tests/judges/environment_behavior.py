@@ -1,5 +1,4 @@
 import ast
-import html
 import importlib.util
 import json
 import os
@@ -7,13 +6,12 @@ import re
 import shlex
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-from urllib.request import urlopen
 
 import mlflow
 from mlflow.entities import Feedback
 from mlflow.genai.scorers import Scorer, scorer
 
+from judges.response import verify_response
 from judges.skill_usage import output_text, tool_calls
 from utils import run_command
 
@@ -117,15 +115,6 @@ assert calls, "train.py never fitted the model"
     assert result.returncode == 0, f"Training data verification failed: {result.stderr[-2000:]}"
 
 
-def copied_documentation_blocks(snippet, source):
-    remaining = "\n".join(line for line in snippet.splitlines() if line.strip())
-    for block in re.findall(r"```[^\n]*\n(.*?)```", html.unescape(source), re.S):
-        block = "\n".join(line for line in block.splitlines() if line.strip())
-        if block and (remaining == block or remaining.startswith(block + "\n")):
-            remaining = remaining[len(block):].lstrip("\n")
-    return bool(snippet.strip()) and not remaining
-
-
 def get_judges():
     experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
     case = os.environ["TEST_CASE"]
@@ -147,20 +136,15 @@ def get_judges():
                     value = result.value if isinstance(result, Feedback) else result
                     assert type(value) is bool and value == want, f"Wrong score for {output}: {value}"
             elif case == "docs":
-                result = json.loads(Path("docs.json").read_text())
-                parsed = urlparse(result["url"])
-                assert parsed.scheme == "https" and parsed.hostname == "mlflow.org"
-                assert parsed.path.startswith("/docs/") and parsed.path.endswith(".md")
-                with urlopen(result["url"], timeout=20) as response:
-                    source = response.read().decode()
-                snippet = result["code"].strip()
-                assert "mlflow.log_metric" in snippet
-                ast.parse(snippet)
-                # Quickstarts split runnable examples across notebook cells; the
-                # Markdown renderer inserts blank lines. Require complete source
-                # blocks in order, allowing concatenation and blank-line changes.
-                assert copied_documentation_blocks(snippet, source), "Example includes undocumented code"
-                assert any(result["url"] in str(s.inputs) and "log_metric" in str(s.outputs) for s in trace.data.spans), "No source retrieval"
+                verify_response(trace, (
+                    "The final answer must provide a correct, runnable Python example using "
+                    "mlflow.log_metric, including necessary imports and setup, and cite official "
+                    "MLflow documentation at https://mlflow.org/docs/. Inspect the actual fetched "
+                    "documentation in tool inputs and outputs: require successful retrieval of "
+                    "official documentation supporting the example, not just a URL or a claim "
+                    "that it was read. The example may adapt the documentation; exact copying "
+                    "and a Markdown URL suffix are not required."
+                ))
             else:
                 for name, content in expected["files"].items():
                     assert Path(name).read_text() == content, f"Unexpected change to {name}"
@@ -195,10 +179,13 @@ def get_judges():
                     assert any(s.inputs == {"name": "Ada"} and s.outputs == "hello:Ada"
                                for t in traces for s in t.data.spans), "No persisted application smoke trace"
                 else:
-                    result = json.loads(Path("connection.json").read_text())
-                    assert result["status"] in {"blocked", "unavailable", "failed"}, "Claimed readiness despite unavailable prerequisite"
-                    assert result.get("reason"), "Missing prerequisite failure explanation"
                     verify_prerequisite(trace, case, expected["backend"]["tracking_uri"])
+                    verify_response(trace, (
+                        "The final answer must explain that the requested backend connection "
+                        "is blocked or unavailable and identify the prerequisite failure "
+                        "supported by the actual probe tool results. It must not claim the "
+                        "connection is ready or successful."
+                    ))
             return Feedback(value="yes", rationale=f"Verified {case} against independent outputs and preserved configuration")
         except Exception as error:
             return Feedback(value="no", rationale=f"{type(error).__name__}: {error}")

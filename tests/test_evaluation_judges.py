@@ -16,8 +16,7 @@ def setup_case(case, experiment, tmp_path, monkeypatch):
     project = tmp_path / "project"
     for key, value in {"PROJECT_DIR": project, "WORK_DIR": tmp_path,
                        "TEST_WORK_DIR": tmp_path, "EVALUATION_CASE": case,
-                       "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "true",
-                       "MLFLOW_ALLOW_PICKLE_DESERIALIZATION": "true"}.items():
+                       "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "true"}.items():
         monkeypatch.setenv(key, str(value))
     seed()
     monkeypatch.chdir(project)
@@ -59,8 +58,6 @@ def test_failed_preflight_rejects_full_dataset(experiment, tmp_path, monkeypatch
     rows.sort(key=lambda row: int(row["inputs"]["request"]["id"].split("-")[-1]))
     mlflow.genai.evaluate(data=rows[:batch_size], predict_fn=load_predictor(),
                           scorers=list_scorers(experiment_id=experiment.experiment_id))
-    Path("outcome.json").write_text(json.dumps({"status": "blocked", "full_evaluation_started": False,
-                                              "reason": "backend credentials unavailable"}))
     if passes:
         assert verify_behavior(expected, tmp_path, experiment.experiment_id, 0)
     else:

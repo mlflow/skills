@@ -205,13 +205,13 @@ The original general evaluation scenario remains `agent_evaluation.yaml`: it clo
 | `tracking_uri` | Optional external server. Omit for a fresh local server. |
 | `mlflow_port` | Optional fixed-port override. Omit to select a free local port. |
 
-Default timeouts, `keep_workdir: true`, and `test_runs_dir: /tmp` need not be repeated. Fixtures contain application context, data, and artifact interfaces; prompts are short user requests. Specialized regression cases still have explicit operational constraints, such as approved smoke inputs and an unavailable backend.
+Default timeouts, `keep_workdir: true`, and `test_runs_dir: /tmp` need not be repeated. Fixtures contain application context, data, and actual deliverable interfaces; prompts are short user requests. Conversational answers are checked by an MLflow judge using `JUDGE_MODEL` (or its default), alongside backend and tool-evidence checks; participants need not write grading JSON. Specialized regression cases still have explicit operational constraints, such as approved smoke inputs and an unavailable backend.
 
 | Skill/workflow | Scenarios | Observable checks |
 |---|---|---|
 | Onboarding | `onboarding_existing`, `onboarding_unavailable`, `onboarding_classic_ml` | Reuse configuration and experiment; persist smoke trace; report a real connection failure without resetting setup; reload an actual sklearn model and verify held-out predictions |
 | Dispatcher | `dispatcher_scorer` | Load the dispatcher and scorer skill; execute a native scorer against held-out empty/missing/null/valid answers |
-| Documentation | `docs_classic_ml` | Fetch official Markdown docs; verify the provenance and syntax of a classic-ML example |
+| Documentation | `docs_classic_ml` | Fetch official docs and explain a runnable classic-ML example |
 | SageMaker | `sagemaker_prerequisites` | Execute prerequisite checks; stop when plugin/credentials are missing |
 | Instrumentation | `tracing_test`, `tracing_typescript`, `langgraph_autolog_guidance` | Rerun the delivered entrypoint and require fresh Python/TypeScript inputs and outputs; native graph/model spans without redundant tracing |
 | Trace retrieval | `trace_retrieval` | Exact matching IDs amid time, status and tag distractors |

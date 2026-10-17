@@ -6,7 +6,7 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - sagemaker-mlflow
-prompt: "Can this project connect to arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example? Save the status and reason in connection.json. Don't install anything or get new credentials."
+prompt: "Can this project connect to arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example? Explain any blockers. Don't install anything or get new credentials."
 timeout_seconds: 600
 environment:
   TEST_CASE: sagemaker_missing

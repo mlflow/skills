@@ -14,6 +14,8 @@ from mlflow.entities import Feedback
 from mlflow.genai.datasets import get_dataset, search_datasets
 from mlflow.genai.scorers import list_scorers, scorer
 
+from judges.response import verify_response
+
 
 def _binary(value):
     if isinstance(value, bool):
@@ -246,21 +248,8 @@ def verify_behavior(expected, work, exp, start):
         (work / "alignment-verification.json").write_text(json.dumps(comparison, indent=2))
         return "Native MemAlign result executed on four private holdouts; base preserved and exact expert agreement checked."
     if case == "alignment":
-        outcome = json.loads(Path("outcome.json").read_text())
-        assert outcome.get("criterion") == "total_correct"
-        assert outcome.get("dataset_id") == expected["dataset_id"]
-        assert outcome.get("status") == "blocked" and outcome.get("prerequisites")
-        pairs = outcome.get("pairs", [])
-        assert len(pairs) == len(expected["pairs"]), (
-            "Missing or duplicate alignment pairs"
-        )
-        assert all(type(p["label"]) is bool for p in pairs), "Human labels must be boolean"
-        required_pairs = [{key: p[key] for key in ("trace_id", "label", "split")} for p in pairs]
-        assert sorted(required_pairs, key=lambda p: p["trace_id"]) == sorted(
-            expected["pairs"], key=lambda p: p["trace_id"]
-        ), "Wrong criterion labels or holdout contamination"
         _verify_alignment_data(expected, exp)
-        return "All exact criterion/human-label pairs and disjoint splits match real MLflow records; optimization explicitly blocked."
+        return "Expert feedback and disjoint splits preserved in real MLflow records."
     if case in {"suite", "model_suite"}:
         return _verify_suite(expected, work)
     runs = _runs(exp, start)
@@ -322,12 +311,6 @@ def verify_behavior(expected, work, exp, start):
                 and a.name == "exact_total"
                 for a in t.info.assessments
             ), "Invented successful scores"
-        outcome = json.loads(Path("outcome.json").read_text())
-        assert (
-            outcome.get("status") == "blocked"
-            and outcome.get("full_evaluation_started") is False
-        )
-        assert outcome.get("reason"), "Missing blocker explanation"
         return "Bounded dry run reached the unavailable backend and stopped without full evaluation."
     if case == "nested":
         assert all(any(c == r["inputs"] for c in calls) for r in expected["records"]), (
@@ -386,6 +369,23 @@ def get_judges() -> list:
 
     @scorer(name="evaluation-behavior")
     def evaluation_behavior(trace) -> Feedback:
+        if not trace.info.trace_metadata.get("mlflow.trace.session"):
+            return None
+        if value == "yes" and expected["case"] in {"dry_run", "alignment"}:
+            requirements = (
+                "Explain that evaluation stopped because backend credentials are unavailable; "
+                "do not claim a completed full evaluation."
+                if expected["case"] == "dry_run" else
+                "Identify criterion total_correct and dataset " + expected["dataset_id"]
+                + "; report these exact expert-label pairings and train/holdout assignments: "
+                + json.dumps(expected["pairs"])
+                + ". Explain that alignment is blocked without an approved embedding model; "
+                "do not claim optimization completed."
+            )
+            try:
+                verify_response(trace, requirements)
+            except Exception as error:
+                return Feedback(value="no", rationale=f"{type(error).__name__}: {error}")
         return Feedback(value=value, rationale=rationale)
 
     return [evaluation_behavior]
