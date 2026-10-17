@@ -64,7 +64,7 @@ def test_investigation_oracles_require_real_evidence(experiment, tmp_path, monke
     from scripts.setup_trace_cases import main as seed
     from judges.trace_behavior import verify_outcome
     from unittest.mock import Mock
-    from test_environment_judges import session, bash
+    from test_environment import session, bash
 
     project = tmp_path / "project"
     monkeypatch.setenv("PROJECT_DIR", str(project))
