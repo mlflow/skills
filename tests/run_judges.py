@@ -30,6 +30,8 @@ log = logging.getLogger(__name__)
 # Pre-import modules that scorer threads will need. Without this, concurrent
 # lazy imports of litellm/openai from scorer threads deadlock on Python's
 # import lock (see deadlock-thread-dump-analysis.md).
+# Do not let LiteLLM load an unrelated .env and replace the supplied backend credentials.
+os.environ["LITELLM_MODE"] = "PRODUCTION"
 import litellm  # noqa: F401
 import mlflow.server.jobs.utils  # noqa: F401
 
@@ -44,7 +46,8 @@ for i, module_path in enumerate(judge_paths):
     spec = importlib.util.spec_from_file_location(f"judges_{i}", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    judges.extend(module.get_judges())
+    with contextlib.redirect_stdout(sys.stderr):
+        judges.extend(module.get_judges())
 
 log.info(f"Loaded {len(judges)} judge(s)")
 if not judges:

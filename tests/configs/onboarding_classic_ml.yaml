@@ -1,0 +1,14 @@
+name: onboarding-classic-ml
+project_dir: project
+setup_script: tests/scripts/setup_environment_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/environment_behavior.py
+skills:
+  - mlflow-onboarding
+  - searching-mlflow-docs
+required_skills: [mlflow-onboarding]
+prompt: "Add MLflow tracking to train.py: log mse, fit_intercept, and the fitted model. Keep the existing data and backend."
+timeout_seconds: 600
+environment:
+  TEST_CASE: classic_ml

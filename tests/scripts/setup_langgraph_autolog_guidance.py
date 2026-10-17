@@ -15,7 +15,7 @@ AGENT_SOURCE = '''\
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
@@ -25,12 +25,12 @@ class State(TypedDict):
 
 
 def lookup_weather(city: str) -> str:
-    """A trivial tool the graph can call."""
+    """Custom application helper, not a registered LangChain tool; a span here is useful."""
     return f"It is 72F and sunny in {city}."
 
 
 def call_model(state: State) -> State:
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = FakeListChatModel(responses=["It is 72F and sunny in San Francisco."])
     response = llm.invoke(state["messages"])
     return {"messages": [response]}
 
@@ -64,7 +64,6 @@ REQUIREMENTS = "\n".join(
     [
         "mlflow>=3.8.0",
         "langgraph",
-        "langchain-openai",
         "langchain-core",
     ]
 )

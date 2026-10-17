@@ -3,18 +3,16 @@ project_dir: routing-agent
 
 setup_script: tests/scripts/setup_agent_debug_trace_first.py
 judges:
+  - tests/judges/skill_usage.py
   - tests/judges/agent_debugged_from_trace.py
 
 skills:
   - debug-agent
   - fix-agent-issue
 
-prompt: "The routing agent sends refund requests to sales instead of support. Debug and fix the agent. Do not ask for input."
-timeout_seconds: 900
+required_skills: [fix-agent-issue]
+prompt: "Refund requests go to sales instead of support. Fix that and check that other requests still work."
 allowed_tools: "Skill,Bash,Read,Write,Edit,Grep,Glob"
 
-mlflow_port: 32945
-tracking_uri: null
 
-test_runs_dir: /tmp
-keep_workdir: true
+

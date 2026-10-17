@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
+"""Prepare the original external-repository evaluation scenario."""
 import os
 import subprocess
 
-
-def main() -> None:
-    repo_url = os.environ["REPO_URL"]
-    project_dir = os.environ["PROJECT_DIR"]
-
-    subprocess.run(
-        ["git", "clone", "--depth", "1", repo_url, project_dir],
-        check=True,
-    )
-
-
-if __name__ == "__main__":
-    main()
+repo_url = os.environ.get("REPO_URL")
+if not repo_url:
+    raise ValueError("agent_evaluation requires REPO_URL; evaluation_nested is the local fixture")
+subprocess.run(
+    ["git", "clone", "--depth", "1", repo_url, os.environ["PROJECT_DIR"]],
+    check=True, timeout=120,
+)

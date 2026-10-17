@@ -1,0 +1,16 @@
+name: diagnosis-only
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- debug-agent
+- analyze-mlflow-trace
+- retrieving-mlflow-traces
+required_skills: [debug-agent]
+prompt: "Why did the order lookup in task.json fail? Don't change the app."
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+environment:
+  TEST_CASE: diagnosis_only

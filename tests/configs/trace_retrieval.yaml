@@ -1,0 +1,13 @@
+name: trace-retrieval
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- retrieving-mlflow-traces
+prompt: "Find the failed production traces for the tenant and time window in task.json. Report their IDs."
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+environment:
+  TEST_CASE: trace_retrieval
