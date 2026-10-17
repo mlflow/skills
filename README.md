@@ -186,13 +186,29 @@ We welcome contributions! Here's how to help:
 
 ### Testing skill behavior
 
+The test code has two layers: live scenarios exercise skills through Claude; local verifier tests check that the graders accept valid work and reject broken work.
+
+```text
+tests/
+  configs/
+    setup/       # Onboarding, docs, backend prerequisites
+    tracing/     # Instrumentation, retrieval, diagnosis, metrics
+    evals/       # Evaluation, scorers, alignment, verified repair
+  judges/        # Graders used by live scenarios
+  scripts/       # Scenario setup and seeded application data
+  verifiers/     # Local regression tests for graders and harness
+  test_skill.py  # Existing YAML scenario runner
+```
+
+Config paths for setup scripts and judges remain relative to the repository root. Run live scenarios from the repository root using their grouped paths below; the former flat config paths have moved.
+
 The YAML scenarios in `tests/configs/` run a real Claude Code participant in a fresh project and Claude home, install the selected repository skills plus the MLflow tracing plugin, and verify its work against a real MLflow server. Each scenario checks a successful native skill invocation or complete skill read, plus an observable task outcome. Task-only prompts test discovery among the skills installed for each scenario. No prompt names a skill or instructs the agent to load one. The dispatcher currently disables automatic invocation, so its required-loading check can expose that discovery limitation. Merely mentioning an API or reporting success does not pass.
 
 Validated with MLflow 3.17.1. Requires an authenticated `claude` CLI, Git, Node/npm (for Claude tracing and TypeScript), and `uv`. Run a scenario:
 
 ```sh
 uv run --with mlflow==3.17.1 --with litellm --with pytest --with langgraph --with langchain-core \
-  python tests/test_skill.py tests/configs/evaluation_nested.yaml
+  python tests/test_skill.py tests/configs/evals/evaluation_nested.yaml
 ```
 
 The original general evaluation scenario remains `agent_evaluation.yaml`: it clones `REPO_URL` and checks datasets, registered scorers, evaluation results, application traces, and both evaluation/tracing skill reads. Run it with `REPO_URL=<repository-url>` as a CLI override. The separate `evaluation_nested.yaml` is a deterministic local regression fixture.
@@ -228,7 +244,7 @@ Model-backed scenarios require working provider credentials. Set `TEST_JUDGE_MOD
 To run the local scenarios sequentially, excluding those needing a model provider:
 
 ```sh
-for config in tests/configs/*.yaml; do
+for config in tests/configs/*/*.yaml; do
   case "$config" in
     *scorer_model_criteria*|*scorer_memalign*|*agent_debug_trace_first*|*agent_evaluation*) continue ;;
   esac
@@ -241,7 +257,7 @@ Supporting verifier regression checks run without Claude or model calls:
 
 ```sh
 uv run --with mlflow==3.17.1 --with pytest --with langgraph --with langchain-core --with dspy \
-  pytest -q tests/test_*judges.py
+  pytest -q tests/verifiers
 ```
 
 Expected answers are stored outside the project but remain accessible on the same machine; this is not an adversarial sandbox. Investigation grading also requires observed MLflow retrieval. These scenarios are behavioral regression coverage, not a claim of exhaustive platform coverage or a baseline-versus-treatment comparison. Live SageMaker connection, Databricks UC storage/Review App/online monitoring, GEPA prompt optimization, distributed tracing, and every supported framework still require dedicated environments and scenarios. A successful local run does not verify those integrations. The repository currently has no CI workflow that launches the paid Claude scenarios automatically.
