@@ -22,7 +22,7 @@ Building production-ready AI agents is hard. You need observability to understan
 
 ## Available Skills
 
-### Observability & Debugging
+### Tracing
 
 | Skill | Description |
 |-------|-------------|
@@ -32,7 +32,7 @@ Building production-ready AI agents is hard. You need observability to understan
 | **retrieving-mlflow-traces** | Powerful trace search and filtering by status, session, user, time range, or custom metadata. |
 | **debug-agent** | Root-causes agent failures from existing MLflow traces without requiring a code change or evaluation suite. |
 
-### Evaluation & Metrics
+### Evaluation
 
 | Skill | Description |
 |-------|-------------|
@@ -40,7 +40,7 @@ Building production-ready AI agents is hard. You need observability to understan
 | **build-a-scorer** | Designs a small, cheap-to-run scorer suite from scratch — elicits quality criteria with you, routes each to code checks, built-in scorers, or LLM judges, then ships the implementation. |
 | **querying-mlflow-metrics** | Fetches aggregated metrics (token usage, latency, error rates) with time-series analysis and dimensional breakdowns. |
 
-### Helping New Users
+### Setup
 
 | Skill | Description |
 |-------|-------------|
