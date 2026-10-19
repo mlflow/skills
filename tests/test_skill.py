@@ -16,7 +16,7 @@ This script:
 11. Cleans up
 
 Usage:
-    python tests/test_skill.py tests/configs/agent_evaluation.yaml
+    python tests/test_skill.py tests/configs/evaluation_nested.yaml
 """
 
 from __future__ import annotations
@@ -57,8 +57,25 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
 
     state.log_file = state.work_dir / "claude_output.log"
 
+    inventory = {}
+    for name, command in {
+        "plugins": ["claude", "plugin", "list"],
+        "mcp": ["claude", "mcp", "list"],
+        "claude_version": ["claude", "--version"],
+        "source_commit": ["git", "rev-parse", "HEAD"],
+    }.items():
+        try:
+            result = run_command(command, cwd=state.full_project_dir if name != "source_commit" else state.repo_root,
+                                 env=claude_env(), check=False, timeout=30)
+            inventory[name] = {"exit_code": result.returncode, "output": result.stdout.strip()}
+        except subprocess.TimeoutExpired:
+            inventory[name] = {"error": "Inventory command timed out after 30 seconds"}
+            log.warning("Could not collect %s inventory: timed out", name)
+
     # Record start time so verify_judges can filter out pre-existing traces
     state.run_start_timestamp_ms = int(time.time() * 1000)
+    inventory["run_start_ms"] = state.run_start_timestamp_ms
+    (state.work_dir / "environment.json").write_text(json.dumps(inventory, indent=2) + "\n")
 
     log.info("Executing Claude Code...")
     log.info(f"Prompt: {config.prompt}")
@@ -78,6 +95,11 @@ def run_claude_code(config: TestConfig, state: RuntimeState) -> bool:
                     "claude",
                     "-p",
                     config.prompt,
+                    "--append-system-prompt",
+                    f"Application tracking URI: {os.environ['MLFLOW_TRACKING_URI']}. "
+                    f"Application experiment ID: {state.experiment_id}. "
+                    "These are the defaults unless the task explicitly specifies another connection. Claude's own "
+                    "tracing settings use a separate experiment, not the application's.",
                     "--dangerously-skip-permissions",
                     "--allowedTools",
                     config.allowed_tools,
@@ -123,9 +145,12 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
     run_judges_script = str(Path(__file__).parent / "run_judges.py")
     env = {
         "JUDGE_PATHS": json.dumps(judge_paths),
+        "EXPECTED_SKILLS": ",".join(config.skills if config.required_skills is None else config.required_skills),
         "CC_EXPERIMENT_ID": state.cc_tracing_experiment_id,
         "MLFLOW_EXPERIMENT_ID": state.experiment_id,
         "RUN_START_MS": str(state.run_start_timestamp_ms),
+        "TEST_WORK_DIR": str(state.work_dir),
+        "PYTHONPATH": str(state.full_project_dir) + os.pathsep + os.environ.get("PYTHONPATH", ""),
     }
 
     try:
@@ -166,6 +191,8 @@ def verify_judges(config: TestConfig, state: RuntimeState) -> bool:
     if isinstance(data, dict) and "error" in data:
         log.error(data["error"])
         return False
+
+    (state.work_dir / "verification.json").write_text(json.dumps(data, indent=2) + "\n")
 
     # Report results
     log.info("Judge Results:")

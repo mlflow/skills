@@ -1,0 +1,18 @@
+name: sagemaker_prerequisites
+project_dir: agent
+setup_script: tests/scripts/setup_environment_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/environment_behavior.py
+skills:
+  - sagemaker-mlflow
+prompt: "Can this project connect to arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example? Explain any blockers. Don't install anything or get new credentials."
+timeout_seconds: 600
+environment:
+  TEST_CASE: sagemaker_missing
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_CONFIG_FILE: /dev/null
+  AWS_SHARED_CREDENTIALS_FILE: /dev/null
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_SESSION_TOKEN: ""

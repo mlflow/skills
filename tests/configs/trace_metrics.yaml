@@ -1,0 +1,15 @@
+name: trace-metrics
+project_dir: trace-investigation
+setup_script: tests/scripts/setup_trace_cases.py
+judges:
+- tests/judges/skill_usage.py
+- tests/judges/trace_behavior.py
+skills:
+- querying-mlflow-metrics
+- retrieving-mlflow-traces
+required_skills: [querying-mlflow-metrics]
+prompt: "How much token usage and how many errors did we have during the time window in task.json?"
+timeout_seconds: 600
+allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
+environment:
+  TEST_CASE: trace_metrics

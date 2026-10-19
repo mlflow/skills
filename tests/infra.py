@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -64,6 +66,10 @@ def check_prerequisites(config: TestConfig, state: RuntimeState) -> bool:
         state.use_external_server = True
         log.info(f"Using external MLflow server: {config.tracking_uri}")
     else:
+        if config.mlflow_port is None:
+            with socket.socket() as listener:
+                listener.bind(("127.0.0.1", 0))
+                config.mlflow_port = listener.getsockname()[1]
         if not is_port_available(config.mlflow_port):
             log.error(f"Port {config.mlflow_port} is already in use")
             log.error("Set mlflow_port in YAML to use a different port")
@@ -103,7 +109,8 @@ def start_mlflow_server(config: TestConfig, state: RuntimeState) -> bool:
                 str(config.mlflow_port),
                 "--backend-store-uri",
                 backend_store,
-                "--default-artifact-root",
+                "--serve-artifacts",
+                "--artifacts-destination",
                 artifact_root,
             ],
             stdout=f,
@@ -317,6 +324,11 @@ def install_skills(config: TestConfig, state: RuntimeState) -> bool:
         shutil.copytree(src, dst)
         log.info(f"Installed skill: {skill_name} -> {dst}")
 
+    inventory = {
+        str(p.relative_to(skills_dir)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(skills_dir.rglob("*")) if p.is_file()
+    }
+    (state.work_dir / "skill-inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
     return True
 
 
@@ -367,6 +379,7 @@ def setup_claude_code_tracing(config: TestConfig, state: RuntimeState) -> bool:
 
     except subprocess.CalledProcessError as e:
         log.error(f"Failed to configure Claude Code tracing: {e}")
+        log.error(e.stderr or e.stdout or "No command output")
         return False
 
     return True
@@ -409,7 +422,11 @@ def test_claude_headless(config: TestConfig, state: RuntimeState) -> bool:
     mlflow.flush_trace_async_logging()
 
     client = MlflowClient()
-    traces = client.search_traces(experiment_ids=[state.cc_tracing_experiment_id])
+    for _ in range(15):
+        traces = client.search_traces(experiment_ids=[state.cc_tracing_experiment_id])
+        if traces:
+            break
+        time.sleep(1)
     if not traces:
         log.error("Claude Code tracing verification failed - no traces found")
         return False

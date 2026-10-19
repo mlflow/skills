@@ -1,0 +1,14 @@
+# Covers real label pairing, not optimizer execution. Full MemAlign additionally
+# needs DSPy, an explicitly approved embedding model, reflection model, and auth.
+name: scorer-human-label-alignment-preparation
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - build-a-scorer
+prompt: "Prepare labels.csv from our expert feedback for judge alignment. Include the train/holdout split and explain any blockers."
+timeout_seconds: 600
+environment:
+  EVALUATION_CASE: alignment

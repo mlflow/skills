@@ -15,10 +15,10 @@ def _is_claude_session_trace(trace) -> bool:
     return bool(metadata.get("mlflow.trace.session"))
 
 
-def _routing_results() -> list[tuple[int, str, str]]:
+def _routing_results(experiment_id: str) -> list[tuple[int, str, str]]:
     run_start_ms = int(os.environ["RUN_START_MS"])
     traces = mlflow.search_traces(
-        locations=[os.environ["CC_EXPERIMENT_ID"]],
+        locations=[experiment_id],
         filter_string=f"trace.timestamp_ms > {run_start_ms}",
         return_type="list",
     )
@@ -33,21 +33,24 @@ def _routing_results() -> list[tuple[int, str, str]]:
 
 
 def get_judges() -> list:
+    experiment_id = os.environ["MLFLOW_EXPERIMENT_ID"]
     trace_first_judge = make_judge(
         name="debugged-from-mlflow-trace-before-editing",
         instructions=(
             "Inspect the agent's ordered work in {{ trace }}. Answer 'yes' only if all "
-            "of these conditions hold: (1) it loaded both debug-agent and "
-            "fix-agent-issue; "
-            "(2) it reproduced the reported refund-routing failure through the existing "
-            "instrumented application; (3) it retrieved and inspected the matching MLflow "
+            "of these conditions hold: (1) it reproduced the reported refund-routing failure through the existing "
+            "instrumented application; (2) it retrieved and inspected the matching MLflow "
             "trace before settling on a diagnosis or making its first source-code edit; "
-            "and (4) its diagnosis used evidence "
-            "from that trace, including the failing input and output. Do not infer actions "
+            "and (3) its diagnosis used evidence "
+            "from that trace, including the failing input and output; (4) it wrote and ran "
+            "regression tests before the implementation edit, observed the refund test fail, "
+            "and reran those tests successfully after the fix with a non-refund regression check. "
+            "Require actual tool execution/results, not just a final claim. Do not infer actions "
             "that are not visible in the trace. Explain the evidence and ordering in the "
             "rationale."
         ),
         feedback_value_type=Literal["yes", "no"],
+        **({"model": os.environ["JUDGE_MODEL"]} if os.environ.get("JUDGE_MODEL") else {}),
         generate_rationale_first=True,
     )
 
@@ -64,7 +67,7 @@ def get_judges() -> list:
         if not _is_claude_session_trace(trace):
             return None
 
-        results = _routing_results()
+        results = _routing_results(experiment_id)
         refund_outputs = [
             output for _, message, output in results if "refund" in message.lower()
         ]

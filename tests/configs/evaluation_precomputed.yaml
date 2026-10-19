@@ -1,0 +1,15 @@
+name: evaluation-existing-precomputed
+project_dir: project
+setup_script: tests/scripts/setup_evaluation_cases.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/evaluation_behavior.py
+skills:
+  - agent-evaluation
+  - instrumenting-with-mlflow-tracing
+required_skills: [agent-evaluation]
+prompt: "Evaluate the saved order-assistant outputs and tell me what failed. Don't rerun the app."
+timeout_seconds: 600
+environment:
+  MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"
+  EVALUATION_CASE: precomputed
