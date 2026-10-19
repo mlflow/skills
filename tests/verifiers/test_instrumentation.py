@@ -1,6 +1,6 @@
 """Local regressions; no Claude or paid model calls.
 
-uv run --with mlflow --with pytest --with langgraph --with langchain-core pytest -q tests/test_instrumentation_judges.py
+uv run --with mlflow --with pytest --with langgraph --with langchain-core pytest -q tests/verifiers/test_instrumentation.py
 """
 import json
 import os
@@ -139,7 +139,7 @@ def test_langgraph_real_execution(experiment, tmp_path, monkeypatch, change, wan
 
 
 def test_external_application_and_bounded_clone(experiment, tmp_path, monkeypatch):
-    setup = Path(__file__).parent / "scripts/setup_tracing_test.py"
+    setup = Path(__file__).parents[1] / "scripts/setup_tracing_test.py"
     repo = tmp_path / "original"
     repo.mkdir()
     (repo / "app.py").write_text('''import mlflow

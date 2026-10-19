@@ -16,7 +16,7 @@ This script:
 11. Cleans up
 
 Usage:
-    python tests/test_skill.py tests/configs/evaluation_nested.yaml
+    python tests/test_skill.py tests/configs/evals/evaluation_nested.yaml
 """
 
 from __future__ import annotations
