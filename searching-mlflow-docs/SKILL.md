@@ -43,6 +43,8 @@ WebFetch(
 
 **Do not guess URLs** — Always verify paths exist in llms.txt before fetching. Never construct documentation paths from assumptions.
 
-**Do not follow external links or mix sources** — Stay within `mlflow.org/docs`; do not combine examples with GitHub, PyPI, or third-party documentation.
+**Do not follow external links** — Stay within mlflow.org/docs. Do not follow links to GitHub, PyPI, or third-party sites.
 
-**Classic ML topics** — Search the index first; it includes classic ML as well as GenAI. If the topic is absent, use official MLflow documentation navigation rather than guessing a URL.
+**Do not mix sources** — Use only MLflow docs. Do not combine with LangChain docs, OpenAI docs, or other external documentation.
+
+**Do not use llms.txt for non-GenAI topics** — The llms.txt index covers LLM/GenAI documentation only. For classic ML tracking features, paths may differ.
