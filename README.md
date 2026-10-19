@@ -22,20 +22,30 @@ Building production-ready AI agents is hard. You need observability to understan
 
 ## Available Skills
 
-These are three workflow groups, not new skills. Existing skill names and install paths stay the same.
+### Tracing
 
-| Owner | Responsibilities | Existing skills |
-|-------|------------------|-----------------|
-| **Setup** | Select and verify the backend only when configuration is missing; reuse working environments. | `mlflow-onboarding`, `sagemaker-mlflow` |
-| **Tracing** | Instrument, retrieve and inspect traces/sessions; diagnose failures; query operational metrics. | `instrumenting-with-mlflow-tracing`, `retrieving-mlflow-traces`, `analyze-mlflow-trace`, `analyze-mlflow-chat-session`, `debug-agent`, `querying-mlflow-metrics` |
-| **Evaluation** | Define quality criteria, build/align scorers, prepare datasets, evaluate and verify behavior changes. | `agent-evaluation`, `build-a-scorer`, `fix-agent-issue` |
+| Skill | Description |
+|-------|-------------|
+| **instrumenting-with-mlflow-tracing** | Instruments Python and TypeScript code with MLflow Tracing. Supports OpenAI, Anthropic, LangChain, LangGraph, LiteLLM, and more. |
+| **analyze-mlflow-trace** | Debugs issues by examining spans, assessments, and correlating with your codebase. |
+| **analyze-mlflow-chat-session** | Debugs multi-turn chat conversations by reconstructing session history and finding where things went wrong. |
+| **retrieving-mlflow-traces** | Powerful trace search and filtering by status, session, user, time range, or custom metadata. |
+| **debug-agent** | Root-causes agent failures from existing MLflow traces without requiring a code change or evaluation suite. |
 
-`mlflow-agent` routes requests across these groups. `searching-mlflow-docs` supports all three.
-Scorer design and behavior fixes are evaluation workflows; diagnosis without a code change belongs to tracing.
+### Evaluation
 
-Start with the requested task. If Databricks tooling already provides a working MLflow environment,
-reuse its tracking URI, credentials and experiment. Setup is a conditional prerequisite, not a step
-to repeat before every tracing or evaluation task.
+| Skill | Description |
+|-------|-------------|
+| **agent-evaluation** | End-to-end agent evaluation workflow — dataset creation, scorer selection, evaluation execution, and results analysis. |
+| **build-a-scorer** | Designs a small, cheap-to-run scorer suite from scratch — elicits quality criteria with you, routes each to code checks, built-in scorers, or LLM judges, then ships the implementation. |
+| **querying-mlflow-metrics** | Fetches aggregated metrics (token usage, latency, error rates) with time-series analysis and dimensional breakdowns. |
+
+### Setup
+
+| Skill | Description |
+|-------|-------------|
+| **mlflow-onboarding** | Guides new users through MLflow setup based on their use case (GenAI apps vs traditional ML). |
+| **searching-mlflow-docs** | Searches official MLflow documentation efficiently using the llms.txt index. |
 
 ---
 

@@ -12,14 +12,6 @@ MLflow supports two broad use cases that require different onboarding paths:
 
 Determining which use case applies is the first and most important step. The onboarding path, quickstart tutorials, and integration steps differ significantly between the two.
 
-## Reuse an existing environment
-
-Check for a configured tracking URI and experiment before starting onboarding. If they are
-already usable, continue with the requested tracing or evaluation workflow. In Databricks
-environments where tooling supplies MLflow configuration, reuse it; do not add a second
-setup flow or replace the supplied profile, credentials or experiment. Resolve only missing
-configuration or a backend change the user requested.
-
 ## Step 1: Determine the Use Case
 
 Before recommending tutorials or integration steps, determine which use case the user is working on. Use the signals below, checking them in order. **If the signals are ambiguous or absent, you MUST ask the user directly.**

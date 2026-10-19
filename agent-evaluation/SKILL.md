@@ -43,12 +43,10 @@ If you're tempted to create `evaluation/eval_dataset.py` or similar custom files
 3.5. **Dry Run**: Run 3 questions first — catch broken tools and misconfigured scorers before full eval
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
-**Scope boundary:** evaluation includes scorer design and verified behavior changes, with
-existing entry points for each. This skill owns *running* evaluation — registration, datasets, execution, and
+**Scope boundary:** this skill owns *running* evaluation — registration, datasets, execution, and
 analysis. Designing the scorer suite (which criteria, and code check vs. built-in vs. LLM judge) is
 the `build-a-scorer` skill's job. The seam is a confirmed suite of criteria with an implementation
-chosen for each. For a requested agent behavior change, `fix-agent-issue` owns the
-implementation and regression loop; reuse the agreed criteria and evaluation results.
+chosen for each.
 
 ## Command Conventions
 
