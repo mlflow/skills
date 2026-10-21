@@ -9,10 +9,8 @@ description: >
 
 # Connect to SageMaker MLflow
 
-Establishes the connection to SageMaker Managed MLflow (the `sagemaker-mlflow` plugin + an
-ARN tracking URI + AWS credentials), then hands off to the requested MLflow skill
-(instrumenting-with-mlflow-tracing, agent-evaluation, retrieving-mlflow-traces,
-querying-mlflow-metrics, etc.), which inherit the connection via `MLFLOW_TRACKING_URI`.
+Connect using the `sagemaker-mlflow` plugin, an ARN tracking URI and AWS credentials.
+Other MLflow skills inherit the connection through `MLFLOW_TRACKING_URI`.
 
 Requires **Python >= 3.10** (mlflow >= 3.8). Validate and report the fix — never
 auto-install the plugin or acquire credentials (mirrors the repo's Databricks pattern).
@@ -23,7 +21,8 @@ auto-install the plugin or acquire credentials (mirrors the repo's Databricks pa
   they error (ExpiredToken / no creds), STOP and ask the user to configure them.
   (`scripts/verify_connection.py` also checks this, via boto3.)
 
-## Step 2: Install the plugin
+## Step 2: Check the plugin
+If missing, stop and give the user this installation command:
 ```bash
 pip install sagemaker-mlflow
 ```
@@ -58,8 +57,7 @@ After the connection verifies, hand off to the requested MLflow skill — it inh
 connected environment via `MLFLOW_TRACKING_URI`.
 
 ## Troubleshooting
-- `UnsupportedModelRegistryStoreURIException` — the `sagemaker-mlflow` plugin is not
-  installed; `pip install sagemaker-mlflow`, then re-run `scripts/verify_connection.py`.
+- `UnsupportedModelRegistryStoreURIException` — see Step 2, then repeat verification.
 - `AccessDenied` / `403` — credentials are missing/expired, or the principal lacks MLflow
   permissions on the ARN. Check that credentials resolve, grant `sagemaker-mlflow` /
   `sagemaker` permissions, and confirm the ARN region matches `AWS_DEFAULT_REGION`.

@@ -5,28 +5,32 @@ description: Onboards users to MLflow by determining their use case (GenAI agent
 
 # MLflow Onboarding
 
-MLflow supports two broad use cases that require different onboarding paths:
+Choose the onboarding path that matches the user’s project:
 
-- **GenAI applications and agents**: LLM-powered apps, chatbots, RAG pipelines, tool-calling agents. Key MLflow features include **tracing** for observability, **evaluation** with LLM judges, and **prompt management**, among others.
-- **Traditional ML / deep learning models**: scikit-learn, PyTorch, TensorFlow, XGBoost, etc. Key MLflow features include **experiment tracking** (parameters, metrics, artifacts), **model logging**, and **model deployment**, among others.
+- **GenAI apps and agents** — tracing, evaluation, and prompt management for chatbots, RAG pipelines, and tool-calling agents.
+- **Traditional ML / deep learning** — experiment tracking, model logging, and deployment for scikit-learn, PyTorch, TensorFlow, XGBoost, and other training frameworks.
 
-Determining which use case applies is the first and most important step. The onboarding path, quickstart tutorials, and integration steps differ significantly between the two.
+## Reuse existing configuration
+
+Reuse a working tracking URI and experiment, including configuration supplied by
+Databricks tooling. Resolve only missing configuration or a requested backend change;
+do not replace the supplied profile, credentials or experiment.
 
 ## Step 1: Determine the Use Case
 
-Before recommending tutorials or integration steps, determine which use case the user is working on. Use the signals below, checking them in order. **If the signals are ambiguous or absent, you MUST ask the user directly.**
+Check these signals in order. **Ask the user if the use case is still unclear.**
 
 ### Signal 1: Check the Codebase
 
 Search the user's project for imports and usage patterns that indicate the use case:
 
-**GenAI indicators** (any of these suggest GenAI):
+**GenAI indicators:**
 - Imports from LLM client libraries: `openai`, `anthropic`, `google.generativeai`, `google.genai`, `langchain`, `langchain_openai`, `langgraph`, `llamaindex`, `litellm`, `autogen`, `crewai`, `dspy`
 - Imports from MLflow GenAI modules: `mlflow.genai`, `mlflow.tracing`, `mlflow.openai`, `mlflow.langchain`
 - Usage of chat completions, embeddings, or agent frameworks
 - Prompt templates or prompt engineering code
 
-**Traditional ML indicators** (any of these suggest ML):
+**Traditional ML indicators:**
 - Imports from ML frameworks: `sklearn`, `torch`, `tensorflow`, `keras`, `xgboost`, `lightgbm`, `catboost`, `statsmodels`, `scipy`
 - Imports from MLflow ML modules: `mlflow.sklearn`, `mlflow.pytorch`, `mlflow.tensorflow`
 - Model training loops, `.fit()` calls, hyperparameter tuning code
@@ -44,7 +48,7 @@ grep -rl --include='*.py' -E '(from sklearn|import torch|import tensorflow|impor
 
 If the codebase or project directory is the MLflow repository itself, skip to Signal 3 — the MLflow repo contains code for all use cases and does not indicate the user's intent.
 
-If the experiment ID is known, check its `mlflow.experimentKind` tag. This tag is set by MLflow to indicate the experiment type:
+If the experiment ID is known, check its `mlflow.experimentKind` tag:
 
 ```bash
 mlflow experiments get --experiment-id <EXPERIMENT_ID> --output json > /tmp/exp_detail.json
@@ -63,17 +67,17 @@ If the codebase and experiment signals are inconclusive, ask directly:
 
 > Are you building a **GenAI application** (e.g., an LLM-powered chatbot, RAG pipeline, or tool-calling agent) or a **traditional ML/deep learning model** (e.g., training a classifier, regression model, or neural network)?
 
-**Do not guess.** The onboarding paths are different enough that starting down the wrong one wastes the user's time.
+**Do not guess the use case.**
 
 ## Step 2: Recommend Quickstart Tutorials
 
-Once the use case is determined, recommend the appropriate quickstart tutorials from the MLflow documentation. Present them to the user and ask if they'd like to follow along or jump directly to integrating MLflow into their project.
+Recommend the quickstart that fits the project. Ask whether the user wants a walkthrough or direct integration.
 
 ### GenAI Path
 
 The MLflow GenAI documentation is at: https://mlflow.org/docs/latest/genai/getting-started/
 
-Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
+Choose the relevant guide:
 
 - **Tracing Quickstart** (https://mlflow.org/docs/latest/genai/tracing/quickstart/) — Enabling automatic tracing for LLM calls. Covers starting an MLflow server, creating an experiment, enabling autologging, and viewing traces in the UI.
   - Python + OpenAI variant: https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/
@@ -88,7 +92,7 @@ If none of these match the user's needs, look up the MLflow GenAI documentation 
 
 The MLflow ML documentation is at: https://mlflow.org/docs/latest/ml/getting-started/
 
-Choose the most relevant tutorials based on the user's context and what they've told you. Available tutorials include:
+Choose the relevant guide:
 
 - **Tracking Quickstart** (https://mlflow.org/docs/latest/ml/tracking/quickstart/) — Experiment tracking with scikit-learn: autologging, manual parameter/metric/model logging, and exploring results in the MLflow UI.
 - **Deep Learning Tutorial** (https://mlflow.org/docs/latest/ml/getting-started/deep-learning/) — Training a PyTorch model with MLflow logging: parameters, metrics, checkpoints, and system metrics (GPU utilization, memory).
@@ -96,9 +100,9 @@ Choose the most relevant tutorials based on the user's context and what they've 
 
 If none of these match the user's needs, look up the MLflow ML documentation for more relevant guides.
 
-## Step 3: Integrate MLflow into the User's Project
+## Step 3: Integrate MLflow
 
-After the user has reviewed the quickstart tutorials (or opted to skip them), offer to help integrate MLflow directly into their codebase. **Always ask for the user's consent before making changes to their code.**
+After the tutorial, or if the user skips it, offer direct integration. **Always ask for the user's consent before changing their code.**
 
 ### GenAI Integration
 
@@ -231,8 +235,6 @@ The core integration for ML is **experiment tracking** — capturing parameters,
 **Where to add it:** Find the training script or module where `model.fit()` (or equivalent) is called. Add the autologging call before the training loop begins.
 
 ## Verification
-
-After integration, verify that MLflow is capturing data correctly:
 
 ### GenAI Verification
 

@@ -13,26 +13,25 @@ disable-model-invocation: true
 
 Master dispatcher for MLflow workflows. Reads user intent and invokes the right sub-skill.
 
-## Trigger
+## Step 1: Identify the workflow
 
-Use when the user wants to do anything with MLflow but hasn't specified which skill to use.
+Use the user's request to choose the relevant skill. Ask at most one clarifying question
+if the intent is unclear.
 
-## Process
+## Step 2: Dispatch
 
-1. Read the user's request and identify intent
-2. Map to the appropriate skill:
-   - Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
-   - Debug or explain an agent failure → `debug-agent`
-   - Fix or change an agent's behavior → `fix-agent-issue`
-   - Evaluation / scoring → `agent-evaluation`
-   - Debug a trace → `analyze-mlflow-trace`
-   - Debug a chat session → `analyze-mlflow-chat-session`
-   - Search traces → `retrieving-mlflow-traces`
-   - Metrics / costs → `querying-mlflow-metrics`
-   - Getting started → `mlflow-onboarding`
-   - Docs / API questions → `searching-mlflow-docs`
-3. If intent is unclear, ask ONE clarifying question, then dispatch
-4. Invoke the matched skill using the Skill tool
+- Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
+- Debug or explain an agent failure → `debug-agent`
+- Fix or change an agent's behavior → `fix-agent-issue`
+- Evaluation / scoring → `agent-evaluation`
+- Debug a trace → `analyze-mlflow-trace`
+- Debug a chat session → `analyze-mlflow-chat-session`
+- Search traces → `retrieving-mlflow-traces`
+- Metrics / costs → `querying-mlflow-metrics`
+- Getting started → `mlflow-onboarding`
+- Docs / API questions → `searching-mlflow-docs`
+
+Invoke the matched skill using the Skill tool.
 
 ## Key Rules
 
