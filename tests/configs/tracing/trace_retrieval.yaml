@@ -5,7 +5,7 @@ judges:
 - tests/judges/skill_usage.py
 - tests/judges/trace_behavior.py
 skills:
-- retrieving-mlflow-traces
+- mlflow-trace-retrieval
 prompt: "Find the failed production traces for the tenant and time window in task.json. Report their IDs."
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob

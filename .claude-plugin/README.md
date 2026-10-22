@@ -9,16 +9,15 @@ Skills covering the full MLflow agent improvement loop:
 | Skill | Purpose |
 |-------|---------|
 | `mlflow-agent` | Dispatcher — recommended entry point; routes to the right skill automatically |
-| `agent-evaluation` | Set up datasets, scorers, and evaluation runs |
-| `debug-agent` | Root-cause agent failures from MLflow traces without changing code |
-| `fix-agent-issue` | Implement and regression-test an agent behavior change |
-| `instrumenting-with-mlflow-tracing` | Instrument Python/TypeScript code with MLflow Tracing |
-| `analyze-mlflow-trace` | Debug issues by examining spans and correlating with code |
-| `analyze-mlflow-chat-session` | Analyze multi-turn chat session traces |
-| `retrieving-mlflow-traces` | Query and filter traces from the MLflow backend |
-| `querying-mlflow-metrics` | Query token usage, latency, and quality metrics |
 | `mlflow-onboarding` | Get started with MLflow from scratch |
-| `searching-mlflow-docs` | Search MLflow documentation for answers |
+| `mlflow-docs` | Search MLflow documentation for answers |
+| `mlflow-sagemaker` | Connect to SageMaker Managed MLflow |
+| `mlflow-tracing` | Instrument Python/TypeScript code with MLflow Tracing |
+| `mlflow-trace-retrieval` | Query and filter traces from the MLflow backend |
+| `mlflow-trace-analysis` | Analyze traces, agent failures, and multi-turn sessions |
+| `mlflow-trace-metrics` | Query token usage, latency, and quality metrics |
+| `mlflow-evaluation` | Design scorers and run GenAI evaluation |
+| `mlflow-agent-improvement` | Implement and regression-test agent behavior changes |
 
 **1 hook:**
 

@@ -6,9 +6,8 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - build-a-scorer
-  - agent-evaluation
-required_skills: [build-a-scorer]
+  - mlflow-evaluation
+required_skills: [mlflow-evaluation]
 prompt: "Align our order-total judge with the expert feedback and compare it with the original."
 verification_timeout: 600
 environment:

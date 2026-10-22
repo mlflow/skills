@@ -5,10 +5,9 @@ judges:
 - tests/judges/skill_usage.py
 - tests/judges/trace_behavior.py
 skills:
-- debug-agent
-- analyze-mlflow-trace
-- retrieving-mlflow-traces
-required_skills: [debug-agent]
+- mlflow-trace-analysis
+- mlflow-trace-retrieval
+required_skills: [mlflow-trace-analysis]
 prompt: "Why did the order lookup in task.json fail? Don't change the app."
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
