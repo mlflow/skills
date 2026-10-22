@@ -15,7 +15,7 @@ For a batch of traces, component bottlenecks, or recurring error patterns, read 
 
 ## Handling CLI Output
 
-Traces can be 100KB+ for complex agent executions. **Always redirect output to a file** — do not pipe `mlflow traces get` directly to `jq`, `head`, or other commands, as piping can silently produce no output.
+Traces can be 100KB+ for complex agent executions. **Save output to a file before parsing** — do not pipe `mlflow traces get` directly to `jq`, `head`, or other commands, as piping can silently produce no output.
 
 ```bash
 # Fetch full trace to a file (traces get always outputs JSON, no --output flag needed)
@@ -25,6 +25,24 @@ mlflow traces get --trace-id <ID> > /tmp/trace.json
 jq '.info.state' /tmp/trace.json
 jq '.data.spans | length' /tmp/trace.json
 ```
+
+If shell redirection is blocked, use Python file I/O instead (or inspect the SDK
+object directly when a file is unnecessary):
+
+```python
+from pathlib import Path
+import mlflow
+
+trace = mlflow.get_trace("<TRACE_ID>")
+if trace is None:
+    raise ValueError("Trace not found; check the ID and tracking configuration")
+Path("trace.json").write_text(trace.to_json(), encoding="utf-8")
+```
+
+The SDK exposes `trace.info.state`, `span.parent_id`, `span.inputs`,
+`span.outputs`, and feedback `assessment.error` / `assessment.rationale`.
+These are object accessors, not the serialized JSON paths below. When a user
+requests an advisory example, show the procedure without executing it.
 
 **Prefer fetching the full trace and parsing the JSON directly** rather than using `--extract-fields`. The `--extract-fields` flag has limited support for nested span data (e.g., span inputs/outputs may return empty objects). Fetch the complete trace once and parse it as needed.
 

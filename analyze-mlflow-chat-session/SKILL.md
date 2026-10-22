@@ -13,7 +13,7 @@ The session ID is stored in trace metadata under the key `mlflow.trace.session`.
 
 ## Reconstructing the Conversation
 
-Reconstructing a session's conversation is a multi-step process: discover the input/output schema from the first trace, extract those fields efficiently across all session traces, then inspect specific turns as needed. **Do NOT fetch full traces for every turn** — use `--extract-fields` on the search command instead.
+Reconstructing a session's conversation is a multi-step process: discover the input/output schema from the first trace, extract those fields efficiently across all session traces, then inspect specific turns as needed. **Do NOT fetch full traces for every turn** — use `--no-include-spans` on the search command and select the needed metadata fields with `--extract-fields`. Field selection only shapes output; by itself it still downloads span data. The SDK equivalent is `mlflow.search_traces(..., include_spans=False)`.
 
 **Step 1: Discover the schema.** First, find a trace ID from the session, then fetch its full JSON to inspect the schema:
 
@@ -23,6 +23,7 @@ mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
   --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
   --order-by "timestamp_ms ASC" \
+  --no-include-spans \
   --extract-fields 'info.trace_id' \
   --output json \
   --max-results 1 > /tmp/first_trace.json
@@ -79,21 +80,22 @@ jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["m
 jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value, rationale: .rationale}]' /tmp/trace_detail.json
 ```
 
-**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull those fields along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
+**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for the session metadata without spans, using `--extract-fields` to pull previews along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
 
 ```bash
 mlflow traces search \
   --experiment-id <EXPERIMENT_ID> \
   --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
   --order-by "timestamp_ms ASC" \
-  --extract-fields 'info.trace_id,info.state,info.request_time,info.assessments,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
+  --no-include-spans \
+  --extract-fields 'info.trace_id,info.state,info.request_time,info.assessments,info.request_preview,info.response_preview' \
   --output json \
   --max-results 100 > /tmp/session_traces.json
 ```
 
 Then use bash commands (e.g., `jq`, `wc`, `head`) on the file to analyze it.
 
-The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutputs` from trace metadata — adjust the field paths based on what you discovered in step 1.
+Compare the first trace's `info.request_preview` and `info.response_preview` with the meaningful span inputs/outputs discovered in step 1. Use those previews for the timeline only when they contain the relevant turn content. Previews may be truncated or missing; do not invent metadata keys or claim complete reconstruction from incomplete previews. Fetch individual suspect turns as needed. If the required content exists only in spans for every turn, explain that a complete reconstruction cannot satisfy the no-full-traces constraint and ask before broadening retrieval.
 
 Assessments contain quality judgments (e.g., correctness, relevance) that can pinpoint which turns had issues without needing to read every trace in detail. To identify which turns have assessment signals (excluding scorer errors):
 
@@ -114,14 +116,14 @@ jq '.traces[] | {
 
 - **`--experiment-id` is required** for all `mlflow traces search` commands. The command will fail without it.
 - Metadata keys containing dots **must** be escaped with backticks in filter strings and extract-fields: `` metadata.`mlflow.trace.session` ``
-- **Shell quoting**: Backticks inside **double quotes** are interpreted by bash as command substitution (e.g., bash will try to run `` `mlflow.trace.session` `` as a command). Always use **single quotes** for the outer string when the value contains backticks. For example: `--filter-string 'metadata.\`mlflow.trace.session\` = "value"'`
+- **Shell quoting**: Backticks inside **double quotes** are interpreted by bash as command substitution (e.g., bash will try to run `` `mlflow.trace.session` `` as a command). Always use **single quotes** for the outer string when the value contains backticks. For example: `` --filter-string 'metadata.`mlflow.trace.session` = "value"' ``
 - `--max-results` defaults to 100, which is sufficient for most sessions. Increase up to 500 (the maximum) for longer conversations. If 500 results are returned, use pagination to retrieve the rest.
 
 ## Handling CLI Output
 
 MLflow trace output can be large, and Claude Code's Bash tool has a ~30KB output limit for piped commands. When output exceeds this threshold, it gets saved to a file instead of being piped, causing silent failures.
 
-**Safe approach (always works):**
+**Save first, then parse:**
 ```bash
 # Step 1: Save to file
 mlflow traces search \
@@ -135,7 +137,7 @@ head -50 /tmp/output.json
 wc -l /tmp/output.json
 ```
 
-**Never pipe MLflow CLI output directly** (e.g., `mlflow traces search ... | jq '.'`). This can silently produce no output. Always redirect to a file first, then run commands on the file.
+**Never pipe MLflow CLI output directly** (e.g., `mlflow traces search ... | jq '.'`). This can silently produce no output. Save to a file first, then run commands on the file. If the runner forbids shell redirection, use Python file I/O as shown in the [single-trace guide](../analyze-mlflow-trace/SKILL.md#handling-cli-output). Do not recommend blocked shell syntax.
 
 To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
 

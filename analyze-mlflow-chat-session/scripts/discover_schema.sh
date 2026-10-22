@@ -13,6 +13,7 @@ mlflow traces search \
   --experiment-id "$EXPERIMENT_ID" \
   --filter-string 'metadata.`mlflow.trace.session` = "'"$SESSION_ID"'"' \
   --order-by "timestamp_ms ASC" \
+  --no-include-spans \
   --extract-fields 'info.trace_id' \
   --output json \
   --max-results 1 > first_trace.json
