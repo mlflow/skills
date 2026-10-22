@@ -7,9 +7,8 @@ the correct operation.
 
 ## Discover before creating
 
-Run `scripts/list_datasets.py` from this skill (`--help` for explicit-name, format, and timeout options).
-Inspect actual samples and schema, not just size or lexical-diversity recommendations. Discovery failure is
-not an empty dataset list. Reuse the user's selected dataset unchanged when evaluating existing outputs.
+Use the installed dataset search/list API and inspect actual samples and schema. Discovery failure is not an
+empty dataset list. Reuse the user's selected dataset unchanged when evaluating existing outputs.
 
 OSS dataset search and Unity Catalog discovery differ. Use the intended backend's supported lookup; on
 Databricks, use catalog/schema tools or the known fully qualified name rather than assuming
@@ -58,11 +57,6 @@ dataset.merge_records(records)
 Read the records back with the installed dataset's supported DataFrame accessor (`to_df()` or `df`, depending
 on backend/version). Verify count, nested inputs, expectations, intended experiment/location, and source
 identity before running evaluation.
-
-`scripts/create_dataset_template.py --test-cases-file <file>` generates a starting script. For UC supply all
-three flags: `--catalog <catalog> --schema <schema> --table <table>`. Inspect generated code before execution,
-especially literal values, backend signatures, and selected location; do not rely on auto-selected
-catalog/schema defaults.
 
 <a id="databricks-unity-catalog-considerations"></a>
 
