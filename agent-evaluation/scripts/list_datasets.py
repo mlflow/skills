@@ -182,7 +182,7 @@ def main():
         print("\n✗ Environment validation failed:")
         for error in errors:
             print(f"  - {error}")
-        print("\nRun scripts/setup_mlflow.py to configure environment")
+        print("\nConfigure MLflow tracking and experiment settings first")
         sys.exit(1)
 
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")

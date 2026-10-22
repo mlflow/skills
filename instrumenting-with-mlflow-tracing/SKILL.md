@@ -73,7 +73,7 @@ assert trace.data.spans, "No spans captured"
 
 - Inspect expected root/graph, model, retrieval, and tool spans and actual I/O. Confirm the application's request, not scorer or assistant telemetry.
 - Check experiment/location from returned metadata, or the bound UC location if no experiment ID exists.
-- Reuse returned spans; stop after success. Available `agent-evaluation/scripts/validate_tracing_runtime.py` may replace this check under the same deadline, not add another audit.
+- Reuse returned spans; stop after success.
 
 - Retry at most once after a concrete quick fix **within the original budget**.
 - Stop on missing provider keys, auth/permission errors, warehouse timeouts, or `RESOURCE_EXHAUSTED`/429.
