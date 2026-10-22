@@ -1,42 +1,42 @@
 ---
 name: debug-agent
-description: >-
-  Root-causes AI agent failures from MLflow traces without requiring a code
-  change, regression suite, scorer, or evaluation run. Use when the user asks
-  to debug, investigate, explain, or determine why an agent produced an output.
-  Prefer an existing matching trace; reproduce only when no usable trace exists.
+description: Debug, investigate, or explain an AI agent's behavior using MLflow traces and source code. Diagnose only; do not change code or create tests, scorers or evaluation runs. Prefer an existing trace; reproduce only when none is usable.
 ---
 
-# Debug Agent
+# Debug an agent
 
-Diagnose the failure and report evidence. Do not edit the agent unless the user
-also asks for a fix; for behavior changes, hand off to `fix-agent-issue` after
-the diagnosis.
+Reuse reported/expected behavior, tracing configuration, tracking URI, experiment and trace ID or incident time/session. Do not reinstall or reinstrument working tracing.
 
-## Workflow
+## Prerequisites
 
-1. Find existing tracing configuration, tracking URI, and experiment. Do not
-   recommend reinstalling or reinstrumenting MLflow when tracing already works.
-2. Find a trace matching the reported input, time, session, user, or trace ID.
-   If one exists, use it directly. Do not reproduce a production-only or
-   externally dependent failure merely to satisfy a workflow.
-3. Only when no usable trace exists, reproduce the issue once through the normal
-   instrumented entry point and retrieve the resulting trace. If reproduction
-   is unsafe or impossible, state what evidence is missing and stop.
-4. Inspect the matching trace span by span. Read assessments first, then inputs,
-   outputs, errors, LLM calls, retrieval results, and tool calls. Use
-   `analyze-mlflow-trace` for detailed trace anatomy.
-5. Correlate trace evidence with source code as needed. Reading source is fine;
-   do not settle on a diagnosis without confirming it against the trace.
-6. Report: observed behavior, expected behavior, trace evidence, root cause,
-   confidence, and the smallest likely fix. Do not create tests or scorers for a
-   diagnosis-only request.
+Before searching for evidence, read [trace retrieval](../retrieving-mlflow-traces/SKILL.md). If that skill is not installed, use the [search guide](https://mlflow.org/docs/latest/genai/tracing/search-traces.md) and installed CLI help.
 
-## Boundaries
+For detailed span diagnosis, read [trace analysis](../analyze-mlflow-trace/SKILL.md); for earlier-turn propagation, read [session analysis](../analyze-mlflow-chat-session/SKILL.md), when installed.
 
-- If no trace can be produced because the app is uninstrumented, load
-  `instrumenting-with-mlflow-tracing` and explain the limitation.
-- Log the user's complaint as HUMAN feedback only when a concrete trace is
-  identified and doing so is authorized.
-- If the user asks to implement the fix, invoke `fix-agent-issue` with the trace
-  ID and diagnosis so it can write regression coverage before editing.
+## Step 1: Find an existing trace
+
+Find a matching existing trace; do not force reproduction of production-only or externally dependent failures. UC searches need incident-time bounds even with small result limits.
+
+## Step 2: Reproduce only if needed
+
+Only without a usable trace, reproduce once through the normal instrumented entry point when safe and possible, then retrieve the persisted trace. Otherwise state the missing evidence and stop.
+
+## Step 3: Read the trace
+
+Read assessments first, then actual span inputs/outputs, errors, model calls, retrieval and tools. Distinguish HUMAN reports from automated judgments and scorer errors; failed scoring does not prove application failure, and OK does not prove quality.
+
+## Step 4: Locate the first divergence
+
+Follow the first divergence and downstream effects, including preceding session turns/history where relevant. Correlate decisive trace evidence with source/configuration before claiming a root cause.
+
+## Step 5: Record authorized feedback
+
+Log complaints as HUMAN feedback only against an identified trace and when authorized. Do not edit code or create tests, scorers or evaluations for diagnosis alone.
+
+## Verification
+
+Report observed versus expected behavior, trace/span evidence, cause or hypothesis, confidence, gaps and smallest likely remedy. For requested implementation, pass diagnosis and trace ID to `fix-agent-issue` for regression coverage before editing.
+
+## References
+
+For missing instrumentation, explain the limitation; read [instrumentation](../instrumenting-with-mlflow-tracing/SKILL.md) when setup/repair is requested and the skill is installed.

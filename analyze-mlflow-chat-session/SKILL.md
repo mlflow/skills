@@ -1,180 +1,67 @@
 ---
 name: analyzing-mlflow-session
-description: Analyzes an MLflow session — a sequence of traces from a multi-turn chat conversation or interaction. Use when the user asks to debug a chat conversation, review session or chat history, find where a multi-turn chat went wrong, or analyze patterns across turns. Triggers on "analyze this session", "what happened in this conversation", "debug session", "review chat history", "where did this chat go wrong", "session traces", "analyze chat", "debug this chat".
+description: Analyze a multi-turn MLflow chat session, reconstruct its conversation, and identify the first bad turn and downstream propagation. Use for session history and conversation diagnosis without code changes.
 ---
 
-# Analyzing an MLflow Chat Session
+# Analyze an MLflow chat session
 
-## What is a Session?
+Reuse the configured backend, experiment, session ID, relevant time window and reported/expected behavior. Session traces share metadata key `mlflow.trace.session`; verify how the application assigns that ID so unrelated conversations are not combined.
 
-A session groups multiple traces that belong to the same chat conversation or user interaction. Each trace in the session represents one turn: the user's input and the system's response. Traces within a session are linked by a shared session ID stored in trace metadata.
+## Prerequisites
 
-The session ID is stored in trace metadata under the key `mlflow.trace.session`. This key contains dots, which affects filter syntax (see below). All traces sharing the same value for this key belong to the same session.
+Before searching session traces, read [trace retrieval](../retrieving-mlflow-traces/SKILL.md) for filters, time bounds and pagination. If that skill is not installed, use the [search guide](https://mlflow.org/docs/latest/genai/tracing/search-traces.md) and installed CLI help.
 
-## Reconstructing the Conversation
+## Step 1: Discover the schema
 
-Reconstructing a session's conversation is a multi-step process: discover the input/output schema from the first trace, extract those fields efficiently across all session traces, then inspect specific turns as needed. **Do NOT fetch full traces for every turn** — use `--extract-fields` on the search command instead.
-
-**Step 1: Discover the schema.** First, find a trace ID from the session, then fetch its full JSON to inspect the schema:
+Check installed `mlflow traces search --help`. Search chronologically with an explicit experiment and time bounds; save JSON before parsing it:
 
 ```bash
-# Get the first trace in the session
-mlflow traces search \
-  --experiment-id <EXPERIMENT_ID> \
-  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
-  --order-by "timestamp_ms ASC" \
-  --extract-fields 'info.trace_id' \
-  --output json \
-  --max-results 1 > /tmp/first_trace.json
-
-# Fetch the full trace (always outputs JSON, no --output flag needed)
-mlflow traces get \
-  --trace-id <TRACE_ID_FROM_ABOVE> > /tmp/trace_detail.json
+mlflow traces search --experiment-id <EXPERIMENT_ID> \
+  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>" AND trace.timestamp_ms >= <START_MS> AND trace.timestamp_ms <= <END_MS>' \
+  --order-by 'timestamp_ms ASC' --max-results 1 --output json > /tmp/first_trace.json
 ```
 
-Find the **root span** — the span with `parent_span_id` equal to `null` (i.e., it has no parent). This is the top-level operation in the trace:
+Replace placeholders with the incident/session window. On Databricks with UC, even `max-results 1` requires a timestamp predicate. If the period is unknown, resolve it before searching. Single outer shell quotes protect backticks from command substitution. Distinguish an empty result from a query failure; do not fetch a null ID.
 
-```bash
-# Find the root span
-jq '.data.spans[] | select(.parent_span_id == null)' /tmp/trace_detail.json
-```
+## Step 2: Fetch the first trace
 
-Examine its `attributes` dict to identify which keys hold the user input and system output. These could be:
+Fetch that first trace's full JSON once: `mlflow traces get --trace-id <ID> > /tmp/trace_detail.json`. Find the root by `parent_span_id == null`. Inspect actual attribute keys and data shapes; MLflow I/O is typically serialized JSON under `mlflow.spanInputs` / `mlflow.spanOutputs`, while external OTel sources may differ. If root I/O is empty, walk descendants to the closest meaningful chat-turn span. Do not assume immediate children suffice.
 
-- **MLflow standard attributes**: `mlflow.spanInputs` and `mlflow.spanOutputs` (set by the MLflow Python client)
-- **Custom attributes**: Application-specific keys set via `@mlflow.trace` or `mlflow.start_span()` with custom attribute logging
-- **Third-party OTel attributes**: Keys following GenAI Semantic Conventions, OpenInference, or other instrumentation conventions
+## Step 3: Interpret assessments
 
-The structure of these values also varies by application (e.g., a `query` string, a `messages` array, a dict with multiple fields). Inspect the actual attribute values to understand the format.
+Session-level assessments normally live on the first session trace and have `mlflow.trace.session` in assessment metadata; other records may apply only to a turn or span. A time-window's first result may be mid-session: disclose missing earlier context or obtain the relevant earlier window. Read source, value and top-level `rationale`. Separate HUMAN reports from automated LLM_JUDGE/CODE judgments. Exclude explicit invalid/overridden judgments and `feedback.error` from quality conclusions, while reporting scorer failures separately. Zero/false scores may be genuine; expectations are labels, not results. Session feedback does not locate a bad turn by itself.
 
-**If the root span has empty or missing inputs/outputs**, it may be a wrapper span (e.g., an orchestrator or middleware) that doesn't directly carry the chat turn data. In that case, look at its immediate children — find the closest span to the top of the hierarchy that has meaningful inputs and outputs corresponding to a chat turn:
+## Step 4: Reconstruct the conversation
 
-The following example assumes the trace comes from the MLflow Python client (which stores inputs/outputs in `mlflow.spanInputs`/`mlflow.spanOutputs`) and that the relevant span is a direct child of root. In practice, the relevant span may be deeper in the hierarchy, and traces from other clients may use different attribute keys — explore the span tree as needed:
+Search the same bounded session with a suitable page size and `--order-by 'timestamp_ms ASC'`. After discovering available paths, use `--extract-fields` for IDs, time, state, assessments and turn I/O. Some clients expose `info.trace_metadata.\`mlflow.traceInputs\`` / `mlflow.traceOutputs`; do not assume these exist. Nested span extraction can be incomplete: fetch full traces only where required data is missing or a turn needs deeper inspection. Follow continuation tokens, preserving bounds and ordering. A first page is not the whole conversation.
 
-```bash
-# Get the root span's ID
-ROOT_ID=$(jq -r '.data.spans[] | select(.parent_span_id == null) | .span_id' /tmp/trace_detail.json)
+Redirect CLI JSON to a file before parsing it. Large trace output can exceed an agent shell's output limit and make a direct pipe appear empty.
 
-# List immediate children of the root span with their inputs/outputs
-jq --arg root "$ROOT_ID" '.data.spans[] | select(.parent_span_id == $root) | {name: .name, inputs: .attributes["mlflow.spanInputs"], outputs: .attributes["mlflow.spanOutputs"]}' /tmp/trace_detail.json
-```
+## Step 5: Find the first bad turn
 
-Also check the first trace's assessments. **Session-level assessments are attached to the first trace in the session** — these evaluate the session as a whole (e.g., overall conversation quality, multi-turn coherence) and can indicate the presence of issues somewhere across the entire session, not just the first turn. The first trace may also have per-turn assessments for that specific turn.
+Compare actual inputs, outputs and expectations chronologically; trace how an earlier error enters later history, summaries, memory, retrieval or tool arguments. Fetch the decisive turn and necessary neighbors in full. Check actual model messages to establish propagation rather than assuming later turns saw every previous response.
 
-Both types appear in `.info.assessments`. Session-level assessments are identified by the presence of `mlflow.trace.session` in their `metadata` field:
+## Step 6: Check the source
 
-```bash
-# Show session-level assessments (exclude scorer errors)
-jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"]) | {name: .assessment_name, value: .feedback.value}]' /tmp/trace_detail.json
+Correlate with session assignment, history truncation/summarization, and state read/write code. Read source to confirm the explanation; do not edit the agent, add scorers, or build a regression suite for a diagnosis-only request.
 
-# Show per-turn assessments (exclude scorer errors)
-jq '[.info.assessments[] | select(.feedback.error == null) | select(.metadata["mlflow.trace.session"] == null) | {name: .assessment_name, value: .feedback.value}]' /tmp/trace_detail.json
-```
+### Worked example: refund-policy propagation
 
-**Assessment errors are not trace errors.** If an assessment has a `feedback.error` field, it means the scorer or judge failed — not that the trace itself has a problem. Exclude these when using assessments to identify trace issues.
+Illustrative evidence; trace/span IDs are abbreviated:
 
-**Always consult the rationale when interpreting assessment values.** The `value` alone can be misleading — for example, a `user_frustration` assessment with `value: "no"` could mean "no frustration detected" or "the frustration check did not pass" (i.e., frustration *is* present), depending on how the scorer was configured. The `.rationale` field (a top-level assessment field, **not** nested under `.feedback`) explains what the value means in context. Include rationale when extracting assessments:
+| Turn / trace | Recorded evidence | Conclusion |
+|---|---|---|
+| 3 / `t3` | `retrieve` returns shipping terms with no refund policy; `answer` says “Refunds within 30 days.” | First unsupported claim is in `t3/answer`; inspect retrieval scope before blaming generation alone. |
+| 4 / `t4` | LLM input history contains that exact claim; output tells the user to request a refund. | The earlier error reached the model and influenced the next answer. |
+| 5 / `t5` | User reports rejection; LLM input still contains the claim and output repeats it. | The complaint occurs after the divergence; cite `t3`–`t5`, not only the complained-about turn. |
 
-```bash
-jq '[.info.assessments[] | select(.feedback.error == null) | {name: .assessment_name, value: .feedback.value, rationale: .rationale}]' /tmp/trace_detail.json
-```
+## Verification
 
-**Step 2: Extract across all session traces.** Once you know which attribute keys hold inputs and outputs, search for all traces in the session using `--extract-fields` to pull those fields along with assessments (see [Handling CLI Output](#handling-cli-output) for why output is written to a file):
+Return the reconstructed sequence or concise relevant turns, first divergence with trace/span IDs, downstream propagation, likely cause and confidence. State pagination/window/schema gaps and distinguish application failures from failed scorers. `OK` is execution status, not proof of quality; `STATUS_CODE_UNSET` alone is not an error.
 
-```bash
-mlflow traces search \
-  --experiment-id <EXPERIMENT_ID> \
-  --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>"' \
-  --order-by "timestamp_ms ASC" \
-  --extract-fields 'info.trace_id,info.state,info.request_time,info.assessments,info.trace_metadata.`mlflow.traceInputs`,info.trace_metadata.`mlflow.traceOutputs`' \
-  --output json \
-  --max-results 100 > /tmp/session_traces.json
-```
+## References
 
-Then use bash commands (e.g., `jq`, `wc`, `head`) on the file to analyze it.
-
-The `--extract-fields` example above uses `mlflow.traceInputs`/`mlflow.traceOutputs` from trace metadata — adjust the field paths based on what you discovered in step 1.
-
-Assessments contain quality judgments (e.g., correctness, relevance) that can pinpoint which turns had issues without needing to read every trace in detail. To identify which turns have assessment signals (excluding scorer errors):
-
-```bash
-# List turns with their valid assessments (scorer errors filtered out)
-jq '.traces[] | {
-  trace_id: .info.trace_id,
-  time: .info.request_time,
-  state: .info.state,
-  assessments: [.info.assessments[]? | select(.feedback.error == null) | {
-    name: .assessment_name,
-    value: .feedback.value
-  }]
-}' /tmp/session_traces.json
-```
-
-**CLI syntax notes:**
-
-- **`--experiment-id` is required** for all `mlflow traces search` commands. The command will fail without it.
-- Metadata keys containing dots **must** be escaped with backticks in filter strings and extract-fields: `` metadata.`mlflow.trace.session` ``
-- **Shell quoting**: Backticks inside **double quotes** are interpreted by bash as command substitution (e.g., bash will try to run `` `mlflow.trace.session` `` as a command). Always use **single quotes** for the outer string when the value contains backticks. For example: `--filter-string 'metadata.\`mlflow.trace.session\` = "value"'`
-- `--max-results` defaults to 100, which is sufficient for most sessions. Increase up to 500 (the maximum) for longer conversations. If 500 results are returned, use pagination to retrieve the rest.
-
-## Handling CLI Output
-
-MLflow trace output can be large, and Claude Code's Bash tool has a ~30KB output limit for piped commands. When output exceeds this threshold, it gets saved to a file instead of being piped, causing silent failures.
-
-**Safe approach (always works):**
-```bash
-# Step 1: Save to file
-mlflow traces search \
-  --experiment-id <EXPERIMENT_ID> \
-  [...] \
-  --output json > /tmp/output.json
-
-# Step 2: Process the file
-cat /tmp/output.json | jq '.traces[0].info.trace_id'
-head -50 /tmp/output.json
-wc -l /tmp/output.json
-```
-
-**Never pipe MLflow CLI output directly** (e.g., `mlflow traces search ... | jq '.'`). This can silently produce no output. Always redirect to a file first, then run commands on the file.
-
-To inspect a specific turn in detail (e.g., after identifying a problematic turn), fetch its full trace:
-
-```bash
-mlflow traces get --trace-id <TRACE_ID> > /tmp/turn_detail.json
-```
-
-
-## Codebase Correlation
-
-- **Session ID assignment**: Search the codebase for where `mlflow.trace.session` is set to understand how sessions are created — per user login, per browser tab, per explicit "new conversation" action, etc.
-- **Context window management**: Look for how the application constructs the message history passed to the LLM at each turn. Common patterns include sliding window (last N messages), summarization of older turns, or full history. This implementation determines what context the model sees and is a frequent source of multi-turn failures.
-- **Memory and state**: Some applications maintain state across turns beyond message history (e.g., extracted entities, user preferences, accumulated tool results). Search for how this state is stored and passed between turns.
-
-## Reference Scripts
-
-The `scripts/` subdirectory contains ready-to-run bash scripts for each analysis step. All scripts follow the output handling rules above (redirect to file, then process).
-
-- **`scripts/discover_schema.sh <EXPERIMENT_ID> <SESSION_ID>`** — Finds the first trace in the session, fetches its full detail, and prints the root span's attribute keys and input/output values.
-- **`scripts/inspect_turn.sh <TRACE_ID>`** — Fetches a specific trace, lists all spans, highlights error spans, and shows assessments.
-
-## Example: Wrong Answer on Chat Turn 5
-
-A user reports that their chatbot gave an incorrect answer on the 5th message of a chat conversation.
-
-**1. Discover the schema and reconstruct the conversation.**
-
-Fetch the first trace in the session and inspect the root span's attributes to find which keys hold inputs and outputs. In this case, `mlflow.spanInputs` contains the user query and `mlflow.spanOutputs` contains the assistant response. Then search all session traces, extracting those fields in chronological order. Scanning the extracted inputs and outputs confirms that turn 5's response is wrong, and reveals whether earlier turns look correct.
-
-**2. Check if the error originated in an earlier turn.**
-
-Turn 3's response contains a factual error that the user didn't challenge. Turn 4 builds on that incorrect information, and turn 5 compounds it. The root cause is in turn 3, not turn 5.
-
-**3. Analyze the root-cause turn as a single trace.**
-
-Fetch the full trace for turn 3 and analyze it — examine assessments (if any), walk the span tree, check retriever results, and correlate with code. The retriever returned an outdated document, causing the wrong answer.
-
-**4. Recommendations.**
-
-- Fix the retriever's data source to exclude or update outdated documents.
-- Add per-turn assessments to detect errors before they propagate across the conversation.
-- Consider implementing conversation-level error detection (e.g., checking consistency of answers across turns).
+- Detailed field semantics: [trace structure](../analyze-mlflow-trace/references/trace-structure.md), when installed. The essential assessment rules above remain usable standalone.
+- More filter/API options: [official search guide](https://mlflow.org/docs/latest/genai/tracing/search-traces.md), matched to installed CLI help. If unavailable, use installed help and report unresolved compatibility.
+- Existing helpers are optional, resolved relative to this skill: `scripts/discover_schema.sh <EXPERIMENT_ID> <SESSION_ID>` is **not suitable for UC discovery** because it has no time filter; use the bounded workflow above. `scripts/inspect_turn.sh <TRACE_ID>` fetches details but labels all non-OK statuses as errors; inspect actual `STATUS_CODE_ERROR` and do not treat UNSET as failure. Both write fixed filenames, so use a separate working directory to avoid overwriting evidence.
+- If implementation is requested, pass the diagnosis and trace IDs to available `fix-agent-issue`.
