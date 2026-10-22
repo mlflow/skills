@@ -18,6 +18,11 @@ Optional value for Python:
 
 Handle the destination and warehouse separately. Follow the explicit schema-selection workflow below for the catalog and schema. Discover and select the SQL warehouse automatically as described in the next section. Do not invent a production destination or silently omit the UC trace location.
 
+## Verify authentication
+
+- Check auth: `databricks current-user me --profile <name>`; confirm `mlflow.get_tracking_uri()`.
+- Expired auth: `databricks auth login --profile <name>`. Never print/save auth-token output.
+
 ## Select a SQL warehouse automatically
 
 Use existing project or environment configuration when it names a SQL warehouse. Otherwise, list warehouses through the authenticated Databricks profile and select any warehouse the user can access. Prefer an already-running warehouse to avoid startup delay, but use another available warehouse when necessary. Do not ask the user to choose among usable warehouses, and do not infer that a warehouse is unusable from its display name or apparent owner.
@@ -58,12 +63,12 @@ Add `table_prefix="<UC_TABLE_PREFIX>"` only when the user wants a stable custom 
 
 ## TypeScript
 
-Before implementing UC tracing in TypeScript, inspect the installed `mlflow-tracing` typings for an `init()` option named `traceLocation`. Published versions without that option cannot write to a UC trace location. Do not configure only `trackingUri` and `experimentId` and claim that traces use UC; that is legacy experiment storage. Explain the limitation and ask whether the user wants to upgrade when a supporting version is available or use Python instrumentation.
+Before implementing UC tracing in TypeScript, inspect the installed `@mlflow/core` typings for an `init()` option named `traceLocation`. Published versions without that option cannot write to a UC trace location. Do not configure only `trackingUri` and `experimentId` and claim that traces use UC; that is legacy experiment storage. Explain the limitation and ask whether the user wants to upgrade when a supporting version is available or use Python instrumentation.
 
 When `traceLocation` is supported, the location must already be provisioned. Provision and link it once with the Python API above, then configure TypeScript with the exact resulting table prefix:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 mlflow.init({
   trackingUri: "databricks://<DATABRICKS_PROFILE>",
