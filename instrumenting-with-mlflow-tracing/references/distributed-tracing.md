@@ -1,74 +1,44 @@
-# Distributed Tracing
+# Distributed tracing
 
-Connect spans across multiple services into a single trace by propagating trace context over HTTP.
+- For one connected trace, initialize both services with the same backend and experiment ([Python](python.md), [Databricks](databricks.md)). Check both deployed identities can export.
 
-## Overview
+## Propagate the active context
 
-MLflow provides two helper functions for distributed tracing:
-
-- **Client**: `mlflow.tracing.get_tracing_context_headers_for_http_request()` - fetches headers to propagate
-- **Server**: `mlflow.tracing.set_tracing_context_from_http_request_headers()` - extracts trace context from headers
-
----
-
-## Client Example
+On the client, obtain headers inside the active span and send them with the request:
 
 ```python
-import requests
-import mlflow
 from mlflow.tracing import get_tracing_context_headers_for_http_request
 
-with mlflow.start_span("client-root"):
-    headers = get_tracing_context_headers_for_http_request()
-    requests.post(
-        "https://your.service/handle", headers=headers, json={"input": "hello"}
+with mlflow.start_span("client-request") as span:
+    span.set_inputs(payload)
+    response = requests.post(
+        service_url, json=payload,
+        headers=get_tracing_context_headers_for_http_request(), timeout=30,
     )
+    response.raise_for_status()
+    span.set_outputs(response.json())
 ```
 
----
-
-## Server Example (Flask)
+On the server, restore headers **before creating the handler span**:
 
 ```python
-import mlflow
 from flask import Flask, request
 from mlflow.tracing import set_tracing_context_from_http_request_headers
 
 app = Flask(__name__)
 
 @app.post("/handle")
-def handle():
-    headers = dict(request.headers)
-    with set_tracing_context_from_http_request_headers(headers):
+def handle_request():
+    payload = request.get_json()
+    with set_tracing_context_from_http_request_headers(dict(request.headers)):
         with mlflow.start_span("server-handler") as span:
-            # Your logic here
-            span.set_attribute("status", "ok")
-    return {"ok": True}
+            span.set_inputs(payload)
+            result = handle(payload)
+            span.set_outputs(result)
+    return result
 ```
 
----
+Adapt the Flask example to the existing server. Keep normal authentication and request handling; trace context is not authorization. Preserve W3C trace context and verify persisted trace IDs and parent IDs connect both services before claiming one connected trace. An absent parent may indicate incomplete export or lost propagation.
 
-## Server Example (FastAPI)
-
-```python
-import mlflow
-from fastapi import FastAPI, Request
-from mlflow.tracing import set_tracing_context_from_http_request_headers
-
-app = FastAPI()
-
-@app.post("/handle")
-async def handle(request: Request):
-    headers = dict(request.headers)
-    with set_tracing_context_from_http_request_headers(headers):
-        with mlflow.start_span("server-handler") as span:
-            # Your logic here
-            span.set_attribute("status", "ok")
-    return {"ok": True}
-```
-
----
-
-## Result
-
-Spans from client and server appear as a single connected trace in MLflow UI, showing end-to-end execution across services.
+- See the [complete client/FastAPI example](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/distributed-tracing.md#usage-example) for imports, request parsing, handler return and launch commands; check installed signatures.
+- Follow the [bounded readback procedure](../SKILL.md#verification) for setup verification.
