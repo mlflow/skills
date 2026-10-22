@@ -125,16 +125,16 @@ echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
 echo "MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID"
 ```
 
-**If BOTH are already set, skip Steps 1-2 entirely.** The environment is pre-configured. Do NOT run `setup_mlflow.py`, do NOT create a `.env` file, do NOT override these values. Go directly to Step 3 (tracing integration) and the evaluation workflow.
+**If BOTH are already set, skip setup entirely.** Do not create a `.env` file, replace the backend, or override these values. Go directly to tracing and evaluation.
 
 ### Setup Steps (only if environment is NOT pre-configured)
 
 1. **Install MLflow** (version >=3.8.0)
 2. **Configure environment** (tracking URI and experiment)
-   - **Guide**: Follow `references/setup-guide.md` Steps 1-2
+   - Use `mlflow-onboarding` when available; evaluation has no separate connection setup.
 3. **Integrate tracing** (autolog and @mlflow.trace decorators)
    - ⚠️ **MANDATORY**: Use the `instrumenting-with-mlflow-tracing` skill for tracing setup
-   - ✓ **VERIFY**: Run `scripts/validate_tracing_runtime.py` after implementing
+   - ✓ **VERIFY**: Run one representative request and fetch its persisted trace.
 
 ⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot.
 
@@ -144,12 +144,6 @@ echo "MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID"
 - [ ] MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID set
 - [ ] Autolog enabled and @mlflow.trace decorators added
 - [ ] Test run creates a trace (verify trace ID is not None)
-
-**Validation scripts:**
-```bash
-uv run python scripts/validate_environment.py  # Check MLflow install, env vars, connectivity
-uv run python scripts/validate_auth.py         # Test authentication before expensive operations
-```
 
 ## Evaluation Workflow
 
@@ -498,7 +492,7 @@ uv run python scripts/analyze_results.py evaluation_results.csv --output my_repo
 
 Detailed guides in `references/` (load as needed):
 
-- **setup-guide.md** - Environment setup (MLflow install, tracking URI configuration)
+- **Setup**: Use `mlflow-onboarding` when configuration is missing.
 - **Tracing**: Use the `instrumenting-with-mlflow-tracing` skill (authoritative guide for autolog, decorators, session tracking, verification)
 - **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog
 - **scorers.md** - Built-in vs custom scorers, registration, testing
@@ -508,5 +502,3 @@ Detailed guides in `references/` (load as needed):
 - **advanced-evaluation.md** - Curate production traces, compare versions or prompts, and run continuous evaluation
 - **databricks-online-monitoring.md** - Register, start, verify, sample, and manage production scorers on Databricks
 - **prompt-optimization.md** - Optimize a registered prompt with GEPA, evaluate on holdout data, and promote conditionally
-
-Scripts are self-documenting - run with `--help` for usage details.
