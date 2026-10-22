@@ -45,12 +45,12 @@ proof.
 | Symptom | Check / next action |
 | --- | --- |
 | Scorer not recognized | Use the native `@scorer` decorator, built-in, or `make_judge`. |
-| Dict/tuple Feedback serialization error | Return a supported primitive or `Feedback`; multiple Feedbacks require unique names. See [constraints](scorers-constraints.md). |
+| Dict/tuple Feedback serialization error | Return a supported primitive or `Feedback`; multiple Feedbacks require unique names. See [constraints](../../build-a-scorer/references/scorers-constraints.md). |
 | Missing aggregate metrics | Inspect raw values: `"pass"`/`"fail"` and other unsupported strings can be stored but omitted from aggregation. Use bool/numeric/yes-no. |
 | All zero/False scores | Read outputs and rationales; genuine negatives are valid. Check known-good/bad cases and infrastructure independently. Never equate zero with null. |
 | Null/skipped/error assessment | Inspect model access, required data, output type, and actual assessment error. Trace status OK does not prove scoring succeeded. |
-| Judge template error | Include supported variables; `{{ trace }}` is exclusive. Check [constraints](scorers-constraints.md). |
-| Model not found / wrong provider | Preserve the project model and credentials; verify `provider:/model` or supported managed-judge syntax. See [model selection](scorers.md#model-selection-for-scorers). |
+| Judge template error | Include supported variables; `{{ trace }}` is exclusive. Check [constraints](../../build-a-scorer/references/scorers-constraints.md). |
+| Model not found / wrong provider | Preserve the project model and credentials; verify `provider:/model` or supported managed-judge syntax. See [model selection](../../build-a-scorer/references/scorers.md#model-selection-for-scorers). |
 | Correctness cannot score | Supply expected facts/response under `expectations`; do not invent ground truth. |
 | Retrieval scorer raises | Check for RETRIEVER spans and required retrieval evidence. TOOL-only lookups do not qualify; select a suitable scorer or repair real instrumentation. |
 | Guidelines missing context/constructor error | Inspect installed signature and data contract. Provide both inputs and outputs, a clear prescriptive requirement, and a name when required. |

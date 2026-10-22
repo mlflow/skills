@@ -190,15 +190,15 @@ cheapest as a code check, a built-in, or an LLM judge — belongs to the `build-
 
 2. **Add the built-in scorers from the agreed suite**
 
-See `references/scorers.md` for the built-in scorers. Add any that the suite calls for and that are not already registered.
+See `../build-a-scorer/references/scorers.md` for the built-in scorers. Add any that the suite calls for and that are not already registered.
 
 3. **Add the custom scorers from the agreed suite**
 
-Implement the remaining criteria with `make_judge()` (LLM judges) or `@scorer` (deterministic code checks). See `references/scorers.md` for the APIs and `references/scorers-constraints.md` for constraints that silently break results.
+Implement the remaining criteria with `make_judge()` (LLM judges) or `@scorer` (deterministic code checks). See `../build-a-scorer/references/scorers.md` for the APIs and `../build-a-scorer/references/scorers-constraints.md` for constraints that silently break results.
 
 If you are inventing criteria at this point rather than implementing agreed ones, stop and use `build-a-scorer` — a scorer whose criterion the user has not confirmed will not survive validation.
 
-> ⚠️ **CRITICAL — Scorer Return Values:** Scorers MUST instruct the LLM judge to return `"yes"` or `"no"` (or booleans/numerics). Return values of `"pass"` or `"fail"` are **silently cast to `None`** by `_cast_assessment_value_to_float` and **excluded from `results.metrics`** with no error or warning — results simply disappear. See `references/scorers-constraints.md` Constraint 2 for the full list of safe vs. broken return values.
+> ⚠️ **CRITICAL — Scorer Return Values:** Scorers MUST instruct the LLM judge to return `"yes"` or `"no"` (or booleans/numerics). Return values of `"pass"` or `"fail"` are **silently cast to `None`** by `_cast_assessment_value_to_float` and **excluded from `results.metrics`** with no error or warning — results simply disappear. See `../build-a-scorer/references/scorers-constraints.md` for the full list of safe vs. broken return values.
 
 4. **REQUIRED: Register new scorers before evaluation** using Python API:
    
@@ -211,7 +211,7 @@ If you are inventing criteria at this point rather than implementing agreed ones
    scorer.register()
    ```
 
-** IMPORTANT:  See `references/scorers.md` → "Model Selection for Scorers" to configure the `model` parameter of scorers before registration.
+** IMPORTANT: See `../build-a-scorer/references/scorers.md` → "Model Selection for Scorers" to configure the `model` parameter of scorers before registration.
 
 ⚠️ **Scorers MUST be registered before evaluation.** Inline scorers that aren't registered won't appear in `mlflow scorers list` and won't be reusable.
 
@@ -495,8 +495,7 @@ Detailed guides in `references/` (load as needed):
 - **Setup**: Use `mlflow-onboarding` when configuration is missing.
 - **Tracing**: Use the `instrumenting-with-mlflow-tracing` skill (authoritative guide for autolog, decorators, session tracking, verification)
 - **dataset-preparation.md** - Dataset schema, APIs, creation, Unity Catalog
-- **scorers.md** - Built-in vs custom scorers, registration, testing
-- **scorers-constraints.md** - CLI requirements for custom scorers (yes/no format, templates)
+- **Scorer runtime details**: Use `build-a-scorer` references for model selection, registration, return values, and templates.
 - **troubleshooting.md** - Common errors by phase with solutions
 - **throughput-guide.md** - Parallelism env vars, async predict_fn, dataset splitting for 200+ question evals
 - **advanced-evaluation.md** - Curate production traces, compare versions or prompts, and run continuous evaluation
