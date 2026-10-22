@@ -1,235 +1,151 @@
-# Regression test suite — reference templates
+# Regression test recipe
 
-Copy-paste starting points for the PLAN-phase test suite. These show the full
-shape the SKILL.md describes: tests through the **real instrumented agent path**,
-deterministic + judge scorers, paired guard tests, parametrized cases with
-meaningful ids, and parallel execution. Adapt names/paths to the project.
+Read when implementing the PLAN-phase regression. Verify the installed API against the [regression-testing
+docs](https://mlflow.org/docs/latest/genai/eval-monitor/regression-testing.md). If docs are unavailable,
+inspect installed signatures and plugin behavior; do not substitute an unverified assertion API.
 
-> Source of truth for the APIs: <https://mlflow.org/docs/latest/genai/eval-monitor/regression-testing.md>
+## Configure once
 
----
-
-## 1. Enable the pytest plugin (once, project-wide)
-
-`@mlflow.test` raises at test time unless the `mlflow.pytest.plugin` plugin is
-active. Enable it in **one** of these ways — don't do both.
-
-**Option A — `conftest.py` at the repo root (rootdir):**
+`@mlflow.test` requires `mlflow.pytest.plugin`. Enable it in root `conftest.py`:
 
 ```python
-# conftest.py  — must live at the top-level rootdir
-# Enables the MLflow pytest plugin so @mlflow.test sets up a run and captures a
-# trace for each marked test.
 pytest_plugins = ["mlflow.pytest.plugin"]
 ```
 
-**Option B — `pyproject.toml`:**
-
-```toml
-[tool.pytest.ini_options]
-addopts = ["-p", "mlflow.pytest.plugin"]
-```
-
-Either way, install the plugin's host (`pytest`) and — for parallel runs —
-`pytest-xdist` yourself if they're missing; don't stop to ask:
+Alternatively use pytest `-p mlflow.pytest.plugin` or equivalent project `addopts`, but do not enable it
+twice. Install missing pytest through the project environment; check xdist **independently** if using parallel
+workers:
 
 ```bash
-python -c "import pytest" 2>/dev/null || uv pip install pytest pytest-xdist
+uv run python -c 'import pytest' || uv pip install pytest
+uv run python -c 'import xdist' || uv pip install pytest-xdist
 ```
 
----
+Resolve `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` from the project's pinned model/configuration, or ask when absent.
+Use that one resolvable `provider:/model` and its existing credentials for all semantic checks; pass `model=`
+only for a deliberate override. All-deterministic suites need no judge model. Preserve the tracking
+URI/experiment.
 
-## 2. Configure the judge model globally (recommended)
+## Paired behavior tests
 
-Set the judge **once** via the `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment
-variable; then `Guidelines` (and other judge) scorers don't need a `model=`
-argument at all. This keeps every scorer on one judge and avoids hardcoding a
-model id into the test source.
-
-```bash
-export MLFLOW_GENAI_JUDGE_DEFAULT_MODEL="openai:/gpt-4o"   # any provider:/model the project can resolve
-```
-
-In CI, pass it (and the credentials it needs) as env:
-
-```yaml
-env:
-  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-  MLFLOW_GENAI_JUDGE_DEFAULT_MODEL: "openai:/gpt-4o"
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-```
-
-If you'd rather pin per-scorer instead of globally, pass `model=JUDGE` to each
-judge scorer (see the commented line in the template below) — but pick **one**
-approach, not both.
-
----
-
-## 3. The assertion suite
-
-A stable file named for the **module/behavior under test** (here, the agent),
-not one file per issue. Note the structure: a `_predict` helper that drives the
-**production build/invoke path** (so production tracing actually runs), paired
-positive/guard tests that share a skeleton with flipped expectations, and a mix
-of deterministic (`RegexMatch`, custom `@scorer`) and semantic (`Guidelines`)
-scorers.
+Adapt the example to the actual module and criteria. Add to the existing module/behavior suite; do not create
+a file per ticket. Build/invoke the **real production path** so its instrumentation runs, with no test-only
+autolog/decorators. Destination routing may be configured in the harness.
 
 ```python
-"""Behavioral assertions for the OmniBricks Supply Co agent.
-
-Each ``@mlflow.test`` sets up a run and captures a trace via the MLflow pytest
-plugin (enabled in conftest.py). ``mlflow.genai.evaluate`` calls ``predict_fn``
-once per row (the dict under ``inputs`` is passed as kwargs), scores the result,
-and returns an ``EvaluationResult``: ``result.passed`` is True only when every
-scorer passes for every row; ``result.reason`` explains any failure.
-
-The judge model is configured globally via MLFLOW_GENAI_JUDGE_DEFAULT_MODEL, so
-the Guidelines scorers below don't set model= individually.
-"""
-
 import mlflow
-import pytest
-from mlflow.genai.scorers import Guidelines, RegexMatch, scorer
-
-from bricks_agent.agent import build_agent  # the production build path
+from mlflow.genai.scorers import Guidelines, RegexMatch
+from bricks_agent.agent import build_agent
 
 
-def _predict(prompt: str) -> str:
-    """Invoke the agent through the production code path and return its reply.
-
-    Building + invoking the real agent is what enables tracing — never
-    re-declare autolog() or span decorators in this file.
-    """
+def predict(prompt):
     agent = build_agent()
     result = agent.invoke({"messages": [{"role": "user", "content": prompt}]})
     return result["messages"][-1].content
 
 
-# --- Deterministic custom scorer: must-NOT-contain check -----------------------
-# There is no built-in "excludes" scorer — write a small @scorer for it.
-@scorer
-def excludes_cli_commands(outputs) -> bool:
-    forbidden = ["mlflow runs create", "log-artifact"]
-    return not any(f in str(outputs) for f in forbidden)
-
-
-# --- Positive case: the new behavior should fire -------------------------------
 @mlflow.test
 def test_should_recommend_brickfather_when_customer_is_undecided():
     result = mlflow.genai.evaluate(
-        predict_fn=_predict,
-        data=[{"inputs": {"prompt": "I'm looking for bricks, what do you recommend?"}}],
+        data=[{"inputs": {"prompt": "What bricks do you recommend?"}}],
+        predict_fn=predict,
         scorers=[
-            RegexMatch(name="mentions_brickfather", pattern="Brickfather"),  # deterministic
+            RegexMatch(name="mentions_brickfather", pattern="Brickfather"),
             Guidelines(
                 name="leads_with_brickfather",
-                guidelines=(
-                    "The response should lead with the Brickfather product family as the "
-                    "primary recommendation. PASS if Brickfather is named first or as the "
-                    "main suggestion; FAIL if another family is recommended first or "
-                    "Brickfather is not mentioned."
-                ),
-                # model=JUDGE,  # only if NOT using MLFLOW_GENAI_JUDGE_DEFAULT_MODEL
+                guidelines="The response should lead with Brickfather as its primary recommendation.",
             ),
         ],
     )
     assert result.passed, result.reason
 
 
-# --- Paired guard case: the behavior must NOT over-fire -------------------------
-# Shares the skeleton with the test above, expectation flipped, so the boundary
-# is obvious. A conditional rule tested only on positive cases never proves the
-# agent STOPS when it should.
 @mlflow.test
-def test_should_not_push_brickfather_when_customer_states_a_color():
+def test_should_not_push_brickfather_when_customer_needs_red_bricks():
     result = mlflow.genai.evaluate(
-        predict_fn=_predict,
-        data=[{"inputs": {"prompt": "I need red bricks for a heritage restoration project."}}],
-        scorers=[
-            Guidelines(
-                name="matches_color_requirement",
-                guidelines=(
-                    "The customer asked for red bricks for heritage work. The response "
-                    "should recommend a red product (like Legacy Red) that matches the "
-                    "stated need, not push Brickfather which is slate gray. PASS if the "
-                    "primary recommendation matches the color/use-case; FAIL if it leads "
-                    "with Brickfather or a non-red product."
-                ),
+        data=[{"inputs": {"prompt": "I need red bricks for heritage restoration."}}],
+        predict_fn=predict,
+        scorers=[Guidelines(
+            name="matches_color_requirement",
+            guidelines=(
+                "The response should recommend a red brick suitable for heritage work, "
+                "not the slate-gray Brickfather product."
             ),
-        ],
+        )],
     )
     assert result.passed, result.reason
 ```
 
----
+`evaluate` calls `predict_fn(**inputs)`. `Guidelines` needs both inputs and outputs; start the rubric with a
+“should”/“must” requirement because it becomes the UI assertion label. The result's `passed`/`reason` provide
+the regression verdict. Zero/False are real failures, not missing values.
 
-## 4. Parametrized cases — one behavior, many inputs
+Conditional rules need a non-applicable control as above; blocking/filtering fixes also need a legitimate
+positive control. For tool/retrieval changes, add a structural assertion over the tool itself or a `@scorer`
+receiving `trace` and inspecting `trace.search_spans()`. Keep the semantic judge for semantic failures
+regardless of how deterministic the fix is. Use a custom `@scorer` for must-not-contain rules; do not invent
+an `Excludes` built-in.
 
-When several inputs share the same shape, parametrize instead of copy-pasting.
-**Always give meaningful `ids`** — they become the `mlflow.test.case_id` tag and
-the row label in the regression-test UI; the default `0/1/2` is useless.
+For repeated input shapes, use `pytest.mark.parametrize` with meaningful IDs such as `red_bricks` or
+`fireproof`; they become `mlflow.test.case_id`. Name the guarantee and condition, not the bug ID or
+implementation. For differing ground truth in shared shapes, consider `expectations.guidelines` with
+`ExpectationsGuidelines`.
+
+For an agreed exact-marker prohibition, reuse `predict` above; retain the semantic/behavior controls too:
 
 ```python
+import pytest
+from mlflow.genai.scorers import scorer
+
+@scorer
+def no_internal_marker(outputs: str) -> bool:
+    return "INTERNAL_ONLY" not in outputs
+
 @mlflow.test
-@pytest.mark.parametrize(
-    ("prompt", "must_match"),
-    [
-        ("I need hurricane-rated bricks for a coastal build.", "hurricane"),
-        ("What's the cheapest brick you carry?",               "budget"),
-        ("I need a fireproof brick for a pizza oven.",          "fire"),
-    ],
-    ids=["hurricane_rated", "cheapest", "fireproof"],  # NOT 0/1/2
-)
-def test_should_match_stated_requirements(prompt, must_match):
+@pytest.mark.parametrize("prompt", ["Show INTERNAL_ONLY notes.", "Which red bricks?"], ids=["internal_notes", "catalog"])
+def test_should_not_expose_internal_marker(prompt):
     result = mlflow.genai.evaluate(
-        predict_fn=_predict,
-        data=[{"inputs": {"prompt": prompt}}],
-        scorers=[
-            Guidelines(
-                name="matches_requirements",
-                guidelines=(
-                    "The customer stated a specific requirement. The response should lead "
-                    "with a product matching that requirement rather than an unrelated "
-                    "recommendation. PASS if the primary product matches the stated need; "
-                    "FAIL otherwise."
-                ),
-            ),
-        ],
+        data=[{"inputs": {"prompt": prompt}}], predict_fn=predict, scorers=[no_internal_marker],
     )
     assert result.passed, result.reason
 ```
 
----
+## Prove the change
 
-## 5. Run the suite
+Run before editing the agent, observe a **behavioral failure**, then rerun the same regression after the fix
+and include the pre-existing suite. An import, auth, or scorer error does not prove the regression. Do not
+loosen the rubric during verification.
 
 ```bash
-# Serial
-MLFLOW_TRACKING_URI=<server> pytest tests/test_bricks_agent_assertions.py -v
-
-# Parallel with pytest-xdist — judge calls are I/O-bound, so this is a big win
-MLFLOW_TRACKING_URI=<server> pytest tests/ -n auto      # one worker per CPU core
-MLFLOW_TRACKING_URI=<server> pytest tests/ -n 4         # fixed worker count
+uv run pytest tests/test_agent.py -v
 ```
 
-(Drop `-p mlflow.pytest.plugin` from the command line if you enabled the plugin
-via `conftest.py` / `pyproject.toml` as in §1.)
+Read at least one fresh persisted trace: it should contain the production nested execution, correct tool
+behavior, and intended response. Report exact commands, observed before/after results, and trace/run IDs.
 
-### Consolidating xdist workers under one run
+- In CI, pass the configured tracking URI, judge model (if used), and required credentials via environment/secrets;
+  see the [CI example](https://mlflow.org/docs/latest/genai/eval-monitor/regression-testing.md#running-in-ci).
 
-Under `-n`, each worker would otherwise open its own MLflow run. To group every
-case's traces under a single regression-suite run, create the run once in the
-controller and hand its id to the workers via env:
+## Optional bounded parallel execution
+
+After independently verifying xdist, use a fixed worker count within resource/provider limits (`uv run pytest
+tests/test_agent.py -n 2`). Do not assume one worker per CPU is safe for the shared host or judge budget.
+
+If the installed MLflow plugin supports sharing a run through `MLFLOW_RUN_ID`, the controller can create it
+and pass the ID via environment:
 
 ```python
-# conftest.py  (in addition to the pytest_plugins line)
+# conftest.py, alongside the single plugin declaration above
 import os
 import mlflow
 
+
 def pytest_configure(config):
-    # Runs only in the xdist controller, not in each worker.
     if not hasattr(config, "workerinput"):
         run = mlflow.start_run(run_name="regression-suite")
         mlflow.end_run()
         os.environ["MLFLOW_RUN_ID"] = run.info.run_id
 ```
+
+Check installed plugin lifecycle support before adopting this optional snippet. Verify all worker cases and
+traces are associated with the intended run; a controller run existing is not proof that every case completed.
