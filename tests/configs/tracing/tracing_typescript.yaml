@@ -5,7 +5,7 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/instrumentation_behavior.py
 skills:
-  - instrumenting-with-mlflow-tracing
+  - mlflow-tracing
 prompt: "Add MLflow tracing to agent.ts and check that it works."
 timeout_seconds: 600
 environment:

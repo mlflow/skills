@@ -101,7 +101,7 @@ def test_bundled_sagemaker_probe_output(tmp_path, monkeypatch, capsys):
     import runpy
     import sys
 
-    script = Path(__file__).resolve().parents[2] / "sagemaker-mlflow/scripts/verify_connection.py"
+    script = Path(__file__).resolve().parents[2] / "mlflow-sagemaker/scripts/verify_connection.py"
     original = builtins.__import__
     def missing_plugin(name, *args, **kwargs):
         if name == "sagemaker_mlflow":
@@ -215,7 +215,7 @@ def test_metrics_requires_native_result_or_trace_readback(tmp_path, monkeypatch,
 
 def test_metrics_skill_script_and_sdk_aggregation(tmp_path, monkeypatch):
     import shutil
-    script = Path(__file__).resolve().parents[2] / "querying-mlflow-metrics/scripts/fetch_metrics.py"
+    script = Path(__file__).resolve().parents[2] / "mlflow-trace-metrics/scripts/fetch_metrics.py"
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TEST_WORK_DIR", str(tmp_path))
     Path("scripts").mkdir()

@@ -6,7 +6,7 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - build-a-scorer
+  - mlflow-evaluation
 prompt: "Build the billing-assistant quality checks described in README.md."
 environment:
   EVALUATION_CASE: model_suite

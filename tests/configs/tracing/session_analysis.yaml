@@ -5,10 +5,9 @@ judges:
 - tests/judges/skill_usage.py
 - tests/judges/trace_behavior.py
 skills:
-- analyze-mlflow-chat-session
-- analyze-mlflow-trace
-- retrieving-mlflow-traces
-required_skills: [analyze-mlflow-chat-session]
+- mlflow-trace-analysis
+- mlflow-trace-retrieval
+required_skills: [mlflow-trace-analysis]
 prompt: "Where did the conversation in task.json go wrong?"
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob

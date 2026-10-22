@@ -1,13 +1,13 @@
-name: agent-evaluation-nested-kwargs
+name: mlflow-evaluation-nested-kwargs
 project_dir: mlflow-agent
 setup_script: tests/scripts/setup_evaluation_cases.py
 judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - agent-evaluation
-  - instrumenting-with-mlflow-tracing
-required_skills: [agent-evaluation]
+  - mlflow-evaluation
+  - mlflow-tracing
+required_skills: [mlflow-evaluation]
 prompt: "Evaluate my order assistant and tell me which examples it gets wrong."
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"

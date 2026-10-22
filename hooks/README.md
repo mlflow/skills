@@ -10,15 +10,15 @@ A `UserPromptSubmit` hook that detects MLflow-related patterns in your prompts a
 
 | Keywords in your prompt | Suggested skill |
 |-------------------------|----------------|
-| trace, tracing, autolog, span, instrument | `instrumenting-with-mlflow-tracing` |
-| evaluat, scorer, judge, dataset, assess, improve quality | `agent-evaluation` |
-| trace id, debug trace, why did, what went wrong, analyze trace | `analyze-mlflow-trace` |
-| debug my agent, debug this agent, agent failure, root cause my agent | `debug-agent` |
-| session, conversation, chat history, multi-turn | `analyze-mlflow-chat-session` |
-| search traces, find traces, filter traces, get trace | `retrieving-mlflow-traces` |
-| metrics, token usage, latency, cost, usage trend | `querying-mlflow-metrics` |
+| trace, tracing, autolog, span, instrument | `mlflow-tracing` |
+| evaluat, scorer, judge, dataset, assess, improve quality | `mlflow-evaluation` |
+| trace id, debug trace, why did, what went wrong, analyze trace | `mlflow-trace-analysis` |
+| debug my agent, debug this agent, agent failure, root cause my agent | `mlflow-trace-analysis` |
+| session, conversation, chat history, multi-turn | `mlflow-trace-analysis` |
+| search traces, find traces, filter traces, get trace | `mlflow-trace-retrieval` |
+| metrics, token usage, latency, cost, usage trend | `mlflow-trace-metrics` |
 | get started, set up mlflow, onboard, quickstart | `mlflow-onboarding` |
-| mlflow docs, mlflow api, how to use mlflow | `searching-mlflow-docs` |
+| mlflow docs, mlflow api, how to use mlflow | `mlflow-docs` |
 
 Multiple suggestions can fire in a single prompt if multiple patterns match.
 
@@ -57,7 +57,7 @@ Replace `/path/to/hooks/mlflow-suggest-hook.py` with the absolute path where you
 Start a new Claude Code session and type a prompt containing `tracing` or `evaluate`. You should see a suggestion like:
 
 ```
-💡 Use the `instrumenting-with-mlflow-tracing` skill to add MLflow tracing.
+💡 Use the `mlflow-tracing` skill to add MLflow tracing.
 ```
 
 ### How It Works
