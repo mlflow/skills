@@ -5,7 +5,7 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - build-a-scorer
+  - mlflow-evaluation
 prompt: "Build the order-quality scorers described in README.md."
 timeout_seconds: 600
 environment:
