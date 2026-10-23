@@ -22,30 +22,18 @@ Building production-ready AI agents is hard. You need observability to understan
 
 ## Available Skills
 
-### Tracing
-
 | Skill | Description |
 |-------|-------------|
-| **instrumenting-with-mlflow-tracing** | Instruments Python and TypeScript code with MLflow Tracing. Supports OpenAI, Anthropic, LangChain, LangGraph, LiteLLM, and more. |
-| **analyze-mlflow-trace** | Debugs issues by examining spans, assessments, and correlating with your codebase. |
-| **analyze-mlflow-chat-session** | Debugs multi-turn chat conversations by reconstructing session history and finding where things went wrong. |
-| **retrieving-mlflow-traces** | Powerful trace search and filtering by status, session, user, time range, or custom metadata. |
-| **debug-agent** | Root-causes agent failures from existing MLflow traces without requiring a code change or evaluation suite. |
-
-### Evaluation
-
-| Skill | Description |
-|-------|-------------|
-| **agent-evaluation** | End-to-end agent evaluation workflow — dataset creation, scorer selection, evaluation execution, and results analysis. |
-| **build-a-scorer** | Designs a small, cheap-to-run scorer suite from scratch — elicits quality criteria with you, routes each to code checks, built-in scorers, or LLM judges, then ships the implementation. |
-| **querying-mlflow-metrics** | Fetches aggregated metrics (token usage, latency, error rates) with time-series analysis and dimensional breakdowns. |
-
-### Setup
-
-| Skill | Description |
-|-------|-------------|
-| **mlflow-onboarding** | Guides new users through MLflow setup based on their use case (GenAI apps vs traditional ML). |
-| **searching-mlflow-docs** | Searches official MLflow documentation efficiently using the llms.txt index. |
+| **mlflow-agent** | Routes broad MLflow requests to the right skill. |
+| **mlflow-onboarding** | Configures MLflow for GenAI or traditional ML. |
+| **mlflow-docs** | Searches official MLflow documentation. |
+| **mlflow-sagemaker** | Connects to SageMaker Managed MLflow. |
+| **mlflow-tracing** | Instruments Python and TypeScript applications. |
+| **mlflow-trace-retrieval** | Finds and filters traces. |
+| **mlflow-trace-analysis** | Analyzes traces, agent failures, and multi-turn sessions. |
+| **mlflow-trace-metrics** | Queries aggregate trace metrics. |
+| **mlflow-evaluation** | Designs scorers and runs GenAI evaluation. |
+| **mlflow-agent-improvement** | Fixes agent behavior with trace-grounded regression tests. |
 
 ---
 
@@ -109,7 +97,7 @@ cp hooks/mlflow-suggest-hook.py ~/.claude/hooks/mlflow-suggest-hook.py
 **Step 3:** Start a new session. When you ask something like *"Add tracing to my app"*, you'll see:
 
 ```
-💡 Use the `instrumenting-with-mlflow-tracing` skill to add MLflow tracing.
+💡 Use the `mlflow-tracing` skill to add MLflow tracing.
 ```
 
 See [`hooks/README.md`](hooks/README.md) for the full keyword-to-skill mapping and troubleshooting.

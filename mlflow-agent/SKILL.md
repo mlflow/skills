@@ -20,16 +20,16 @@ if the intent is unclear.
 
 ## Step 2: Dispatch
 
-- Tracing / instrumentation → `instrumenting-with-mlflow-tracing`
-- Debug or explain an agent failure → `debug-agent`
-- Fix or change an agent's behavior → `fix-agent-issue`
-- Evaluation / scoring → `agent-evaluation`
-- Debug a trace → `analyze-mlflow-trace`
-- Debug a chat session → `analyze-mlflow-chat-session`
-- Search traces → `retrieving-mlflow-traces`
-- Metrics / costs → `querying-mlflow-metrics`
+- Tracing / instrumentation → `mlflow-tracing`
+- Debug or explain an agent failure → `mlflow-trace-analysis`
+- Fix or change an agent's behavior → `mlflow-agent-improvement`
+- Evaluation / scoring → `mlflow-evaluation`
+- Debug a trace → `mlflow-trace-analysis`
+- Debug a chat session → `mlflow-trace-analysis`
+- Search traces → `mlflow-trace-retrieval`
+- Metrics / costs → `mlflow-trace-metrics`
 - Getting started → `mlflow-onboarding`
-- Docs / API questions → `searching-mlflow-docs`
+- Docs / API questions → `mlflow-docs`
 
 Invoke the matched skill using the Skill tool.
 

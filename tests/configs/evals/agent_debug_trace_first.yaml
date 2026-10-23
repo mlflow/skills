@@ -7,10 +7,10 @@ judges:
   - tests/judges/agent_debugged_from_trace.py
 
 skills:
-  - debug-agent
-  - fix-agent-issue
+  - mlflow-trace-analysis
+  - mlflow-agent-improvement
 
-required_skills: [fix-agent-issue]
+required_skills: [mlflow-agent-improvement]
 prompt: "Refund requests go to sales instead of support. Fix that and check that other requests still work."
 allowed_tools: "Skill,Bash,Read,Write,Edit,Grep,Glob"
 

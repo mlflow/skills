@@ -1,4 +1,4 @@
-name: agent-evaluation-test
+name: mlflow-evaluation-test
 project_dir: mlflow-agent
 setup_script: tests/scripts/setup_agent_eval.py
 judges:
@@ -8,8 +8,8 @@ judges:
   - tests/judges/agent_trace_logged.py
   - tests/judges/skill_usage.py
 skills:
-  - agent-evaluation
-  - instrumenting-with-mlflow-tracing
+  - mlflow-evaluation
+  - mlflow-tracing
 prompt: "Evaluate the output quality of my agent. Do not ask for input."
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"

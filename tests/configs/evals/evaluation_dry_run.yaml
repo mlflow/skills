@@ -5,9 +5,9 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - agent-evaluation
-  - instrumenting-with-mlflow-tracing
-required_skills: [agent-evaluation]
+  - mlflow-evaluation
+  - mlflow-tracing
+required_skills: [mlflow-evaluation]
 prompt: "Evaluate the order assistant. If the backend isn't ready, stop and explain the blocker."
 timeout_seconds: 600
 environment:

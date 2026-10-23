@@ -6,10 +6,9 @@ judges:
   - tests/judges/environment_behavior.py
 skills:
   - mlflow-agent
-  - build-a-scorer
-  - agent-evaluation
-  - instrumenting-with-mlflow-tracing
-required_skills: [mlflow-agent, build-a-scorer]
+  - mlflow-evaluation
+  - mlflow-tracing
+required_skills: [mlflow-agent, mlflow-evaluation]
 prompt: "Add an MLflow scorer called answer_present in scorers.py. It should fail for missing, null, empty, or whitespace-only answers."
 timeout_seconds: 600
 environment:
