@@ -1,339 +1,137 @@
-# Evaluation Dataset Preparation Guide
+# Evaluation datasets
 
-Complete guide for creating and managing MLflow evaluation datasets for agent evaluation.
+Read this when selecting, creating, adapting, or synthesizing evaluation records. Start with the [dataset SDK
+guide](https://mlflow.org/docs/latest/genai/datasets/sdk-guide.md); verify installed signatures and backend
+support. If unavailable, use the contract below and installed API introspection; stop if you cannot establish
+the correct operation.
 
-## Read MLflow Documentation First
+## Discover before creating
 
-Before creating any dataset, follow the documentation protocol and read the MLflow GenAI dataset documentation:
+Run `scripts/list_datasets.py` from this skill (`--help` for explicit-name, format, and timeout options).
+Inspect actual samples and schema, not just size or lexical-diversity recommendations. Discovery failure is
+not an empty dataset list. Reuse the user's selected dataset unchanged when evaluating existing outputs.
 
-- Query llms.txt for "evaluation datasets", "dataset schema", "mlflow.genai.datasets"
-- Understand required record schema and APIs
+OSS dataset search and Unity Catalog discovery differ. Use the intended backend's supported lookup; on
+Databricks, use catalog/schema tools or the known fully qualified name rather than assuming
+`search_datasets()` works. Never select an arbitrary accessible catalog, schema, or first dataset.
 
-## Examine Your Agent's Function Signature
+## Bind inputs to the real predictor
 
-Before writing dataset code:
-
-1. Open your agent's entry point function
-2. Read its function signature to identify parameter names
-3. Note which parameters come from the dataset vs. your code
-
-**Example:**
-
-```python
-# Load config
-config = load_config()
-
-# Agent code
-def run_agent(
-    query: str, llm_provider: LLMProvider, session_id: str | None = None
-) -> str:
-    ...
-
-run_agent(query="what can you help me with", llm_provider=config.provider)
-```
-
-**Parameter analysis:**
-
-- `query` (str) → **FROM DATASET** - this goes in `inputs` dict
-- `llm_provider` (LLMProvider) → **FROM CODE** - provided by agent's config in code, not needed in dataset
-- `session_id` (str, optional) → **FROM CODE** - optional, not needed in dataset
-
-**Therefore, your dataset inputs MUST be:**
+MLflow calls `predict_fn(**record["inputs"])`. Inspect the application entry point before preparing records.
+Dataset keys must match the wrapper's keyword arguments; bind provider/configuration dependencies inside the
+wrapper. Nested objects remain values, not extra keyword arguments.
 
 ```python
-{"inputs": {"query": "your question here"}}  # ✅ CORRECT - matches parameter name
+records = [{
+    "inputs": {"query": "Where is order 42?", "context": {"order_id": 42}},
+    "expectations": {"expected_response": "Order 42 has shipped."},
+}]
+
+def predict(query, context):
+    return agent(query=query, context=context, provider=config.provider)
 ```
 
-**NOT:**
+Ground truth belongs under `expectations` (`expected_response`, `expected_facts`, or the agreed scorer's
+fields), not a top-level `expected_response`. Tags/source IDs preserve provenance. Check each scorer's actual
+required data.
+
+For precomputed evaluation, preserve `inputs` and `outputs` and omit `predict_fn`. For reruns, use the current
+predictor and do not accidentally score stale stored outputs. Inspect trace-search DataFrame columns before
+converting `request`/`response` to `inputs`/`outputs`; do not stringify a trace into an input or rename fields
+by assumption.
+
+## Create and verify only when needed
+
+Use `mlflow.genai.datasets.create_dataset`, `merge_records`, and backend-supported retrieval;
+`mlflow.data.from_pandas` / `mlflow.log_input` are not replacements for a managed GenAI dataset. Ordinary
+record lists/DataFrames remain valid inputs to `mlflow.genai.evaluate`.
+
+For an OSS store supporting these signatures:
 
 ```python
-{"inputs": {"request": "..."}}  # ❌ WRONG - no 'request' parameter
-{"inputs": {"question": "..."}}  # ❌ WRONG - no 'question' parameter
-{"inputs": {"prompt": "..."}}  # ❌ WRONG - no 'prompt' parameter
-```
+import os
+from mlflow.genai.datasets import create_dataset
 
----
-
-## Required Schema & APIs
-
-### Record Schema
-
-Every dataset record represents a test case and has this structure:
-
-```python
-{
-    "inputs": dict,  # REQUIRED - parameters for your agent function
-    "expectations": dict,  # OPTIONAL - ground truth for evaluation
-    "tags": dict,  # OPTIONAL - metadata for filtering
-}
-```
-
-**CRITICAL**: The `inputs` dict keys MUST EXACTLY match your agent's function parameter names (as identified in Step 2 above).
-
-### Required APIs - NEVER/ALWAYS Rules
-
-#### ❌ NEVER Use These:
-
-- `mlflow.data.from_pandas()` - Wrong namespace, for non-GenAI datasets
-- `mlflow.log_input()` - Wrong approach for evaluation datasets
-- Manual DataFrame creation without GenAI APIs
-- Searching MLflow runs to "recreate" datasets
-- Hardcoding dataset queries in evaluation scripts
-
-#### ✅ ALWAYS Use These:
-
-**Core Operations:**
-
-```python
-from mlflow.genai.datasets import create_dataset, search_datasets
-
-# CREATE dataset
-dataset = create_dataset(name="my-dataset", experiment_id=["1"])
-
-# ADD records
-records = [{"inputs": {"query": "test"}}]
-dataset.merge_records(records)
-
-# LOAD dataset
-datasets = search_datasets(filter_string="name = 'my-dataset'")
-dataset = datasets[0]
-
-# USE in evaluation
-results = mlflow.genai.evaluate(
-    data=dataset, predict_fn=predict_fn, scorers=[RelevanceToQuery()]
-)
-```
-
-**For complete workflows:**
-
-- Check existing datasets: `python scripts/list_datasets.py` (auto-lists all)
-- Create new dataset: `python scripts/create_dataset_template.py --test-cases-file test_cases.txt`
-
----
-
-## Table of Contents
-
-1. [Understanding MLflow GenAI Datasets](#understanding-mlflow-genai-datasets)
-2. [Checking Existing Datasets](#checking-existing-datasets) (Use list_datasets.py script)
-3. [Creating New Datasets](#creating-new-datasets) (Use create_dataset_template.py script)
-4. [Databricks Unity Catalog Considerations](#databricks-unity-catalog-considerations)
-5. [Best Practices](#best-practices)
-
-## Understanding MLflow GenAI Datasets
-
-**IMPORTANT**: MLflow has generic datasets, but **GenAI datasets for agent evaluation are different**.
-
-### What are GenAI Evaluation Datasets?
-
-GenAI evaluation datasets are specialized datasets for evaluating language model applications and agents. They:
-
-- Have a specific schema with `inputs` and optional `expectations`
-- Are managed through the MLflow GenAI datasets SDK
-- Can be associated with experiments
-- Support pagination and search
-
-### Dataset Schema
-
-See the [Required Schema & APIs](#required-schema--apis) section above for the complete record schema definition.
-
-## Checking Existing Datasets
-
-Before creating a new dataset, check if suitable datasets already exist.
-
-### Use the Dataset Discovery Script
-
-```bash
-uv run python scripts/list_datasets.py  # Table format (default)
-# Or for machine-readable output:
-uv run python scripts/list_datasets.py --format json
-```
-
-**This script automatically:**
-
-- Lists all datasets in your experiment
-- Calculates diversity metrics (record count, query length range)
-- Shows sample queries from each dataset
-- Recommends the best dataset based on size and diversity
-- Allows interactive selection
-
-**For manual dataset access**, use the APIs shown in [Required Schema & APIs](#required-schema--apis).
-
-## Creating New Datasets
-
-If no suitable dataset exists, create a new one.
-
-### ⚠️ Before Creating Dataset ⚠️
-
-**Complete these steps FIRST:**
-
-1. ✅ Read MLflow GenAI dataset documentation (see top of file)
-2. ✅ Examine your agent's function signature
-3. ✅ Know exact parameter names to use in `inputs` dict
-
-### Use the Dataset Template Generator
-
-```bash
-uv run python scripts/create_dataset_template.py --test-cases-file test_cases.txt
-
-# For Databricks Unity Catalog:
-uv run python scripts/create_dataset_template.py \
-  --test-cases-file test_cases.txt \
-  --catalog main --schema ml --table eval_v1
-```
-
-**The script will:**
-
-1. Detect your environment
-2. Guide you through naming conventions:
-   - **OSS**: Simple names like `mlflow-agent-eval-v1`
-   - **Databricks**: UC table names like `{catalog}.{schema}.mlflow_agent_eval_v1`
-3. Help create a few diverse sample queries interactively
-4. Generate a complete Python script using correct APIs
-5. Optionally execute the script to create the dataset
-
-**The generated script handles:**
-
-- Correct API usage (`mlflow.genai.datasets` namespace)
-- Environment-specific requirements (tags for OSS, UC tables for Databricks)
-- Input validation and error handling
-
-### For Manual Creation
-
-If you prefer manual creation, follow the API patterns in [Required Schema & APIs](#required-schema--apis):
-
-1. Use `create_dataset()` with correct name format
-2. Prepare records with `inputs` dict matching your agent parameters
-3. Add records with `dataset.merge_records()`
-4. Verify with `dataset.to_df()`
-
-**See Databricks Unity Catalog Considerations section** if using Databricks.
-
-## Databricks Unity Catalog Considerations
-
-When using Databricks as your tracking URI, special considerations apply.
-
-### Requirements
-
-**1. Fully-Qualified Table Name**
-
-- Format: `<catalog>.<schema>.<table>`
-- Cannot use simple names like `my_dataset`
-
-**2. Tags Not Supported**
-
-- Do NOT include `tags` parameter in `create_dataset()`
-- Tags are managed by Unity Catalog
-
-**3. Search Not Supported**
-
-- Cannot use `search_datasets()` API reliably
-- Use Unity Catalog tools to find tables
-- Access datasets directly by name with `get_dataset()`
-
-### Getting Unity Catalog Table Name
-
-**Option 1: Use the script**
-
-```bash
-uv run python scripts/create_dataset_template.py --test-cases-file test_cases.txt
-```
-
-**Option 2: List with Databricks CLI**
-
-List catalogs:
-
-```bash
-databricks catalogs list
-```
-
-List schemas in a catalog:
-
-```bash
-databricks schemas list <catalog_name>
-```
-
-**Option 3: Use Default**
-Suggest `main.default` for {catalog}.{schema} but *ONLY* if it exists.
-
-### Code Pattern
-
-When creating datasets for Databricks:
-
-```python
-# Use fully-qualified UC table name, no tags
 dataset = create_dataset(
-    name="main.default.mlflow_agent_eval_v1",
-    experiment_id="<experiment_id>",
-    # Note: No tags parameter
+    name="agent-regression-v1",
+    experiment_id=[os.environ["MLFLOW_EXPERIMENT_ID"]],
 )
+dataset.merge_records(records)
 ```
 
-See [Required Schema & APIs](#required-schema--apis) for complete API examples.
+Read the records back with the installed dataset's supported DataFrame accessor (`to_df()` or `df`, depending
+on backend/version). Verify count, nested inputs, expectations, intended experiment/location, and source
+identity before running evaluation.
 
-## Best Practices
+`scripts/create_dataset_template.py --test-cases-file <file>` generates a starting script. For UC supply all
+three flags: `--catalog <catalog> --schema <schema> --table <table>`. Inspect generated code before execution,
+especially literal values, backend signatures, and selected location; do not rely on auto-selected
+catalog/schema defaults.
 
-### Query Diversity
+<a id="databricks-unity-catalog-considerations"></a>
 
-Create a **representative test set** covering different aspects:
+## Unity Catalog compatibility
 
-**Variety dimensions:**
+| Concern | Required check |
+| --- | --- |
+| Location | Use the intended `<catalog>.<schema>.<table>`; verify catalog/schema exist and required table permissions. `main.default` is valid only when present and intended. |
+| Constructor | Inspect whether the installed API takes `name`, `uc_table_name`, and/or experiment association arguments; do not copy an OSS signature blindly. |
+| Search | Some Databricks versions do not support GenAI `search_datasets`; use UC discovery or direct `get_dataset` by name. |
+| Tags/metadata | `tags` creation arguments and dataset `tags` / `experiment_ids` properties may be unsupported. Read supported identity fields (`name`, `dataset_id`) and manage UC metadata through supported APIs. |
+| Spark | If the installed UC API requires an active Spark session, reuse the configured session or supported Databricks Connect setup. A missing session is not a reason to switch backend. |
 
-- **Complexity**: Simple ("What is X?") to complex ("How do I do X and Y while avoiding Z?")
-- **Length**: Short (5-10 words) to long (20+ words, multi-part)
-- **Topics**: Cover all agent capabilities and edge cases
-- **Query types**: Questions, requests, comparisons, examples
+On lookup/creation failure, distinguish wrong location, insufficient permissions, unsupported API, and missing
+runtime before retrying. Report inaccessible data rather than creating a substitute elsewhere.
 
-**Example diverse set:**
+## Coverage and optional synthesis
+
+Use actual known failures, successes, boundary cases, and representative user journeys. A three-record pilot
+validates the pipeline, not population quality; scale only to the requested coverage and cost budget. Keep
+source IDs and version changes so comparisons use the same records.
+
+Tiny order-support pilot (`predict(query, context)`); missing orders must not get invented statuses:
 
 ```python
-[
-    {"inputs": {"query": "What is MLflow?"}},  # Simple, short, basic
-    {"inputs": {"query": "How do I log a model?"}},  # Action-oriented
-    {
-        "inputs": {"query": "What's the difference between experiments and runs?"}
-    },  # Comparison
-    {
-        "inputs": {"query": "Show me an example of using autolog with LangChain"}
-    },  # Example request
-    {
-        "inputs": {
-            "query": "How can I track hyperparameters, metrics, and artifacts in a single run?"
-        }
-    },  # Complex, multi-part
+records = [
+    {"inputs": {"query": "Where is order 42?", "context": {"order_id": 42}},
+     "expectations": {"expected_response": "Order 42 has shipped."}},  # success fixture
+    {"inputs": {"query": "Where is order 999?", "context": {"order_id": 999}},
+     "expectations": {"expected_response": "Order 999 was not found."}},  # missing-order fixture
+    {"inputs": {"query": "Where is my order?", "context": {"order_id": None}},
+     "expectations": {"expected_response": "Please provide your order ID."}},  # boundary
 ]
 ```
 
-See generated script output for more examples.
+Use a fixture/store where 42 is shipped and 999 is absent. The second row exercises a failure path;
+correctly reporting the missing order should pass the scorer.
 
-### Sample Size
+When synthesis is requested and a corpus exists:
 
-- **Minimum**: 5 queries (prefer this for initial setup)
-- **Balance**: Coverage vs execution time/cost
+- Databricks: inspect the installed `databricks.agents.evals.generate_evals_df` and
+  `estimate_synthetic_num_evals`; provide document content and the agent description, then convert output to
+  the schema above and `merge_records`.
+- OSS: an available RAGAS `TestsetGenerator` can generate from the corpus; map `user_input` to the real input
+  key and `reference` to `expectations.expected_response`. Do not install a synthesis stack for a task
+  satisfied by existing records.
+- No corpus: prefer representative production queries/history over invented coverage. Remove sensitive data
+  before reuse and identify missing ground truth honestly.
 
-More queries = better coverage but longer evaluation time and higher LLM costs.
+Choose size for coverage and confidence, not a universal 50/100-row threshold. Keep a separate holdout for
+optimization and preserve dataset/judge versions for comparisons; see
+[advanced-evaluation.md](advanced-evaluation.md).
 
-### Versioning
+### RAGAS corpus synthesis
 
-- **Include version in name**: `mlflow_agent_eval_v1`, `mlflow_agent_eval_v2`
-- **Document changes**: What's different in each version
-- **Keep old versions**: For comparison and reproducibility
-- **Use tags** (OSS only): `{"version": "2.0", "changes": "Added edge cases"}`
+[RAGAS v0.3.9 contract](https://github.com/vibrantlabsai/ragas/blob/v0.3.9/src/ragas/testset/synthesizers/generate.py#L101): use configured `generator` (approved LLM/embeddings), LangChain `Document` list `docs`, and selected `dataset`.
+Check installed compatibility, review references against the corpus, and adapt `query` before merging.
 
-### Quality Over Quantity
-
-- **Realistic queries**: Match actual user questions
-- **Clear questions**: Well-formed, unambiguous
-- **Representative**: Cover production use cases
-- **Avoid duplicates**: Each query should test something different
-
-### Iteration
-
-1. **Start small**: 5 queries for initial evaluation
-2. **Analyze results**: See what fails, what's missing
-3. **Expand**: Add queries to cover gaps
-4. **Refine**: Improve existing queries based on agent behavior
-5. **Version**: Create new version with improvements
-
----
-
-**For troubleshooting dataset creation issues**, see `references/troubleshooting.md`
+```python
+generated = generator.generate_with_langchain_docs(docs, testset_size=3).to_pandas()
+records = [
+    {"inputs": {"query": row.user_input},
+     "expectations": {"expected_response": row.reference}}
+    for row in generated.itertuples(index=False)
+]
+# After reviewing records and retaining source IDs:
+dataset.merge_records(records)
+```
