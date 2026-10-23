@@ -1,212 +1,82 @@
-# MLflow Environment Setup Guide
+# Evaluation environment prerequisites
 
-Complete guide for setting up MLflow environment before agent evaluation.
+Read only when configuration is missing or connectivity fails. Reuse onboarding/backend setup already
+completed; evaluation does not need a new setup flow.
 
-## Table of Contents
+## Preserve existing configuration
 
-1. [Step 1: Install MLflow](#step-1-install-mlflow)
-2. [Step 2: Configure Environment](#step-2-configure-environment)
-3. [Step 3: Integrate MLflow Tracing](#step-3-integrate-mlflow-tracing)
+Check `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` without exposing credentials. When both are set, **do
+not run `setup_mlflow.py`, create `.env`, replace the backend, or create a new experiment**. Verify access and
+use the existing configuration. If one is missing, preserve the other while resolving it. App configuration
+can also hold the selected destination; inspect it before autodetection.
 
-## Pre-check: Use Existing Environment
+Run commands in the project environment (`uv run` for uv-managed projects). Check MLflow >=3.8 and the version
+requirements of selected features. If installation is needed, use the project installer and quote version
+specifiers, e.g. `uv pip install 'mlflow>=3.8.0'`.
 
-**Before doing ANY setup, check the current environment:**
+## Fill only missing setup
 
-```bash
-echo "MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI"
-echo "MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID"
-```
+`scripts/setup_mlflow.py --help` describes explicit URI and experiment options (bind a Databricks profile
+through the URI). Inspect them and pass the intended destination; do not accept an arbitrary first
+authenticated profile/experiment. The helper prints exports: apply them in the caller's environment, since a
+child process cannot export into its parent.
 
-**If BOTH variables are already set, skip Steps 1-2 entirely.** The environment is pre-configured by the caller. Do NOT run `setup_mlflow.py`, do NOT create a `.env` file, do NOT override these values with local alternatives like `sqlite:///mlflow.db`. Proceed directly to Step 3 (tracing integration).
+For a custom server or manual configuration:
 
-## Overview
+- Databricks: use `databricks` or the selected `databricks://<profile>` and its existing authentication.
+  Validate the intended workspace/profile. If auth is absent, report the required `databricks auth login -p
+  <profile>` step; do not start a separate Unity Gateway setup flow or switch to local storage.
+- Local/remote OSS: use the selected HTTP(S) tracking server. Start a local server only when that backend is
+  intended and no server exists; do not kill unrelated processes to free a port.
+- SageMaker ARN: preserve the ARN and use available `sagemaker-mlflow` guidance; its plugin, region, AWS
+  credentials, and connection checks are distinct from Databricks setup. Do not reinterpret the ARN as a local
+  path.
 
-Before evaluation, complete these setup steps in order.
+Find the exact named experiment with `mlflow.get_experiment_by_name(name)` before creating one. Create only if
+requested/needed in the intended destination. Databricks workspace experiment names commonly use
+`/Users/<email>/<name>`; OSS names need no workspace prefix. Verify the returned experiment ID and preserve it
+for subsequent commands.
 
-## Step 1: Install MLflow
+Persist newly selected values through the application's existing configuration mechanism only when persistence
+is part of the task. Avoid duplicate `.env` entries or overwriting caller-supplied variables. Import the app
+and confirm it actually loads the intended destination.
 
-Check if MLflow >=3.8.0 is installed:
+## Conditional Unity Catalog Spark setup
 
-```bash
-uv run mlflow --version
-```
-
-If not installed or version too old:
-
-```bash
-uv pip install mlflow>=3.8.0
-```
-
-## Step 2: Configure Environment
-
-### Quick Setup (Recommended - 90% of cases)
-
-**Auto-detects Databricks or local MLflow server:**
-
-
-```bash
-uv run python scripts/setup_mlflow.py
-# Auto-detects Databricks or local MLflow, creates experiment if needed
-# Outputs: export MLFLOW_TRACKING_URI="..." and export MLFLOW_EXPERIMENT_ID="..."
-```
-
-⚠️ **Do NOT change the detected MLFLOW_TRACKING_URI** - Trust the detection script unless there is a very serious reason/failure.
-
-**After running the above command**, automatically detect and update the agent's configuration:
-
-1. **Detect configuration mechanism** by checking for:
-   - `.env` file (most common)
-   - `config.py` or `settings.py` with Settings/Config class
-   - Other configuration files
-
-2. **Update configuration automatically**:
-   - If `.env` exists: Append `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID`
-   - If config class exists: Add `mlflow_tracking_uri` and `mlflow_experiment_id` fields
-   - If neither exists: Set environment variables in agent initialization code
-
-3. **Verify configuration** by importing the agent and checking values load correctly:
-   ```bash
-   uv run python -c "
-   import os
-   import mlflow
-
-   tracking_uri = os.getenv('MLFLOW_TRACKING_URI')
-   experiment_id = os.getenv('MLFLOW_EXPERIMENT_ID')
-
-   if tracking_uri and experiment_id:
-       print(f'✓ MLFLOW_TRACKING_URI: {tracking_uri}')
-       print(f'✓ MLFLOW_EXPERIMENT_ID: {experiment_id}')
-       mlflow.set_tracking_uri(tracking_uri)
-       exp = mlflow.get_experiment(experiment_id)
-       print(f'✓ Connected to experiment: {exp.name}')
-   else:
-       print('⚠ Environment variables not set - check agent configuration')
-   "
-   ```
-```
-
-**If the quick setup succeeds**, you're done! Skip to Step 3.
-
-**If the quick setup fails**, proceed to Manual Setup below.
-
----
-
-### Manual Setup (10% edge cases)
-
-**Note**: The `setup_mlflow.py` script now includes auto-detection for most scenarios. Manual setup is primarily needed for edge cases where auto-detection cannot work.
-
-Use manual setup if:
-- Using a custom remote MLflow server (not Databricks, not localhost)
-- Non-standard port or hostname for local server
-- Quick setup and `setup_mlflow.py` both failed
-- Need more control over experiment naming or configuration
-
-#### Step 2.1: Set Tracking URI
-
-Choose your tracking server type:
-
-```bash
-# For Databricks
-export MLFLOW_TRACKING_URI="databricks"
-
-# For local server (start server first: mlflow server --host 127.0.0.1 --port 5000 &)
-export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
-
-# For other remote server
-export MLFLOW_TRACKING_URI="<your_server_uri>"
-```
-
-#### Step 2.2: Find or Create Experiment
-
-**Option A: Use Existing Experiment**
-
-Find an experiment to use (efficient lookup by name):
-
-```bash
-export EXP_NAME="<your_experiment_name>"
-export EXP_ID=$(uv run python -c "
-import mlflow
-mlflow.set_tracking_uri('$MLFLOW_TRACKING_URI')
-experiments = mlflow.search_experiments(
-    filter_string=\"name = '$EXP_NAME'\",
-    max_results=1
-)
-print(experiments[0].experiment_id if experiments else 'NOT_FOUND')
-")
-
-if [ "$EXP_ID" = "NOT_FOUND" ]; then
-    echo "Experiment not found: $EXP_NAME"
-    exit 1
-fi
-
-export MLFLOW_EXPERIMENT_ID="$EXP_ID"
-```
-
-**Option B: Create New Experiment**
-
-```bash
-# For Databricks - must use /Users/<username>/<name> format
-export EXP_NAME="/Users/<your_email>/<experiment_name>"
-uv run mlflow experiments create --experiment-name "$EXP_NAME"
-
-# For local - simple name works
-export EXP_NAME="<experiment_name>"
-uv run mlflow experiments create --experiment-name "$EXP_NAME"
-
-# Get the experiment ID
-export EXP_ID=$(uv run python -c "
-import mlflow
-mlflow.set_tracking_uri('$MLFLOW_TRACKING_URI')
-exp = mlflow.get_experiment_by_name('$EXP_NAME')
-print(exp.experiment_id)
-")
-export MLFLOW_EXPERIMENT_ID="$EXP_ID"
-```
-
-#### Step 2.3: Persist Configuration
-
-⚠️ **Skip this step if MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID were already set in the environment before setup.** Creating a `.env` file can override the pre-configured values.
-
-Add to .env file:
-
-```bash
-cat >> .env << EOF
-
-# MLflow Configuration
-MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI
-MLFLOW_EXPERIMENT_ID=$MLFLOW_EXPERIMENT_ID
-EOF
-```
-
-Add to config.py Settings class (if not present):
+Only if UC requires Spark and no notebook session exists, use compatible Databricks Connect with an authenticated
+profile/cluster matching the tracking workspace; check builder support (serverless needs different configuration).
 
 ```python
-# MLflow Configuration
-mlflow_tracking_uri: Optional[str] = Field(
-    default=None,
-    description="MLflow tracking URI (e.g., 'databricks', 'http://localhost:5000')",
-)
-mlflow_experiment_id: Optional[str] = Field(
-    default=None,
-    description="MLflow experiment ID for logging traces and evaluation results",
-)
+import os
+from databricks.connect import DatabricksSession
+spark = (DatabricksSession.builder.profile(os.environ["DATABRICKS_CONFIG_PROFILE"])
+         .clusterId(os.environ["DATABRICKS_CLUSTER_ID"]).getOrCreate())
+spark.sql("SELECT 1").collect()
 ```
 
-#### Step 2.4: Verify Configuration
+## Verify access, then runtime
 
-```bash
-uv run python -c "
-from config import settings
-assert settings.mlflow_tracking_uri, 'MLFLOW_TRACKING_URI not loaded'
-assert settings.mlflow_experiment_id, 'MLFLOW_EXPERIMENT_ID not loaded'
-print('✓ MLflow configuration verified')
-"
+```python
+import os
+import mlflow
+
+mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+experiment = mlflow.get_experiment(os.environ["MLFLOW_EXPERIMENT_ID"])
+assert experiment is not None, "Configured experiment was not found"
 ```
 
-## Setup Complete - Environment Configured
+The bundled `scripts/validate_environment.py` and `scripts/validate_auth.py` provide diagnostics. Access to an
+experiment does not prove trace-write permission or judge access; a present API key does not prove it works.
+Distinguish missing package/plugin, invalid profile/credentials, network error, missing experiment, and access
+denial. Stop on unresolved failures rather than overwriting configuration.
 
-To complete the setup, verify:
+For live agent evaluation, use `instrumenting-with-mlflow-tracing` when available and reuse framework
+autologging. Run the real application, flush traces, fetch the resulting trace in the intended experiment, and
+inspect inputs/outputs and required spans. `scripts/validate_tracing_runtime.py --help` offers runtime
+diagnostics; a non-null local trace ID alone is not persisted-trace verification. For precomputed evaluation,
+verify the supplied evidence without invoking the agent.
 
-- [ ] MLflow >=3.8.0 installed (`uv run mlflow --version`)
-- [ ] MLFLOW_TRACKING_URI set (points to your tracking server)
-- [ ] MLFLOW_EXPERIMENT_ID set (experiment exists and is accessible)
+Consult the exact [evaluation quickstart](https://mlflow.org/docs/latest/genai/eval-monitor/quickstart.md) or
+selected backend documentation only as needed; use [llms.txt](https://mlflow.org/docs/latest/llms.txt) for
+missing/moved pages. Check installed signatures. If documentation is unavailable, use this local minimum plus
+introspection and stop when the required operation cannot be verified.
