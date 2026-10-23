@@ -1,147 +1,84 @@
 # Tracing on Databricks (Unity Catalog storage)
 
-On Databricks, store traces in **Unity Catalog Delta tables** by default for governed, production-grade storage. Bind an MLflow experiment to a UC trace location, then instrument code as usual — all traces logged to that experiment land in those tables.
+Use UC Delta tables by default. Tracking URI plus experiment alone means legacy workspace storage; use legacy only when explicitly requested. Python UC setup requires [MLflow >=3.14](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog). Inspect installed SDKs, existing application configuration and deployment manifests before editing.
 
-Do not treat `mlflow.set_tracking_uri("databricks")` as sufficient Databricks setup. Without a `UnityCatalog` trace location, traces use legacy workspace experiment storage. Only use that legacy destination when the user explicitly requests it.
-
-This API requires MLflow 3.11.1 or newer. Before editing code, inspect the installed version and look for existing values in application config, environment examples, deployment manifests, or Databricks Asset Bundles.
-
-Required values:
-
-- Catalog name
-- Schema name
-- SQL warehouse ID
-
-Optional value for Python:
-
-- Table prefix. Omit it to let MLflow use the experiment ID, which avoids naming collisions.
-
-Handle the destination and warehouse separately. Follow the explicit schema-selection workflow below for the catalog and schema. Discover and select the SQL warehouse automatically as described in the next section. Do not invent a production destination or silently omit the UC trace location.
-
-## Verify authentication
+## Authenticate and select the destination
 
 - Check auth: `databricks current-user me --profile <name>`; confirm `mlflow.get_tracking_uri()`.
 - Expired auth: `databricks auth login --profile <name>`. Never print/save auth-token output.
 
 ## Select a SQL warehouse automatically
 
-Use existing project or environment configuration when it names a SQL warehouse. Otherwise, list warehouses through the authenticated Databricks profile and select any warehouse the user can access. Prefer an already-running warehouse to avoid startup delay, but use another available warehouse when necessary. Do not ask the user to choose among usable warehouses, and do not infer that a warehouse is unusable from its display name or apparent owner.
-
-Verify the selected warehouse during setup. If it cannot be used because of permissions or availability, try another discovered candidate. Ask the user for a warehouse only when discovery returns no usable candidate.
+Reuse a configured warehouse; otherwise discover warehouses through the authenticated workspace and select an accessible candidate, preferring one already running. Verify access during setup; try another discovered candidate if unusable. Do not reject a warehouse merely because of its name/owner or ask the user to choose among usable ones. Ask for a warehouse only when no usable candidate can be discovered. This setup selection does not authorize cycling warehouses during bounded readback.
 
 ## Choose the schema before provisioning
 
-Unless the user has already explicitly chosen a destination, ask whether they want to **use an existing schema or create a new one**. Present any discovered project configuration as a candidate, not an automatic selection. A schema being accessible, listed first, or named `default` does not mean it belongs to the user or their team.
+Reuse a destination already explicitly supplied/authorized, including an explicit request to reuse project configuration. Otherwise ask whether to use an existing schema or create one; discovered config is a candidate, not authorization to select an arbitrary accessible schema.
 
-- **Existing schema:** obtain or confirm the fully qualified `catalog.schema` and verify it exists. If the user supplied the destination or explicitly asked to reuse the project's configured destination, honor that choice without asking them to choose again.
-- **New schema:** obtain the target catalog and new schema name from the user. Explain that setup will create the schema and MLflow trace tables, and confirm authorization before creating it. Check permission to create a schema in that catalog; do not attempt creation in a different catalog as a fallback.
-- **Permission blocker:** report the chosen destination and the operation that failed. Ask the user to arrange the required permissions or explicitly choose another destination. Do not silently switch to another accessible schema or legacy workspace storage.
-
-After selection and any authorized schema creation, confirm `USE CATALOG`, `USE SCHEMA`, and `CREATE TABLE` on the destination plus permission to use the SQL warehouse. Only then bind the experiment and provision its trace location. The `UnityCatalog` argument below provisions trace tables in the chosen schema; it is not a substitute for choosing or creating the schema.
+- Existing: obtain/confirm `catalog.schema` and verify it exists.
+- New: obtain catalog/schema, explain schema and trace-table creation, and establish authorization (reuse existing authorization). Check create-schema permission in that catalog; do not switch catalogs as a fallback.
+- Confirm `USE CATALOG`, `USE SCHEMA`, `CREATE TABLE` and warehouse access before binding. On failure report the chosen destination/operation and required access or explicit alternative, without falling back to another schema or legacy storage.
 
 ## Configure Python tracing
+
+Inspect `experiment.trace_location` before reusing an experiment. A UC binding is permanent: reuse a matching location, bind an unbound experiment, or resolve a conflicting location with the user/new experiment. Binding changes new writes; it does not migrate old legacy traces.
 
 ```python
 import os
 import mlflow
 from mlflow.entities.trace_location import UnityCatalog
 
-# Use "databricks" for DEFAULT auth, or "databricks://<profile>" for a named profile.
-mlflow.set_tracking_uri("databricks://<DATABRICKS_PROFILE>")
-os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = "<SQL_WAREHOUSE_ID>"
-
+mlflow.set_tracking_uri("databricks://<PROFILE>")
+os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = "<WAREHOUSE_ID>"
 mlflow.set_experiment(
-    experiment_name="<MLFLOW_EXPERIMENT_NAME>",
-    trace_location=UnityCatalog(
-        catalog_name="<UC_CATALOG_NAME>",
-        schema_name="<UC_SCHEMA_NAME>",
-    ),
+    experiment_name="/Users/<email>/<experiment-name>",
+    trace_location=UnityCatalog(catalog_name="<catalog>", schema_name="<schema>"),
 )
 ```
 
-Add `table_prefix="<UC_TABLE_PREFIX>"` only when the user wants a stable custom prefix. Otherwise MLflow uses the experiment ID.
+Reuse an existing numeric experiment ID when appropriate; Databricks experiment names must be absolute workspace paths such as `/Users/<email>/name` or `/Shared/name`. `UnityCatalog` provisions trace tables, not the schema-selection decision. Omit optional `table_prefix` to default to experiment ID; supply it only for an intended custom prefix. Tables use `<prefix>_otel_spans`, `_otel_logs`, `_otel_metrics`, `_otel_annotations`.
+
+Explicit creation is also supported via `mlflow.create_experiment(name=..., trace_location=...)`, then `mlflow.set_experiment(experiment_id=...)`. If the required API is unavailable, report/resolve the version prerequisite rather than omitting UC configuration.
 
 ## TypeScript
 
-Before implementing UC tracing in TypeScript, inspect the installed `@mlflow/core` typings for an `init()` option named `traceLocation`. Published versions without that option cannot write to a UC trace location. Do not configure only `trackingUri` and `experimentId` and claim that traces use UC; that is legacy experiment storage. Explain the limitation and ask whether the user wants to upgrade when a supporting version is available or use Python instrumentation.
+Use `@mlflow/core >=0.4.0`, which supports `init().traceLocation`. Older versions cannot write to UC trace tables; upgrade or report the limitation rather than claiming UC storage from `trackingUri`/`experimentId` alone.
 
-When `traceLocation` is supported, the location must already be provisioned. Provision and link it once with the Python API above, then configure TypeScript with the exact resulting table prefix:
+Provision and link the location once with Python, then use its exact prefix:
 
 ```typescript
 import * as mlflow from "@mlflow/core";
-
 mlflow.init({
-  trackingUri: "databricks://<DATABRICKS_PROFILE>",
-  experimentId: "<EXPERIMENT_ID>",
+  trackingUri: "databricks://<PROFILE>", experimentId: "<NUMERIC_ID>",
   traceLocation: {
-    catalogName: "<UC_CATALOG_NAME>",
-    schemaName: "<UC_SCHEMA_NAME>",
-    tablePrefix: "<UC_TABLE_PREFIX>",
+    catalogName: "<catalog>", schemaName: "<schema>", tablePrefix: "<EXACT_PREFIX>",
   },
 });
 ```
 
-Unlike Python, TypeScript cannot provision the location or default its table prefix. All three `traceLocation` fields are required.
-
-**`table_prefix`** is the prefix applied to every table storing trace data. MLflow creates four Delta tables from it: `<table_prefix>_otel_spans`, `<table_prefix>_otel_logs`, `<table_prefix>_otel_metrics`, and `<table_prefix>_otel_annotations`.
-
-**Notes**:
-- Requires `mlflow>=3.11.1`. Upgrade first if `UnityCatalog` or the `trace_location` argument is unavailable.
-- Experiment names on Databricks must be absolute workspace paths (`/Users/<email>/name` or `/Shared/name`). A bare name is rejected. To attach to an existing experiment, use `mlflow.set_experiment(experiment_id="<numeric-id>")`.
-- Requires a SQL warehouse (`MLFLOW_TRACING_SQL_WAREHOUSE_ID`) to provision and query the tables.
-- A UC trace location is permanent — once bound, an experiment cannot be reassigned to a different UC location.
-- Before reusing an existing experiment, inspect `experiment.trace_location`. Bind it when it is unbound and reuse it when it matches the requested UC destination. If it points elsewhere, explain the conflict and use a new experiment name or ask the user which destination to keep; do not catch the error and continue with legacy storage.
-- Binding an existing experiment changes the destination for new traces; it does not migrate traces already stored in the legacy experiment backend.
-- To create the experiment explicitly, use `mlflow.create_experiment(name=..., trace_location=UnityCatalog(...))`, then `mlflow.set_experiment(experiment_id=...)`.
+TypeScript cannot provision the location or default the prefix: all three fields are required in supporting versions.
 
 ## Trace deployed agents
 
-Configure the deployment with the same tracking URI and numeric experiment ID used above. A successful local trace does not prove that the deployed identity can write to the UC destination.
-
-### Databricks Apps
-
-Give the app's service identity access to the selected experiment, UC schema, and SQL warehouse. Set the MLflow tracking URI, experiment ID, and required tracing configuration as app environment variables or resources; avoid embedding a personal token. Initialize tracing before the request handler creates its first span.
-
-### Model Serving
-
-Instrument the model's `predict` or agent entry point with supported MLflow autologging or `@mlflow.trace` before deployment. Confirm the serving endpoint's identity can access the same destination. A locally traced client call does not prove that the endpoint's internal spans were captured.
-
-### External OpenTelemetry clients
-
-Check the installed MLflow and Databricks documentation for the supported OTLP ingestion endpoint, authentication, and resource attributes. Configure the exporter to that endpoint rather than an arbitrary workspace URL. Preserve trace and span IDs across services with standard W3C trace context. Third-party OTel clients may use GenAI semantic conventions rather than MLflow's field names.
+- Configure deployments with the selected tracking URI and numeric experiment ID.
+- **Databricks Apps:** grant the service identity access to the experiment, UC schema and warehouse; configure environment/resources without embedding personal tokens. Initialize tracing before the handler's first span.
+- **Model Serving:** instrument `predict`/the agent entry point before deployment and verify the endpoint identity can export. A traced client call does not prove internal endpoint spans exist.
+- **External OTel:** use the documented ingestion endpoint, auth and resource attributes for the installed deployment, not an arbitrary workspace URL. Preserve W3C context; attribute conventions may differ from MLflow's.
 
 ## Verification
 
-Follow the single-run, time-limited verification in `../SKILL.md`. Confirm the configured storage destination using experiment metadata, then reuse the trace retrieved by that workflow. A trace appearing in the Databricks experiment UI proves export succeeded, but does not by itself prove UC storage was configured.
+Follow [single-run bounded readback](../SKILL.md#verification). Inspect experiment metadata to confirm the actual `UnityCatalog` catalog/schema/prefix matches the selected location, then reuse the retrieved application trace. Presence in the UI alone does not prove UC storage. For deployed work, execute under the deployed identity and inspect root/child I/O, timing and available token fields.
 
-For a deployed agent, run the representative request under its deployed identity. Inspect root and child spans, including tool or `RETRIEVER` spans when applicable, and check timing, available token fields, and the actual trace destination. If the deployment cannot reach the backend, report the failing identity and operation; do not switch to legacy workspace trace storage.
-
-```python
-import mlflow
-from mlflow.entities.trace_location import UnityCatalog
-
-experiment = mlflow.get_experiment_by_name("<MLFLOW_EXPERIMENT_NAME>")
-assert experiment is not None
-print(experiment.trace_location)
-assert isinstance(experiment.trace_location, UnityCatalog)
-```
-
-If searching is necessary because no trace ID was captured, include `trace.timestamp_ms >= <run_start_ms>` (epoch milliseconds recorded before the test run) and `max_results=1`, even when searching by experiment ID. Reuse the returned spans instead of issuing another fetch. UC reads, including `get_trace()`, use SQL warehouse capacity; a direct fetch can also time out. If readback exceeds the verification budget or returns a warehouse timeout, `RESOURCE_EXHAUSTED`/429, or an auth/permission error, stop and report the operation, error, and known trace ID. Ask the user to resolve the specific access or warehouse blocker; do not switch to SQL queries, raw REST requests, or another warehouse as a verification fallback.
+UC `get_trace()` also consumes warehouse capacity. If readback times out or returns auth/permission/warehouse errors or `RESOURCE_EXHAUSTED`/429, stop with the operation, error, failing identity and saved trace ID. Do not switch warehouse, direct SQL, raw REST or legacy storage to force verification. If no ID was saved, the one fallback search needs run-time bounds and `max_results=1`.
 
 ## Link to the verified trace
-
-After verification, give the user a clickable link to a trace from the run you just verified. Prefer this direct route instead of guessing trace-drawer query parameters:
 
 ```text
 https://<workspace-host>/ml/experiments/<experiment-id>/traces/<trace-id>
 ```
 
-- Use the workspace host from the authenticated Databricks profile or application configuration. `databricks` and `databricks://<profile>` are tracking URIs, not browser URLs. If the host or experiment ID cannot be discovered, ask the user instead of guessing a link.
-- Use the numeric experiment ID configured for the application and linked to its UC trace location, not the experiment name or a catalog/schema/table name. Do not rely on `trace.info.experiment_id` for UC traces: it can be `None`.
-- For a UC trace ID such as `trace:/catalog.schema/0123456789abcdef0123456789abcdef`, use only the final `0123456789abcdef0123456789abcdef` component in the browser path. Keep the full qualified ID for SDK/API calls. For legacy workspace trace IDs such as `tr-0123456789abcdef0123456789abcdef`, keep the `tr-` prefix.
-- Append `?o=<workspace-id>` after the complete trace path if it is present in an existing workspace URL; do not invent a workspace ID.
-- Do not use the OSS MLflow `#/experiments/...` route, a run URL, or a REST API endpoint as a Databricks trace link. A trace URL does not prove UC storage was configured; keep the storage verification above.
+Use the host from authenticated configuration; `databricks://<profile>` is not a browser URL. Use the application's numeric experiment ID, not its name or table/schema; UC `trace.info.experiment_id` may be `None`. Resolve missing host/experiment identity instead of guessing.
 
-The direct trace URL format is documented in the [Databricks tracing FAQ](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/faq).
+For `trace:/catalog.schema/<hex-id>`, use only the final hex component in the browser path while retaining the **full qualified ID for SDK calls**. Keep `tr-` on legacy IDs. Append `?o=<workspace-id>` only if already known from the workspace URL. Do not substitute OSS `#/experiments/...`, run or REST URLs. Label links unverified when readback failed.
 
-Docs: https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog
+Exact platform docs: [UC trace storage](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog), [trace URL FAQ](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/faq). Check installed APIs; these links supplement the destination-selection and stopping rules above.
