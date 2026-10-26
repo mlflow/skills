@@ -20,7 +20,7 @@ if the intent is unclear.
 
 ## Step 2: Dispatch
 
-- Tracing / instrumentation → `mlflow-tracing`
+- Tracing / instrumentation → `mlflow-trace-instrumentation`
 - Debug or explain an agent failure → `mlflow-trace-analysis`
 - Fix or change an agent's behavior → `mlflow-agent-improvement`
 - Evaluation / scoring → `mlflow-evaluation`

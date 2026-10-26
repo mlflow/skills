@@ -12,7 +12,7 @@
     "./mlflow-onboarding",
     "./mlflow-docs",
     "./mlflow-sagemaker",
-    "./mlflow-tracing",
+    "./mlflow-trace-instrumentation",
     "./mlflow-trace-retrieval",
     "./mlflow-trace-analysis",
     "./mlflow-trace-metrics",

@@ -13,7 +13,7 @@ negative scores.**
 | Experiment missing/inaccessible | Resolve the exact intended ID/name and distinguish permission/network failures from absence before creating anything. |
 | Local server port busy | Check whether the intended server already runs; select another port only for an authorized new server. Do not kill unrelated servers. |
 | Agent import fails | Use the project environment and real module path; install the project in editable mode if that is its normal setup. |
-| No persisted trace | Reuse `mlflow-tracing` when available. Check destination, tracing enablement on the actual invoked path, flush, then fetch by trace ID in the intended experiment. A local ID alone is insufficient. |
+| No persisted trace | Reuse `mlflow-trace-instrumentation` when available. Check destination, tracing enablement on the actual invoked path, flush, then fetch by trace ID in the intended experiment. A local ID alone is insufficient. |
 | Missing framework spans | Check installed integration/library compatibility and when autologging is enabled. LangGraph uses `mlflow.langchain.autolog()`; do not invent `mlflow.langgraph`. |
 | Disconnected model traces | Verify the production agent/framework instrumentation actually runs. Add a missing application boundary only when necessary; do not duplicate spans already supplied by autologging. |
 | Missing session association | Call `mlflow.update_current_trace(session_id=session_id)` while a trace is active. Reuse a stable ID across turns, not a new ID per turn. |

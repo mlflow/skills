@@ -12,7 +12,7 @@ Skills covering the full MLflow agent improvement loop:
 | `mlflow-onboarding` | Get started with MLflow from scratch |
 | `mlflow-docs` | Search MLflow documentation for answers |
 | `mlflow-sagemaker` | Connect to SageMaker Managed MLflow |
-| `mlflow-tracing` | Instrument Python/TypeScript code with MLflow Tracing |
+| `mlflow-trace-instrumentation` | Instrument Python/TypeScript code with MLflow Tracing |
 | `mlflow-trace-retrieval` | Query and filter traces from the MLflow backend |
 | `mlflow-trace-analysis` | Analyze traces, agent failures, and multi-turn sessions |
 | `mlflow-trace-metrics` | Query token usage, latency, and quality metrics |

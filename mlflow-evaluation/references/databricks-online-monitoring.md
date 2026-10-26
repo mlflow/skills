@@ -1,6 +1,6 @@
 # Score production traces on Databricks
 
-Apply registered scorers to a sample of production traces on Databricks. Set up and verify the trace destination with `mlflow-tracing` first.
+Apply registered scorers to a sample of production traces on Databricks. Set up and verify the trace destination with `mlflow-trace-instrumentation` first.
 
 ## Configure
 

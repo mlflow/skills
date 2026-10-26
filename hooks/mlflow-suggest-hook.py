@@ -14,7 +14,7 @@ def main():
     suggestions = []
 
     if any(k in prompt for k in ["trace", "tracing", "autolog", "span", "instrument"]):
-        suggestions.append("💡 Use the `mlflow-tracing` skill to add MLflow tracing.")
+        suggestions.append("💡 Use the `mlflow-trace-instrumentation` skill to add MLflow tracing.")
 
     if any(k in prompt for k in ["evaluat", "scorer", "judge", "dataset", "assess", "improve quality"]):
         suggestions.append("💡 Use the `mlflow-evaluation` skill to evaluate your agent with MLflow.")

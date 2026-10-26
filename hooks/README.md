@@ -10,7 +10,7 @@ A `UserPromptSubmit` hook that detects MLflow-related patterns in your prompts a
 
 | Keywords in your prompt | Suggested skill |
 |-------------------------|----------------|
-| trace, tracing, autolog, span, instrument | `mlflow-tracing` |
+| trace, tracing, autolog, span, instrument | `mlflow-trace-instrumentation` |
 | evaluat, scorer, judge, dataset, assess, improve quality | `mlflow-evaluation` |
 | trace id, debug trace, why did, what went wrong, analyze trace | `mlflow-trace-analysis` |
 | debug my agent, debug this agent, agent failure, root cause my agent | `mlflow-trace-analysis` |
@@ -57,7 +57,7 @@ Replace `/path/to/hooks/mlflow-suggest-hook.py` with the absolute path where you
 Start a new Claude Code session and type a prompt containing `tracing` or `evaluate`. You should see a suggestion like:
 
 ```
-💡 Use the `mlflow-tracing` skill to add MLflow tracing.
+💡 Use the `mlflow-trace-instrumentation` skill to add MLflow tracing.
 ```
 
 ### How It Works

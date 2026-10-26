@@ -6,7 +6,7 @@ judges:
   - tests/judges/evaluation_behavior.py
 skills:
   - mlflow-evaluation
-  - mlflow-tracing
+  - mlflow-trace-instrumentation
 required_skills: [mlflow-evaluation]
 prompt: "Evaluate the saved order-assistant outputs and tell me what failed. Don't rerun the app."
 timeout_seconds: 600

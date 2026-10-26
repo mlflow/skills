@@ -10,8 +10,8 @@ def get_judges() -> list:
         make_judge(
             name="tracing-skill-invoked",
             instructions=(
-                "Check that the mlflow-tracing skill was loaded and invoked in the {{ trace }}. "
-                "The skill is loaded when the agent reads its SKILL.md file from .claude/skills/mlflow-tracing/. "
+                "Check that the mlflow-trace-instrumentation skill was loaded and invoked in the {{ trace }}. "
+                "The skill is loaded when the agent reads its SKILL.md file from .claude/skills/mlflow-trace-instrumentation/. "
                 "Answer 'yes' only if you see evidence that the skill was loaded."
             ),
             feedback_value_type=Literal["yes", "no"],

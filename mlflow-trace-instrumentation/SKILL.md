@@ -1,5 +1,5 @@
 ---
-name: mlflow-tracing
+name: mlflow-trace-instrumentation
 description: Add or repair MLflow tracing in Python or TypeScript applications, including tracing required for evaluation. Covers framework autologging, custom spans, backend setup, and persisted trace verification.
 ---
 

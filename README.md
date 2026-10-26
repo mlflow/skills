@@ -28,7 +28,7 @@ Building production-ready AI agents is hard. You need observability to understan
 | **mlflow-onboarding** | Configures MLflow for GenAI or traditional ML. |
 | **mlflow-docs** | Searches official MLflow documentation. |
 | **mlflow-sagemaker** | Connects to SageMaker Managed MLflow. |
-| **mlflow-tracing** | Instruments Python and TypeScript applications. |
+| **mlflow-trace-instrumentation** | Instruments Python and TypeScript applications. |
 | **mlflow-trace-retrieval** | Finds and filters traces. |
 | **mlflow-trace-analysis** | Analyzes traces, agent failures, and multi-turn sessions. |
 | **mlflow-trace-metrics** | Queries aggregate trace metrics. |
@@ -97,7 +97,7 @@ cp hooks/mlflow-suggest-hook.py ~/.claude/hooks/mlflow-suggest-hook.py
 **Step 3:** Start a new session. When you ask something like *"Add tracing to my app"*, you'll see:
 
 ```
-💡 Use the `mlflow-tracing` skill to add MLflow tracing.
+💡 Use the `mlflow-trace-instrumentation` skill to add MLflow tracing.
 ```
 
 See [`hooks/README.md`](hooks/README.md) for the full keyword-to-skill mapping and troubleshooting.

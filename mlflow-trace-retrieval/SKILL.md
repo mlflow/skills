@@ -9,7 +9,7 @@ description: Retrieve MLflow traces by ID or search by run, session, user, statu
 
 Reuse the configured tracking URI, experiment, supplied trace ID or filters, and incident/run time window. Check installed CLI flags with `mlflow traces get --help` or `mlflow traces search --help` for the operation selected.
 
-For Databricks UC traces, first read [Databricks tracing setup](../mlflow-tracing/references/databricks.md): trace retrieval requires the configured SQL warehouse and workspace authentication. Do not replace missing warehouse access with direct SQL, raw REST, or pasted tokens.
+For Databricks UC traces, first read [Databricks tracing setup](../mlflow-trace-instrumentation/references/databricks.md): trace retrieval requires the configured SQL warehouse and workspace authentication. Do not replace missing warehouse access with direct SQL, raw REST, or pasted tokens.
 
 ## Step 2: Fetch or search
 
@@ -66,7 +66,7 @@ Check installed signatures; older versions may use `experiment_ids`. `search_tra
 
 ## Verification
 
-- For setup readback, record the time immediately before the run; follow [setup verification](../mlflow-tracing/SKILL.md#verification) when available.
+- For setup readback, record the time immediately before the run; follow [setup verification](../mlflow-trace-instrumentation/SKILL.md#verification) when available.
 
 Confirm returned IDs, experiment/location, window and filters match the request; distinguish no matches from a failed query or partial page. Return the IDs/output file and any coverage limits. Do not infer quality from status `OK` alone.
 
