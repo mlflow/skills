@@ -62,6 +62,9 @@ explicitly.
 
 Built-ins in MLflow 3.17.1; verify installed availability and contracts:
 
+This table is representative, not complete. For the full current list, use the installed-catalog introspection
+above and the [MLflow scorer documentation](https://mlflow.org/docs/latest/genai/eval-monitor/scorers/).
+
 | Built-in | Checks / evidence needed |
 | --- | --- |
 | `RelevanceToQuery` | Response addresses the input; inputs + outputs |
