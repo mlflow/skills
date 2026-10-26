@@ -23,9 +23,8 @@ a `predict_fn` can support a prototype.
 
 ## Step 1: Draft atomic criteria and establish observability
 
-Default to 3–5 recurring, high-signal checks; recommend replacing a weaker check before exceeding five, unless
-the user requests a larger suite. One criterion per scorer: split bundled requirements and avoid an “overall
-quality” judge.
+Use 3–5 recurring, high-signal checks. Adding one requires replacing a weaker check. One criterion per scorer:
+split bundled requirements and avoid an “overall quality” judge.
 
 Include both rule checks and at least one **user outcome** check: did the user get what they came for? Text
 presence or a policy flag alone is not an outcome. If success is unclear, propose a concrete outcome for the
