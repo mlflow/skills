@@ -308,7 +308,8 @@ Only after confirmation. Deliver **one consolidated final message**, not code sp
 `openai:/gpt-4.1`, or the equivalent tier on your provider. Scale up if the judge disagrees with
 human labels on clear-cut cases; scale down only after measuring agreement on a labelled sample.
 Never downgrade a red-line judge (safety, legal) to save cents — a code prefilter already keeps its
-volume low. `agent-evaluation/references/scorers.md` is authoritative for URI formats and keys.
+volume low. Read [scorer runtime](references/scorers.md) for model URIs, registration, and verification, and
+[scorer constraints](references/scorers-constraints.md) for templates, return values, and aggregation.
 
 ### Phase 8: Name the validation plan, then hand off
 
