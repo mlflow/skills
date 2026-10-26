@@ -1,7 +1,6 @@
 ---
 name: mlflow-evaluation
 description: Design MLflow scorers and run GenAI evaluation on an agent, dataset, precomputed outputs, or traces. Use for quality criteria, judges, MemAlign, datasets, evaluation runs, and results analysis.
-allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 ---
 
 # Agent evaluation
