@@ -7,7 +7,7 @@ judges:
   - tests/judges/skill_usage.py
   - tests/judges/evaluation_behavior.py
 skills:
-  - build-a-scorer
+  - mlflow-evaluation
 prompt: "Prepare labels.csv from our expert feedback for judge alignment. Include the train/holdout split and explain any blockers."
 timeout_seconds: 600
 environment:
