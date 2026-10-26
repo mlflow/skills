@@ -5,9 +5,9 @@ judges:
 - tests/judges/skill_usage.py
 - tests/judges/trace_behavior.py
 skills:
-- querying-mlflow-metrics
-- retrieving-mlflow-traces
-required_skills: [querying-mlflow-metrics]
+- mlflow-trace-metrics
+- mlflow-trace-retrieval
+required_skills: [mlflow-trace-metrics]
 prompt: "How much token usage and how many errors did we have during the time window in task.json?"
 timeout_seconds: 600
 allowed_tools: Skill,Bash,Read,Write,Edit,Grep,Glob
