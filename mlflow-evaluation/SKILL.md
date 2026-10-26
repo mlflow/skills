@@ -21,7 +21,7 @@ allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
 - Use the project environment (`uv run` for uv-managed projects). Check MLflow >=3.8 and installed signatures
   for the APIs needed. Keep stderr separate when capturing structured stdout.
 - **Rerun mode:** inspect the real agent entry point and its configuration. Use
-  `mlflow-tracing` when available for instrumentation; reuse working tracing. Run a
+  `mlflow-trace-instrumentation` when available for instrumentation; reuse working tracing. Run a
   representative invocation, flush and fetch its persisted trace in the intended experiment. If tracing is
   missing/broken, repair and verify it before evaluation; do not add duplicate framework spans.
 - **Precomputed mode:** evaluate the supplied `inputs` and `outputs`, or existing traces, **without

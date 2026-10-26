@@ -9,7 +9,7 @@ judges:
   - tests/judges/skill_usage.py
 skills:
   - mlflow-evaluation
-  - mlflow-tracing
+  - mlflow-trace-instrumentation
 prompt: "Evaluate the output quality of my agent. Do not ask for input."
 environment:
   MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS: "true"

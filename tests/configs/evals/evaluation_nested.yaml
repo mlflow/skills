@@ -6,7 +6,7 @@ judges:
   - tests/judges/evaluation_behavior.py
 skills:
   - mlflow-evaluation
-  - mlflow-tracing
+  - mlflow-trace-instrumentation
 required_skills: [mlflow-evaluation]
 prompt: "Evaluate my order assistant and tell me which examples it gets wrong."
 environment:

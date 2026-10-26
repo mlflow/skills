@@ -28,7 +28,7 @@ established, without silently replacing APIs/backend/provider.
 Consume an existing diagnosis; otherwise use `mlflow-trace-analysis` when available. Fetch the full trace (`mlflow
 traces get --trace-id <ID>`, stderr separate from JSON) and inspect LLM instructions/messages, emitted tool
 calls, tool arguments/results, retrieval/filtering, and required tools that never ran. For multi-turn issues
-inspect preceding turns too. If tracing is missing, use `mlflow-tracing` when available and
+inspect preceding turns too. If tracing is missing, use `mlflow-trace-instrumentation` when available and
 verify a real persisted trace before diagnosis.
 
 Include existing `mlflow.notes`. Persist the user's complaint verbatim as a HUMAN assessment with

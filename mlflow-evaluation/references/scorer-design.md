@@ -129,7 +129,7 @@ Check implementation and data contracts, and supply known-pass, known-fail, malf
 applicable/not-applicable examples. Define how the caller should backtest; **do not run a full evaluation
 campaign as part of scorer design**. Hand registration, dataset discovery, dry run, evaluation, and result
 analysis to `mlflow-evaluation` when available, with the suite and its validation cases. Identify trace-only
-upgrades separately; use `mlflow-tracing` for actual instrumentation gaps.
+upgrades separately; use `mlflow-trace-instrumentation` for actual instrumentation gaps.
 
 Before proposing new hand-labeling, look for existing complaints, incidents, support tickets, thumbs-down
 feedback, refunds, or escalations. For every LLM judge, identify its alignment labels and separate held-out
