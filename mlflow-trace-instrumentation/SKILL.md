@@ -52,7 +52,8 @@ For OSS or SageMaker, keep the configured backend and proceed to Step 2.
 - Without an ID, search once in the configured experiment with run-time bounds, `max_results=1`, and spans included.
 - Every UC search needs `trace.timestamp_ms`; result limits do not bound scans. Python `search_traces()` has no `start_time` keyword.
 
-For Python readback, adapt this recipe to the saved run values and enforce the deadline externally:
+For Python readback, put this recipe in a separate `verify_trace.py` process. Pass the saved
+trace ID and run-time bounds to it through arguments or a file:
 
 ```python
 mlflow.flush_trace_async_logging()
@@ -69,6 +70,19 @@ else:
 assert trace is not None, "No persisted trace read back"
 assert run_start_ms <= trace.info.request_time <= run_end_ms
 assert trace.data.spans, "No spans captured"
+```
+
+Invoke the readback process with an actual deadline. `subprocess.run` terminates the child
+on timeout; checking elapsed time after a blocking MLflow call does not:
+
+```python
+import subprocess
+import sys
+
+try:
+    subprocess.run([sys.executable, "verify_trace.py"], timeout=60, check=True)
+except subprocess.TimeoutExpired:
+    print(f"Trace {trace_id}: persisted readback unverified after 60 seconds")
 ```
 
 - Inspect expected root/graph, model, retrieval, and tool spans and actual I/O. Confirm the application's request, not scorer or assistant telemetry.
