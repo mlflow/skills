@@ -55,10 +55,9 @@ import mlflow
 import pandas as pd
 
 parts = []
-with mlflow.start_run(run_name="sharded-evaluation"):
-    for i, start in enumerate(range(0, len(records), 100)):
-        result = mlflow.genai.evaluate(data=records[start:start + 100], scorers=scorers)
-        parts.append(result.result_df.assign(shard_run_id=result.run_id))
+for start in range(0, len(records), 100):
+    result = mlflow.genai.evaluate(data=records[start:start + 100], scorers=scorers)
+    parts.append(result.result_df.assign(shard_run_id=result.run_id))
 combined = pd.concat(parts, ignore_index=True)
 ids = combined["source_id/value"]
 assert ids.is_unique and set(ids) == {r["expectations"]["source_id"] for r in records}
@@ -67,8 +66,7 @@ assert scores.notna().all().all(), "Inspect missing/error assessments"
 print(scores.agg(["count", "mean"]))  # Row-weighted, including valid zero/False.
 ```
 
-`evaluate()` reuses the active MLflow run, so the outer run keeps sequential shards together. Do not execute
-shards concurrently against one active run.
+Each `evaluate()` call creates its own run. Do not execute shards concurrently against one active run.
 
 Use the host-supported execution method; no background subagent is required. Completion means the process
 exited successfully and the run/artifacts and scoring coverage were verified. Keep stdout separate from stderr

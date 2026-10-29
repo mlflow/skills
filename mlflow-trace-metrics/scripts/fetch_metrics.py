@@ -63,6 +63,8 @@ def parse_time(time_str: str) -> int:
     # ISO 8601
     try:
         dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            raise ValueError("ISO timestamps must include a timezone")
         return int(dt.timestamp() * 1000)
     except ValueError:
         raise ValueError(

@@ -58,5 +58,5 @@ Return the reconstructed sequence or concise relevant turns, first divergence wi
 
 - Detailed field semantics: [trace structure](trace-structure.md). The essential assessment rules above remain usable standalone.
 - More filter/API options: [official search guide](https://mlflow.org/docs/latest/genai/tracing/search-traces.md), matched to installed CLI help. If unavailable, use installed help and report unresolved compatibility.
-- Existing helpers are optional, resolved relative to this skill: `scripts/discover_schema.sh <EXPERIMENT_ID> <SESSION_ID>` is **not suitable for UC discovery** because it has no time filter; use the bounded workflow above. `scripts/inspect_turn.sh <TRACE_ID>` fetches details but labels all non-OK statuses as errors; inspect actual `STATUS_CODE_ERROR` and do not treat UNSET as failure. Both write fixed filenames, so use a separate working directory to avoid overwriting evidence.
+- Existing helpers are optional, resolved relative to this skill: `scripts/discover_schema.sh <EXPERIMENT_ID> <SESSION_ID> <START_TIME_MS> <END_TIME_MS>` performs bounded schema discovery, and `scripts/inspect_turn.sh <TRACE_ID>` inspects one turn. Both use temporary files and report only `STATUS_CODE_ERROR` spans as errors.
 - If implementation is requested, pass the diagnosis and trace IDs to `mlflow-agent-improvement` when installed.
