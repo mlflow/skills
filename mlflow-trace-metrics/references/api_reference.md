@@ -9,6 +9,7 @@
 | TRACES (1) | `trace_count` | COUNT | `trace_name`, `trace_status` |
 | TRACES (1) | `latency` (ms) | AVG, PERCENTILE | same |
 | TRACES (1) | `input_tokens`, `output_tokens`, `total_tokens` | SUM, AVG, PERCENTILE | same |
+| TRACES (1) | `total_cost`, `session_count` | SUM, AVG | same |
 | SPANS (2) | `span_count` | COUNT | `span_name`, `span_type`, `span_status` |
 | SPANS (2) | `latency` (ms) | AVG, PERCENTILE | same |
 | ASSESSMENTS (3) | `assessment_count` | COUNT | `assessment_name`, `assessment_value` |
