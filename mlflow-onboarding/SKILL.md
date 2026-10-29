@@ -247,10 +247,9 @@ If execution or readback is blocked by a missing API key, authentication, permis
 1. Run the training script
 2. Check for runs:
    ```bash
-   mlflow runs search \
-     --experiment-id <EXPERIMENT_ID> \
-     --max-results 5 \
-     --output json > /tmp/verify_runs.json
-   jq '.runs | length' /tmp/verify_runs.json
+   python - <<'PY'
+   from mlflow.tracking import MlflowClient
+   print(len(MlflowClient().search_runs(["<EXPERIMENT_ID>"], max_results=5)))
+   PY
    ```
 3. If runs appear, open the MLflow UI to inspect logged parameters, metrics, and artifacts

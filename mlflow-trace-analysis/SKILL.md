@@ -18,7 +18,8 @@ Prefer existing evidence. Only when no usable trace exists, reproduce once throu
 Fetch full JSON once to a file; large piped CLI output can be truncated by the execution tool. `get` needs no `--output` flag. Avoid `--extract-fields` for nested span diagnosis.
 
 ```bash
-mlflow traces get --trace-id <TRACE_ID> > /tmp/trace.json
+TRACE_FILE=$(mktemp)
+mlflow traces get --trace-id <TRACE_ID> > "$TRACE_FILE"
 ```
 
 ## Step 2: Inspect the span tree
@@ -29,7 +30,7 @@ Summarize state, assessments and parent links:
 jq '{state: .info.state,
      spans: [.data.spans[] | {span_id, parent_span_id, name, status}],
      error_spans: [.data.spans[] | select(.status.code == "STATUS_CODE_ERROR") | .name],
-     assessments: .info.assessments}' /tmp/trace.json
+     assessments: .info.assessments}' "$TRACE_FILE"
 ```
 
 ## Step 3: Read feedback

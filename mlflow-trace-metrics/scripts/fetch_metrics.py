@@ -25,7 +25,7 @@ VIEW_TYPES = {"TRACES": 1, "SPANS": 2, "ASSESSMENTS": 3}
 
 # Valid metrics per view type
 VALID_METRICS = {
-    "TRACES": ["trace_count", "latency", "input_tokens", "output_tokens", "total_tokens"],
+    "TRACES": ["trace_count", "latency", "input_tokens", "output_tokens", "total_tokens", "total_cost", "session_count"],
     "SPANS": ["span_count", "latency"],
     "ASSESSMENTS": ["assessment_count", "assessment_value"],
 }
@@ -63,14 +63,14 @@ def parse_time(time_str: str) -> int:
     # ISO 8601
     try:
         dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            raise ValueError("ISO timestamps must include a timezone")
-        return int(dt.timestamp() * 1000)
     except ValueError:
         raise ValueError(
             f"Invalid time format: '{time_str}'. "
             f"Valid formats: relative (-24h, -7d, -30m, now), ISO 8601 (2024-01-01T00:00:00Z), epoch ms"
         )
+    if dt.tzinfo is None:
+        raise ValueError("ISO timestamps must include a timezone")
+    return int(dt.timestamp() * 1000)
 
 
 def parse_aggregations(agg_str: str) -> list[dict]:
@@ -83,10 +83,10 @@ def parse_aggregations(agg_str: str) -> list[dict]:
             if not 0 <= percentile_value <= 100:
                 raise ValueError(f"Percentile must be 0-100, got: {percentile_value}")
             result.append({"aggregation_type": AGG_TYPES["PERCENTILE"], "percentile_value": percentile_value})
-        elif agg in AGG_TYPES:
+        elif agg in AGG_TYPES and agg != "PERCENTILE":
             result.append({"aggregation_type": AGG_TYPES[agg]})
         else:
-            raise ValueError(f"Unknown aggregation: '{agg}'. Valid: {', '.join(AGG_TYPES.keys())}, P<0-100>")
+            raise ValueError(f"Unknown aggregation: '{agg}'. Valid: COUNT, SUM, AVG, MIN, MAX, P<0-100>")
     return result
 
 
@@ -137,9 +137,9 @@ def fetch_metrics(
         payload["filters"] = filters
     if time_interval_seconds:
         payload["time_interval_seconds"] = time_interval_seconds
-    if start_time_ms:
+    if start_time_ms is not None:
         payload["start_time_ms"] = start_time_ms
-    if end_time_ms:
+    if end_time_ms is not None:
         payload["end_time_ms"] = end_time_ms
 
     data = json.dumps(payload).encode("utf-8")
@@ -222,7 +222,7 @@ def main():
         start_time_ms = parse_time(args.start_time) if args.start_time else None
         end_time_ms = parse_time(args.end_time) if args.end_time else None
 
-        if args.time_interval and (not start_time_ms or not end_time_ms):
+        if args.time_interval and (start_time_ms is None or end_time_ms is None):
             raise ValueError("--start-time and --end-time required with --time-interval")
 
         result = fetch_metrics(

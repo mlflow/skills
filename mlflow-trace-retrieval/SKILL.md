@@ -16,15 +16,17 @@ For Databricks UC traces, first read [Databricks tracing setup](../mlflow-trace-
 With an ID, fetch directly. Save full JSON to a file before parsing so large output is not lost to tool truncation. `get` already outputs JSON; it needs no `--output` flag.
 
 ```bash
-mlflow traces get --trace-id <TRACE_ID> > /tmp/trace.json
+TRACE_FILE=$(mktemp)
+mlflow traces get --trace-id <TRACE_ID> > "$TRACE_FILE"
 ```
 
 Without an ID, search the selected experiment and requested time window:
 
 ```bash
+SEARCH_FILE=$(mktemp)
 mlflow traces search --experiment-id <EXPERIMENT_ID> \
   --filter-string 'metadata.`mlflow.trace.session` = "<SESSION_ID>" AND trace.timestamp_ms >= <START_MS> AND trace.timestamp_ms <= <END_MS>' \
-  --order-by 'timestamp_ms ASC' --max-results 50 --output json > /tmp/traces.json
+  --order-by 'timestamp_ms ASC' --max-results 50 --no-include-spans --output json > "$SEARCH_FILE"
 ```
 
 - Replace placeholders before execution. Every UC search needs a `trace.timestamp_ms` lower bound; add an upper bound when known.
@@ -48,7 +50,7 @@ Combine predicates with `AND`; verify operators supported by the installed backe
 
 Backticks quote special characters in field names. In shell commands put the outer expression in **single quotes**, as above, or escape backticks inside double quotes to prevent command substitution. Escape filter values separately; do not interpolate untrusted values as shell syntax. `LIKE`, `ILIKE` and `RLIKE` support pattern matching where permitted; use [search docs](https://mlflow.org/docs/latest/genai/tracing/search-traces.md) for exact field/operator support.
 
-Use `--include-spans` when details are needed; otherwise fetch selected IDs after search. `--extract-fields` can reduce search output after inspecting the actual schema, but nested span inputs/outputs may be omitted: use the full trace for diagnosis. Follow returned continuation tokens with `--page-token` while keeping filters/order fixed; report a bounded sample as a sample, not all matches.
+Use `--no-include-spans` for ID and metadata searches, then fetch selected IDs when details are needed. `--extract-fields` filters client-side after retrieval and does not reduce data transferred through a UC warehouse. Follow returned continuation tokens with `--page-token` while keeping filters/order fixed; report a bounded sample as a sample, not all matches.
 
 ### Python alternative
 

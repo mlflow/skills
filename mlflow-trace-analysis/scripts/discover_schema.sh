@@ -17,11 +17,15 @@ mlflow traces search \
   --experiment-id "$EXPERIMENT_ID" \
   --filter-string 'metadata.`mlflow.trace.session` = "'"$SESSION_ID"'" AND timestamp_ms >= '"$START_TIME_MS"' AND timestamp_ms <= '"$END_TIME_MS" \
   --order-by "timestamp_ms ASC" \
+  --no-include-spans \
   --extract-fields 'info.trace_id' \
   --output json \
   --max-results 1 > "$TMP_DIR/first_trace.json"
 
-TRACE_ID=$(jq -r '.traces[0].info.trace_id' "$TMP_DIR/first_trace.json")
+TRACE_ID=$(jq -er '.traces[0].info.trace_id // empty' "$TMP_DIR/first_trace.json") || {
+  echo "No trace found in the requested session and time window" >&2
+  exit 1
+}
 echo "First trace ID: $TRACE_ID"
 
 # Fetch the full trace detail (always outputs JSON, no --output flag needed)
