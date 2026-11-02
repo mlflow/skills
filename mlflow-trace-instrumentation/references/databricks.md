@@ -23,7 +23,7 @@ Before asking, call `mlflow.tracing.get_default_trace_catalog()` (MLflow >=3.19.
 
 ## Configure Python tracing
 
-Inspect `experiment.trace_location` before reusing an experiment. A UC binding is permanent: reuse a matching location, bind an unbound experiment, or resolve a conflicting location with the user/new experiment. Binding changes new writes; it does not migrate old legacy traces. An experiment that already has traces cannot be bound; see below.
+Inspect `experiment.trace_location` before reusing an experiment. A UC binding is permanent: reuse a matching location, bind an unbound experiment, or resolve a conflicting location with the user/new experiment. Binding changes new writes; it does not migrate old legacy traces. An experiment that has legacy traces cannot be bound; see below.
 
 ```python
 import os
@@ -42,7 +42,7 @@ Reuse an existing numeric experiment ID when appropriate; Databricks experiment 
 
 Explicit creation is also supported via `mlflow.create_experiment(name=..., trace_location=...)`, then `mlflow.set_experiment(experiment_id=...)`. If the required API is unavailable, report/resolve the version prerequisite rather than omitting UC configuration.
 
-### Experiment that already has traces
+### Experiment with legacy traces
 
 Binding fails with `BAD_REQUEST: Experiment <id> already contains traces`. Do not force traces in with `mlflow.tracing.set_destination`; searches on a bound experiment do not return them. Let the user choose:
 
