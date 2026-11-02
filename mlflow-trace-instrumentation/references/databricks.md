@@ -15,7 +15,7 @@ Reuse a configured warehouse; otherwise discover warehouses through the authenti
 
 Reuse a destination already explicitly supplied/authorized, including an explicit request to reuse project configuration. Otherwise ask whether to use an existing schema or create one; discovered config is a candidate, not authorization to select an arbitrary accessible schema.
 
-Before asking, call `mlflow.tracing.get_default_trace_catalog()` with the authenticated tracking URI set. It returns the workspace default catalog only when that catalog is bound to this workspace and the user can create tables in `<catalog>.default`; otherwise `None`. When it returns a catalog, offer `<catalog>.default` as the recommended existing schema and still let the user choose. When it returns `None` or the installed MLflow lacks the function, ask without a recommendation.
+Before asking, call `mlflow.tracing.get_default_trace_catalog()` (requires MLflow >=3.19.0) with the authenticated tracking URI set. It returns the workspace default catalog only when that catalog is bound to this workspace and the user can create tables in `<catalog>.default`; otherwise `None`. When it returns a catalog, offer `<catalog>.default` as the recommended existing schema and still let the user choose. When it returns `None` or the installed MLflow is older than 3.19.0, ask without a recommendation.
 
 - Existing: obtain/confirm `catalog.schema` and verify it exists.
 - New: obtain catalog/schema, explain schema and trace-table creation, and establish authorization (reuse existing authorization). Check create-schema permission in that catalog; do not switch catalogs as a fallback.
