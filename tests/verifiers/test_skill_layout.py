@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 import sys
@@ -81,3 +82,43 @@ def test_hook_deduplicates_folded_trace_analysis_suggestion():
     )
 
     assert result.stdout.count("`mlflow-trace-analysis`") == 1
+
+
+def test_sagemaker_discovery_lists_every_page(tmp_path):
+    (tmp_path / "boto3.py").write_text(
+        """
+def _pages(key, items):
+    def call(NextToken=None):
+        index = int(NextToken or 0)
+        page = {key: [items[index]]}
+        if index + 1 < len(items):
+            page["NextToken"] = str(index + 1)
+        return page
+    return call
+
+
+class _SageMaker:
+    list_mlflow_apps = staticmethod(_pages("Summaries", [
+        {"Arn": "arn:app-1", "Name": "app-1", "Status": "Created"},
+        {"Arn": "arn:app-2", "Name": "app-2", "Status": "Created"},
+    ]))
+    list_mlflow_tracking_servers = staticmethod(_pages("TrackingServerSummaries", [
+        {"TrackingServerArn": "arn:server-1", "TrackingServerName": "server-1"},
+        {"TrackingServerArn": "arn:server-2", "TrackingServerName": "server-2"},
+    ]))
+
+
+def client(service, region_name):
+    return _SageMaker()
+"""
+    )
+    result = subprocess.run(
+        [sys.executable, ROOT / "mlflow-sagemaker/scripts/discover_arns.py", "us-west-2"],
+        text=True,
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+    )
+
+    for arn in ["arn:app-1", "arn:app-2", "arn:server-1", "arn:server-2"]:
+        assert arn in result.stdout
