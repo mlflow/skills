@@ -1,9 +1,11 @@
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -81,3 +83,36 @@ def test_hook_deduplicates_folded_trace_analysis_suggestion():
     )
 
     assert result.stdout.count("`mlflow-trace-analysis`") == 1
+
+
+def run_hook(prompt, **env):
+    return subprocess.run(
+        [sys.executable, ROOT / "hooks/mlflow-suggest-hook.py"],
+        input=json.dumps({"prompt": prompt}),
+        encoding="utf-8",
+        capture_output=True,
+        check=True,
+        env={**os.environ, **env},
+    ).stdout
+
+
+@pytest.mark.parametrize("prompt,skill", [
+    ("Add tracing to my LangGraph app", "mlflow-trace-instrumentation"),
+    ("Fix my agent so it stops skipping the refund tool", "mlflow-agent-improvement"),
+    ("Connect to arn:aws:sagemaker:us-west-2:000000000000:mlflow-app/example", "mlflow-sagemaker"),
+])
+def test_hook_suggests_skill(prompt, skill):
+    assert f"`{skill}`" in run_hook(prompt)
+
+
+@pytest.mark.parametrize("prompt", [
+    "Here is the traceback from the failing test",
+    "Retrace the steps that broke the build",
+    "Translate this paragraph into Spanish",
+])
+def test_hook_ignores_keywords_inside_other_words(prompt):
+    assert run_hook(prompt) == ""
+
+
+def test_hook_prints_suggestions_when_stdout_is_not_utf8():
+    assert "`mlflow-trace-instrumentation`" in run_hook("Add tracing to my app", PYTHONIOENCODING="cp1252")

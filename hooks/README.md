@@ -11,16 +11,18 @@ A `UserPromptSubmit` hook that detects MLflow-related patterns in your prompts a
 | Keywords in your prompt | Suggested skill |
 |-------------------------|----------------|
 | trace, tracing, autolog, span, instrument | `mlflow-trace-instrumentation` |
-| evaluat, scorer, judge, dataset, assess, improve quality | `mlflow-evaluation` |
+| evaluate, scorer, judge, dataset, assess, improve quality | `mlflow-evaluation` |
 | trace id, debug trace, why did, what went wrong, analyze trace | `mlflow-trace-analysis` |
 | debug my agent, debug this agent, agent failure, root cause my agent | `mlflow-trace-analysis` |
+| fix my agent, fix this agent, fix the agent, improve my agent | `mlflow-agent-improvement` |
 | session, conversation, chat history, multi-turn | `mlflow-trace-analysis` |
 | search traces, find traces, filter traces, get trace | `mlflow-trace-retrieval` |
 | metrics, token usage, latency, cost, usage trend | `mlflow-trace-metrics` |
 | get started, set up mlflow, onboard, quickstart | `mlflow-onboarding` |
+| sagemaker | `mlflow-sagemaker` |
 | mlflow docs, mlflow api, how to use mlflow | `mlflow-docs` |
 
-Multiple suggestions can fire in a single prompt if multiple patterns match.
+Keywords match whole words, so `traceback` or `retrace` does not suggest the tracing skill. Multiple suggestions can fire in a single prompt if multiple patterns match.
 
 ### Installation
 
