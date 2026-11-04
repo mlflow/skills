@@ -42,8 +42,12 @@ Add the following to your `~/.claude/settings.json` (global) or `.claude/setting
   "hooks": {
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "python3 /path/to/hooks/mlflow-suggest-hook.py"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/hooks/mlflow-suggest-hook.py"
+          }
+        ]
       }
     ]
   }

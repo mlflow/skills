@@ -48,7 +48,7 @@ npx skills add mlflow/skills
 ### Direct Installation from Source
 
 ```bash
-git clone https://github.com/mlflow/skills.git
+git clone https://github.com/mlflow/skills.git mlflow-skills
 cp -r mlflow-skills/* ~/.claude/skills/
 ```
 
@@ -86,8 +86,12 @@ cp hooks/mlflow-suggest-hook.py ~/.claude/hooks/mlflow-suggest-hook.py
   "hooks": {
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "python3 ~/.claude/hooks/mlflow-suggest-hook.py"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/mlflow-suggest-hook.py"
+          }
+        ]
       }
     ]
   }
@@ -168,7 +172,7 @@ The coding agent will:
 
 We welcome contributions! Here's how to help:
 
-1. **Report issues** — Found a skill giving incorrect advice? [Open an issue](https://github.com/mlflow/mlflow-skills/issues)
+1. **Report issues** — Found a skill giving incorrect advice? [Open an issue](https://github.com/mlflow/skills/issues)
 2. **Suggest improvements** — Have ideas for better workflows? We'd love to hear them
 3. **Add new skills** — See [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) and file a pull request
 
@@ -265,7 +269,7 @@ Apache License 2.0 — see [LICENSE](LICENSE) for details.
 ## Links
 
 - 📖 [Read MLflow Documentation](https://mlflow.org/docs/latest/)
-- 📖 [Read MLflow Skills Blog](https://mlflow.org/blog/evaluating-skills-mlflow))
+- 📖 [Read MLflow Skills Blog](https://mlflow.org/blog/evaluating-skills-mlflow)
 - ⭐️ [Star MLflow on GitHub](https://github.com/mlflow/mlflow)
 
 ---
