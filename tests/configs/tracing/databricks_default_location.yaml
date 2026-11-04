@@ -1,9 +1,9 @@
-name: databricks-default-catalog
+name: databricks-default-location
 project_dir: agent
 setup_script: tests/scripts/setup_tracing_test.py
 judges:
   - tests/judges/skill_usage.py
-  - tests/judges/default_trace_catalog.py
+  - tests/judges/default_trace_location.py
 skills:
   - mlflow-trace-instrumentation
 # Requires MLflow >= 3.19.0 and a Databricks profile; replace DEFAULT with your profile name.
