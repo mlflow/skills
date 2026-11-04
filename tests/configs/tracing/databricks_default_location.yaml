@@ -1,0 +1,14 @@
+name: databricks-default-location
+project_dir: agent
+setup_script: tests/scripts/setup_tracing_test.py
+judges:
+  - tests/judges/skill_usage.py
+  - tests/judges/default_trace_location.py
+skills:
+  - mlflow-trace-instrumentation
+# Requires MLflow >= 3.19.0 and a Databricks profile; replace DEFAULT with your profile name.
+tracking_uri: databricks://DEFAULT
+prompt: "Add MLflow tracing to this app and store the traces in Unity Catalog on Databricks."
+timeout_seconds: 600
+environment:
+  TEST_CASE: python

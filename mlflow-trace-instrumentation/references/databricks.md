@@ -15,13 +15,15 @@ Reuse a configured warehouse; otherwise discover warehouses through the authenti
 
 Reuse a destination already explicitly supplied/authorized, including an explicit request to reuse project configuration. Otherwise ask whether to use an existing schema or create one; discovered config is a candidate, not authorization to select an arbitrary accessible schema.
 
+Before asking, call `mlflow.tracing.get_default_trace_location()` (MLflow >=3.19.0) with the authenticated tracking URI set. If it returns a location, offer its `schema_location` (`<catalog>.default`) as the recommended existing schema and still let the user choose. Otherwise, or on older MLflow, ask without a recommendation.
+
 - Existing: obtain/confirm `catalog.schema` and verify it exists.
 - New: obtain catalog/schema, explain schema and trace-table creation, and establish authorization (reuse existing authorization). Check create-schema permission in that catalog; do not switch catalogs as a fallback.
 - Confirm `USE CATALOG`, `USE SCHEMA`, `CREATE TABLE` and warehouse access before binding. On failure report the chosen destination/operation and required access or explicit alternative, without falling back to another schema or legacy storage.
 
 ## Configure Python tracing
 
-Inspect `experiment.trace_location` before reusing an experiment. A UC binding is permanent: reuse a matching location, bind an unbound experiment, or resolve a conflicting location with the user/new experiment. Binding changes new writes; it does not migrate old legacy traces.
+Inspect `experiment.trace_location` before reusing an experiment. A UC binding is permanent: reuse a matching location, bind an unbound experiment, or resolve a conflicting location with the user/new experiment. Binding changes new writes; it does not migrate old legacy traces. An experiment that has legacy traces cannot be bound; see below.
 
 ```python
 import os
@@ -39,6 +41,28 @@ mlflow.set_experiment(
 Reuse an existing numeric experiment ID when appropriate; Databricks experiment names must be absolute workspace paths such as `/Users/<email>/name` or `/Shared/name`. `UnityCatalog` provisions trace tables, not the schema-selection decision. Omit optional `table_prefix` to default to experiment ID; supply it only for an intended custom prefix. Tables use `<prefix>_otel_spans`, `_otel_logs`, `_otel_metrics`, `_otel_annotations`.
 
 Explicit creation is also supported via `mlflow.create_experiment(name=..., trace_location=...)`, then `mlflow.set_experiment(experiment_id=...)`. If the required API is unavailable, report/resolve the version prerequisite rather than omitting UC configuration.
+
+### Experiment with legacy traces
+
+Binding fails with `BAD_REQUEST: Experiment <id> already contains traces`. Do not force traces in with `mlflow.tracing.set_destination`; searches on a bound experiment do not return them. Let the user choose:
+
+- **New experiment (non-destructive):** bind a new experiment and point the application at it. Old traces stay where they are.
+- **Empty and bind:** deletion cannot be undone. Count the traces, tell the user how many will be removed and get explicit confirmation first.
+
+```python
+import time
+from mlflow import MlflowClient
+
+exp_id = "<NUMERIC_ID>"
+n = len(mlflow.search_traces(locations=[exp_id], return_type="list"))  # confirm n with the user
+MlflowClient().delete_traces(experiment_id=exp_id, max_timestamp_millis=int(time.time() * 1000))
+mlflow.set_experiment(
+    experiment_id=exp_id,
+    trace_location=UnityCatalog(catalog_name="<catalog>", schema_name="<schema>"),
+)
+```
+
+If binding still fails, search again and delete the remaining IDs with `delete_traces(experiment_id=..., trace_ids=[...])`. Do not unlink and relink to work around errors.
 
 ## TypeScript
 
