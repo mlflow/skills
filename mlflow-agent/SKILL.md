@@ -29,6 +29,7 @@ if the intent is unclear.
 - Search traces → `mlflow-trace-retrieval`
 - Metrics / costs → `mlflow-trace-metrics`
 - Getting started → `mlflow-onboarding`
+- Connect to SageMaker Managed MLflow → `mlflow-sagemaker`
 - Docs / API questions → `mlflow-docs`
 
 Invoke the matched skill using the Skill tool.

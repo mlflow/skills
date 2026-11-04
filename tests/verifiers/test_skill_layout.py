@@ -54,7 +54,7 @@ def test_routers_only_suggest_registered_skills_and_preserve_folds():
     dispatcher = (ROOT / "mlflow-agent/SKILL.md").read_text()
     hook = (ROOT / "hooks/mlflow-suggest-hook.py").read_text()
 
-    assert set(re.findall(r"→ `([^`]+)`", dispatcher)) <= registered
+    assert set(re.findall(r"→ `([^`]+)`", dispatcher)) == registered - {"mlflow-agent"}
     assert set(re.findall(r"Use the `([^`]+)` skill", hook)) <= registered
     assert "references/session-analysis.md" in (
         ROOT / "mlflow-trace-analysis/SKILL.md"
