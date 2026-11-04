@@ -11,6 +11,17 @@ import os
 import sys
 
 
+def paginate(list_call, key: str):
+    """Yield every summary from a SageMaker list call, following NextToken."""
+    kwargs = {}
+    while True:
+        page = list_call(**kwargs)
+        yield from page.get(key, [])
+        if not page.get("NextToken"):
+            return
+        kwargs["NextToken"] = page["NextToken"]
+
+
 def main() -> None:
     region = sys.argv[1] if len(sys.argv) > 1 else os.getenv("AWS_DEFAULT_REGION")
     if not region:
@@ -27,14 +38,14 @@ def main() -> None:
     found = 0
 
     try:
-        for a in sm.list_mlflow_apps().get("Summaries", []):
+        for a in paginate(sm.list_mlflow_apps, "Summaries"):
             print(f"app              {a['Arn']}  ({a.get('Name')}, {a.get('Status')})")
             found += 1
     except Exception as e:  # noqa: BLE001
         print(f"(list_mlflow_apps unavailable: {str(e)[:80]})")
 
     try:
-        for t in sm.list_mlflow_tracking_servers().get("TrackingServerSummaries", []):
+        for t in paginate(sm.list_mlflow_tracking_servers, "TrackingServerSummaries"):
             print(
                 f"tracking-server  {t['TrackingServerArn']}  "
                 f"({t.get('TrackingServerName')}, {t.get('TrackingServerStatus')})"
