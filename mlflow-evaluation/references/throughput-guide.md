@@ -45,28 +45,8 @@ run ID, exit status, and row count. Wait for every shard, inspect failures, then
 stable IDs; verify no omitted/duplicated rows. Do not average shard means without accounting for denominators
 or hide failed shards.
 
-### Small sharding example
-
-Minimal sequential recipe: fixed precomputed `records` with unique `expectations.source_id`, agreed single-numeric-output `scorers`, no active run.
-MLflow 3.17.1 column names are shown; verify installed output schema and apply the coverage/error safeguards above before aggregation.
-
-```python
-import mlflow
-import pandas as pd
-
-parts = []
-for start in range(0, len(records), 100):
-    result = mlflow.genai.evaluate(data=records[start:start + 100], scorers=scorers)
-    parts.append(result.result_df.assign(shard_run_id=result.run_id))
-combined = pd.concat(parts, ignore_index=True)
-ids = combined["source_id/value"]
-assert ids.is_unique and set(ids) == {r["expectations"]["source_id"] for r in records}
-scores = combined[[f"{s.name}/value" for s in scorers]].apply(pd.to_numeric, errors="raise")
-assert scores.notna().all().all(), "Inspect missing/error assessments"
-print(scores.agg(["count", "mean"]))  # Row-weighted, including valid zero/False.
-```
-
-Each `evaluate()` call creates its own run. Do not execute shards concurrently against one active run.
+Each `evaluate()` call creates its own run; MLflow does not show separate shard runs as one
+aggregated evaluation in the UI. Prefer one evaluation run when its measured runtime is acceptable.
 
 Use the host-supported execution method; no background subagent is required. Completion means the process
 exited successfully and the run/artifacts and scoring coverage were verified. Keep stdout separate from stderr
