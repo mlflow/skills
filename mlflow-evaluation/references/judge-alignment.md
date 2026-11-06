@@ -13,9 +13,9 @@ On Databricks, confirm the intended Unity Catalog dataset, experiment, review-ap
 
 ## Align and validate
 
-Retrieve the registered judge and labeled traces, then use the installed `Judge.align()` API with a supported optimizer. The old evaluation guide used `MemAlignOptimizer` from `mlflow.genai.judges.optimizers`. Check the installed API and current docs before using that constructor. Choose the embedding model explicitly after checking its availability and token costs; relying on a default can route embeddings to a provider the workspace has not configured.
+Retrieve the registered judge and labeled traces, then use the installed `Judge.align()` API with a supported optimizer. Check the installed API and current docs before choosing an optimizer or constructor. Choose the embedding model explicitly after checking its availability and token costs; relying on a default can route embeddings to a provider the workspace has not configured.
 
-When configuring MemAlign, inspect the installed parameters for its reflection model, embedding model, and retrieval count. The older guide used `reflection_lm`, `embedding_model`, and `retrieval_k`; preserve those choices only if the installed optimizer still accepts them. Record them with the alignment run so a later judge revision can be compared fairly.
+When configuring MemAlign, inspect the installed parameters for its reflection model, embedding model, and retrieval count. Record those choices with the alignment run so a later judge revision can be compared fairly.
 
 Compare the base and aligned judges against the **same held-out human labels**, including disagreement examples and subgroup failures. Inspect the aligned judge's public instructions and actual outputs, rather than private memory attributes. Episodic memory may load lazily when the judge is first invoked. A lower aligned score on the agent can be correct if the judge now applies stricter expert standards; judge agreement with humans is the measure here.
 

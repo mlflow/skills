@@ -22,7 +22,9 @@ with mlflow.start_span("client-request") as span:
 On the server, restore headers **before creating the handler span**:
 
 ```python
+from contextlib import nullcontext
 from flask import Flask, request
+import mlflow
 from mlflow.tracing import set_tracing_context_from_http_request_headers
 
 app = Flask(__name__)
@@ -30,7 +32,9 @@ app = Flask(__name__)
 @app.post("/handle")
 def handle_request():
     payload = request.get_json()
-    with set_tracing_context_from_http_request_headers(dict(request.headers)):
+    context = (set_tracing_context_from_http_request_headers(dict(request.headers))
+               if request.headers.get("traceparent") else nullcontext())
+    with context:
         with mlflow.start_span("server-handler") as span:
             span.set_inputs(payload)
             result = handle(payload)
