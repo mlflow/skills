@@ -19,7 +19,6 @@
     "./mlflow-evaluation",
     "./mlflow-agent-improvement"
   ],
-  "hooks": "./hooks/hooks.json",
   "categories": ["observability", "evaluation", "ai-agents"],
   "minClaudeCodeVersion": "2.0.0"
 }
